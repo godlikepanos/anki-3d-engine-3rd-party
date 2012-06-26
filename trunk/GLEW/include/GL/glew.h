@@ -79,6 +79,7 @@
 #ifndef __glew_h__
 #define __glew_h__
 #define __GLEW_H__
+#define ANKI_GLEW_H
 
 #if defined(__gl_h_) || defined(__GL_H__) || defined(__X_GL_H)
 #error gl.h included before glew.h
