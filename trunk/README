@@ -1,0 +1,2 @@
+When copying the lua dont copy the 2 .c files that contain the main. you don't 
+need those
