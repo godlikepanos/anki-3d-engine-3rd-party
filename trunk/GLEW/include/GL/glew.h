@@ -100,6 +100,7 @@
 #define __glext_h_
 #define __GLEXT_H_
 #define __gl_ATI_h_
+#define ANKI_GLEW_H
 
 #if defined(_WIN32)
 
