@@ -1,0 +1,5 @@
+Version of library 3153
+
+Change the FREEIMAGE_SOURCES, FREEIMAGE_HEADERS, FREEIMAGE_INCLUDES in the 
+cmake file. Take the list of files from the Makefile.srcs file. Better though
+generate the Makefile.srcs using gensrclist.sh.
