@@ -53,6 +53,7 @@ public:
 
 	// Copy constructor
 	SIMD_FORCE_INLINE btQuaternion(const btQuaternion& rhs)
+		: btQuadWord(rhs)
 	{
 		mVec128 = rhs.mVec128;
 	}
