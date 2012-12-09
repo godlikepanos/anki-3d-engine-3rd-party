@@ -157,7 +157,7 @@ inline int	btGetVersion()
 #else
 	//non-windows systems
 
-#if (defined (__APPLE__) && (!defined (BT_USE_DOUBLE_PRECISION)))
+#if ((defined (__APPLE__) || defined (__linux__)) && (!defined (BT_USE_DOUBLE_PRECISION)))
     #if defined (__i386__) || defined (__x86_64__)
         #define BT_USE_SSE
 		//BT_USE_SSE_IN_API is enabled on Mac OSX by default, because memory is automatically aligned on 16-byte boundaries
