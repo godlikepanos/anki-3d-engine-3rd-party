@@ -1,2 +1,8 @@
 When copying the lua dont copy the 2 .c files that contain the main. you don't 
-need those
+need those (lua.c and luac.c)
+
+Also put to make it build on Android:
+#ifndef getlocaledecpoin
+#define getlocaledecpoint() ('.') 
+#endif
+

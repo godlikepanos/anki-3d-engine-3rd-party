@@ -19,9 +19,17 @@
 #define BT_USE_SSE_IN_API
 #endif
 
+
 #include "btVector3.h"
 
-#if defined (BT_USE_SSE) || defined (BT_USE_NEON)
+
+
+#if defined BT_USE_SIMD_VECTOR3
+
+#if DEBUG
+#include <string.h>//for memset
+#endif
+
 
 #ifdef __APPLE__
 #include <stdint.h>

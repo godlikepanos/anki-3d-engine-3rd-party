@@ -53,12 +53,16 @@ subject to the following restrictions:
 #define btvxyzMaskf btvFFF0fMask
 #define btvAbsfMask btCastiTo128f(btvAbsMask)
 
+//there is an issue with XCode 3.2 (LCx errors)
+#define btvMzeroMask (_mm_set_ps(-0.0f, -0.0f, -0.0f, -0.0f))
+#define v1110		 (_mm_set_ps(0.0f, 1.0f, 1.0f, 1.0f))
+#define vHalf		 (_mm_set_ps(0.5f, 0.5f, 0.5f, 0.5f))
+#define v1_5		 (_mm_set_ps(1.5f, 1.5f, 1.5f, 1.5f))
 
-
-const __m128 ATTRIBUTE_ALIGNED16(btvMzeroMask) = {-0.0f, -0.0f, -0.0f, -0.0f};
-const __m128 ATTRIBUTE_ALIGNED16(v1110) = {1.0f, 1.0f, 1.0f, 0.0f};
-const __m128 ATTRIBUTE_ALIGNED16(vHalf) = {0.5f, 0.5f, 0.5f, 0.5f};
-const __m128 ATTRIBUTE_ALIGNED16(v1_5)  = {1.5f, 1.5f, 1.5f, 1.5f};
+//const __m128 ATTRIBUTE_ALIGNED16(btvMzeroMask) = {-0.0f, -0.0f, -0.0f, -0.0f};
+//const __m128 ATTRIBUTE_ALIGNED16(v1110) = {1.0f, 1.0f, 1.0f, 0.0f};
+//const __m128 ATTRIBUTE_ALIGNED16(vHalf) = {0.5f, 0.5f, 0.5f, 0.5f};
+//const __m128 ATTRIBUTE_ALIGNED16(v1_5)  = {1.5f, 1.5f, 1.5f, 1.5f};
 
 #endif
 
@@ -229,7 +233,7 @@ public:
    * @param v The other vector in the dot product */
 	SIMD_FORCE_INLINE btScalar dot(const btVector3& v) const
 	{
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE)		
+#if defined BT_USE_SIMD_VECTOR3 && defined (BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
 		__m128 vd = _mm_mul_ps(mVec128, v.mVec128);
 		__m128 z = _mm_movehl_ps(vd, vd);
 		__m128 y = _mm_shuffle_ps(vd, vd, 0x55);
@@ -345,7 +349,8 @@ public:
   /**@brief Return a vector will the absolute values of each element */
 	SIMD_FORCE_INLINE btVector3 absolute() const 
 	{
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE) 
+
+#if defined BT_USE_SIMD_VECTOR3 && defined (BT_USE_SSE_IN_API) && defined (BT_USE_SSE) 
 		return btVector3(_mm_and_ps(mVec128, btv3AbsfMask));
 #elif defined(BT_USE_NEON)
 		return btVector3(vabsq_f32(mVec128));
@@ -400,7 +405,7 @@ public:
 
 	SIMD_FORCE_INLINE btScalar triple(const btVector3& v1, const btVector3& v2) const
 	{
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
+#if defined BT_USE_SIMD_VECTOR3 && defined (BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
 		// cross:
 		__m128 T = _mm_shuffle_ps(v1.mVec128, v1.mVec128, BT_SHUFFLE(1, 2, 0, 3));	//	(Y Z X 0)
 		__m128 V = _mm_shuffle_ps(v2.mVec128, v2.mVec128, BT_SHUFFLE(1, 2, 0, 3));	//	(Y Z X 0)
@@ -632,7 +637,7 @@ public:
 
 	void	getSkewSymmetricMatrix(btVector3* v0,btVector3* v1,btVector3* v2) const
 	{
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
+#if defined BT_USE_SIMD_VECTOR3 && defined (BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
  
 		__m128 V  = _mm_and_ps(mVec128, btvFFF0fMask);
 		__m128 V0 = _mm_xor_ps(btvMzeroMask, V);
@@ -702,7 +707,7 @@ public:
     /* create a vector as  btVector3( this->dot( btVector3 v0 ), this->dot( btVector3 v1), this->dot( btVector3 v2 ))  */
     SIMD_FORCE_INLINE btVector3  dot3( const btVector3 &v0, const btVector3 &v1, const btVector3 &v2 ) const
     {
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
+#if defined BT_USE_SIMD_VECTOR3 && defined (BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
 
         __m128 a0 = _mm_mul_ps( v0.mVec128, this->mVec128 );
         __m128 a1 = _mm_mul_ps( v1.mVec128, this->mVec128 );
@@ -768,7 +773,7 @@ operator*(const btVector3& v1, const btVector3& v2)
 SIMD_FORCE_INLINE btVector3 
 operator-(const btVector3& v1, const btVector3& v2)
 {
-#if (defined(BT_USE_SSE_IN_API)  && defined(BT_USE_SSE))
+#if defined BT_USE_SIMD_VECTOR3 && (defined(BT_USE_SSE_IN_API)  && defined(BT_USE_SSE))
 
 	//	without _mm_and_ps this code causes slowdown in Concave moving
 	__m128 r = _mm_sub_ps(v1.mVec128, v2.mVec128);
@@ -788,7 +793,7 @@ operator-(const btVector3& v1, const btVector3& v2)
 SIMD_FORCE_INLINE btVector3 
 operator-(const btVector3& v)
 {
-#if (defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE))
+#if defined BT_USE_SIMD_VECTOR3 && (defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE))
 	__m128 r = _mm_xor_ps(v.mVec128, btvMzeroMask);
 	return btVector3(_mm_and_ps(r, btvFFF0fMask)); 
 #elif defined(BT_USE_NEON)
@@ -842,7 +847,7 @@ operator/(const btVector3& v, const btScalar& s)
 SIMD_FORCE_INLINE btVector3
 operator/(const btVector3& v1, const btVector3& v2)
 {
-#if (defined(BT_USE_SSE_IN_API)&& defined (BT_USE_SSE))
+#if defined BT_USE_SIMD_VECTOR3 && (defined(BT_USE_SSE_IN_API)&& defined (BT_USE_SSE))
 	__m128 vec = _mm_div_ps(v1.mVec128, v2.mVec128);
 	vec = _mm_and_ps(vec, btvFFF0fMask);
 	return btVector3(vec); 
@@ -948,7 +953,7 @@ SIMD_FORCE_INLINE btVector3 btVector3::rotate( const btVector3& wAxis, const btS
 {
 	// wAxis must be a unit lenght vector
 
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
+#if defined BT_USE_SIMD_VECTOR3 && defined (BT_USE_SSE_IN_API) && defined (BT_USE_SSE)
 
     __m128 O = _mm_mul_ps(wAxis.mVec128, mVec128);
 	btScalar ssin = btSin( _angle );
@@ -988,7 +993,7 @@ SIMD_FORCE_INLINE btVector3 btVector3::rotate( const btVector3& wAxis, const btS
 
 SIMD_FORCE_INLINE   long    btVector3::maxDot( const btVector3 *array, long array_count, btScalar &dotOut ) const
 {
-#if defined (BT_USE_SSE) || defined (BT_USE_NEON)
+#if (defined BT_USE_SSE && defined BT_USE_SIMD_VECTOR3 && defined BT_USE_SSE_IN_API) || defined (BT_USE_NEON)
     #if defined _WIN32 || defined (BT_USE_SSE)
         const long scalar_cutoff = 10;
         long _maxdot_large( const float *array, const float *vec, unsigned long array_count, float *dotOut );
@@ -996,10 +1001,8 @@ SIMD_FORCE_INLINE   long    btVector3::maxDot( const btVector3 *array, long arra
         const long scalar_cutoff = 4;
         extern long (*_maxdot_large)( const float *array, const float *vec, unsigned long array_count, float *dotOut );
     #endif
-    if( array_count < scalar_cutoff )
-#else
-	
-#endif//BT_USE_SSE || BT_USE_NEON
+    if( array_count < scalar_cutoff )	
+#endif
     {
         btScalar maxDot = -SIMD_INFINITY;
         int i = 0;
@@ -1018,14 +1021,14 @@ SIMD_FORCE_INLINE   long    btVector3::maxDot( const btVector3 *array, long arra
         dotOut = maxDot;
         return ptIndex;
     }
-#if defined (BT_USE_SSE) || defined (BT_USE_NEON)
+#if (defined BT_USE_SSE && defined BT_USE_SIMD_VECTOR3 && defined BT_USE_SSE_IN_API) || defined (BT_USE_NEON)
     return _maxdot_large( (float*) array, (float*) &m_floats[0], array_count, &dotOut );
 #endif
 }
 
 SIMD_FORCE_INLINE   long    btVector3::minDot( const btVector3 *array, long array_count, btScalar &dotOut ) const
 {
-#if defined (BT_USE_SSE) || defined (BT_USE_NEON)
+#if (defined BT_USE_SSE && defined BT_USE_SIMD_VECTOR3 && defined BT_USE_SSE_IN_API) || defined (BT_USE_NEON)
     #if defined BT_USE_SSE
         const long scalar_cutoff = 10;
         long _mindot_large( const float *array, const float *vec, unsigned long array_count, float *dotOut );
@@ -1037,7 +1040,7 @@ SIMD_FORCE_INLINE   long    btVector3::minDot( const btVector3 *array, long arra
     #endif
     
     if( array_count < scalar_cutoff )
-#endif//BT_USE_SSE || BT_USE_NEON
+#endif
     {
         btScalar  minDot = SIMD_INFINITY;
         int i = 0;
@@ -1058,9 +1061,9 @@ SIMD_FORCE_INLINE   long    btVector3::minDot( const btVector3 *array, long arra
         
         return ptIndex;
     }
-#if defined (BT_USE_SSE) || defined (BT_USE_NEON)
+#if (defined BT_USE_SSE && defined BT_USE_SIMD_VECTOR3 && defined BT_USE_SSE_IN_API) || defined (BT_USE_NEON)
     return _mindot_large( (float*) array, (float*) &m_floats[0], array_count, &dotOut );
-#endif
+#endif//BT_USE_SIMD_VECTOR3
 }
 
 
@@ -1098,7 +1101,7 @@ public:
 
 	SIMD_FORCE_INLINE btVector4 absolute4() const 
 	{
-#if defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE) 
+#if defined BT_USE_SIMD_VECTOR3 && defined(BT_USE_SSE_IN_API) && defined (BT_USE_SSE) 
 		return btVector4(_mm_and_ps(mVec128, btvAbsfMask));
 #elif defined(BT_USE_NEON)
 		return btVector4(vabsq_f32(mVec128));
