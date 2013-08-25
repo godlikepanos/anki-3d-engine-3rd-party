@@ -27,11 +27,17 @@ subject to the following restrictions:
 
 #ifdef BT_USE_SSE
 
-const __m128 ATTRIBUTE_ALIGNED16(vOnes) = {1.0f, 1.0f, 1.0f, 1.0f};
+//const __m128 ATTRIBUTE_ALIGNED16(vOnes) = {1.0f, 1.0f, 1.0f, 1.0f};
+#define vOnes (_mm_set_ps(1.0f, 1.0f, 1.0f, 1.0f))
 
 #endif
 
-#if defined(BT_USE_SSE) || defined(BT_USE_NEON)
+#if defined(BT_USE_SSE) 
+
+#define vQInv (_mm_set_ps(+0.0f, -0.0f, -0.0f, -0.0f))
+#define vPPPM (_mm_set_ps(-0.0f, +0.0f, +0.0f, +0.0f))
+
+#elif defined(BT_USE_NEON)
 
 const btSimdFloat4 ATTRIBUTE_ALIGNED16(vQInv) = {-0.0f, -0.0f, -0.0f, +0.0f};
 const btSimdFloat4 ATTRIBUTE_ALIGNED16(vPPPM) = {+0.0f, +0.0f, +0.0f, -0.0f};
@@ -53,10 +59,8 @@ public:
 
 	// Copy constructor
 	SIMD_FORCE_INLINE btQuaternion(const btQuaternion& rhs)
-		: btQuadWord(rhs)
-	{
-		mVec128 = rhs.mVec128;
-	}
+		: btQuadWord(rhs.mVec128)
+	{}
 
 	// Assignment Operator
 	SIMD_FORCE_INLINE btQuaternion& 
@@ -499,7 +503,7 @@ public:
 	  btAssert(magnitude > btScalar(0));
 
     btScalar product = dot(q) / magnitude;
-    if (btFabs(product) != btScalar(1))
+    if (btFabs(product) < btScalar(1))
 		{
       // Take care of long angle case see http://en.wikipedia.org/wiki/Slerp
       const btScalar sign = (product < 0) ? btScalar(-1) : btScalar(1);
