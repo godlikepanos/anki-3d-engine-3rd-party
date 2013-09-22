@@ -200,6 +200,8 @@ void ObjFileParser::copyNextWord(char *pBuffer, size_t length)
 			break;
 		++m_DataIt;
 	}
+
+	ai_assert(index < length);
 	pBuffer[index] = '\0';
 }
 
@@ -207,16 +209,30 @@ void ObjFileParser::copyNextWord(char *pBuffer, size_t length)
 // Copy the next line into a temporary buffer
 void ObjFileParser::copyNextLine(char *pBuffer, size_t length)
 {
-	size_t index = 0;
-	while (m_DataIt != m_DataItEnd)
-	{
-		if (*m_DataIt == '\n' || *m_DataIt == '\r' || index == length-1)
-			break;
+	size_t index = 0u;
 
-		pBuffer[ index ] = *m_DataIt;
-		++index;
-		++m_DataIt;
+	// some OBJ files have line continuations using \ (such as in C++ et al)
+	bool continuation = false;
+	for (;m_DataIt != m_DataItEnd && index < length-1; ++m_DataIt) 
+	{
+		const char c = *m_DataIt;
+		if (c == '\\') {
+			continuation = true;
+			continue;
+		}
+		
+		if (c == '\n' || c == '\r') {
+			if(continuation) {
+				pBuffer[ index++ ] = ' ';
+				continue;
+			}
+			break;
+		}
+
+		continuation = false;
+		pBuffer[ index++ ] = c;
 	}
+	ai_assert(index < length);
 	pBuffer[ index ] = '\0';
 }
 
@@ -528,17 +544,11 @@ int ObjFileParser::getMaterialIndex( const std::string &strMaterialName )
 //	Getter for a group name.  
 void ObjFileParser::getGroupName()
 {
-	// Get next word from data buffer
-	m_DataIt = getNextToken<DataArrayIt>(m_DataIt, m_DataItEnd);
-	m_DataIt = getNextWord<DataArrayIt>(m_DataIt, m_DataItEnd);
+	std::string strGroupName;
+   
+	m_DataIt = getName<DataArrayIt>(m_DataIt, m_DataItEnd, strGroupName);
 	if ( isEndOfBuffer( m_DataIt, m_DataItEnd ) )
 		return;
-
-	// Store the group name in the group library 
-	char *pStart = &(*m_DataIt);
-	while ( m_DataIt != m_DataItEnd && !isSeparator(*m_DataIt) )
-		m_DataIt++;
-	std::string strGroupName( pStart, &(*m_DataIt) );
 
 	// Change active group, if necessary
 	if ( m_pModel->m_strActiveGroup != strGroupName )
