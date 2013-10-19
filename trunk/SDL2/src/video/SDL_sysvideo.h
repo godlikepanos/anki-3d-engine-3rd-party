@@ -224,6 +224,7 @@ struct SDL_VideoDevice
     void (*GL_UnloadLibrary) (_THIS);
       SDL_GLContext(*GL_CreateContext) (_THIS, SDL_Window * window);
     int (*GL_MakeCurrent) (_THIS, SDL_Window * window, SDL_GLContext context);
+    void (*GL_GetDrawableSize) (_THIS, SDL_Window * window, int *w, int *h);
     int (*GL_SetSwapInterval) (_THIS, int interval);
     int (*GL_GetSwapInterval) (_THIS);
     void (*GL_SwapWindow) (_THIS, SDL_Window * window);
@@ -291,7 +292,6 @@ struct SDL_VideoDevice
         int minor_version;
         int flags;
         int profile_mask;
-        int use_egl;
         int share_with_current_context;
         int retained_backing;
         int driver_loaded;
@@ -361,6 +361,9 @@ extern VideoBootStrap Android_bootstrap;
 #endif
 #if SDL_VIDEO_DRIVER_PSP
 extern VideoBootStrap PSP_bootstrap;
+#endif
+#if SDL_VIDEO_DRIVER_RPI
+extern VideoBootStrap RPI_bootstrap;
 #endif
 #if SDL_VIDEO_DRIVER_DUMMY
 extern VideoBootStrap DUMMY_bootstrap;

@@ -15,11 +15,14 @@ file(GLOB SDL_COMMON_SRC
 	src/timer/*.c
 	src/video/*.c
 	# Extra subsystems
-	src/haptic/*.c
 	src/joystick/*.c
+	src/haptic/*.c
+	src/power/*.c
 	src/loadso/*.c)
 
 if(LINUX)
+	ADD_DEFINITIONS(-fvisibility=hidden)
+
 	file(GLOB SDL_PLATFORM_SRC 
 		#src/atomic/xxx/*.c
 		#src/audio/xxx/*.c
@@ -28,19 +31,21 @@ if(LINUX)
 		#src/events/*.c
 		#src/file/*.c
 		#src/filesystem/*.c
-		src/haptic/linux/*.c
-		src/joystick/linux/*.c
 		#src/libm/*.c
-		src/loadso/dlopen/*.c
 		#src/main/*.c
 		#src/power/*.c
 		#src/render/opengl/*.c
 		#src/stdlib/*.c
 		#src/test/*.c
+		src/loadso/dlopen/*.c
+		src/video/dummy/*.c
+		src/video/x11/*.c
+		src/haptic/linux/*.c
+		src/joystick/linux/*.c
 		src/thread/pthread/*.c
+		src/power/linux/*.c
 		src/timer/unix/*.c
-		#src/video/dummy/*.c
-		src/video/x11/*.c)
+		src/filesystem/dummy/*.c)
 elseif(WINDOWS)
 	message(FATAL_ERROR "TODO")
 elseif(MACOS)
@@ -52,4 +57,4 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_library(ankisdl ${SDL_COMMON_SRC} ${SDL_PLATFORM_SRC})
-target_link_libraries(ankisdl m)
+target_link_libraries(ankisdl m dl)

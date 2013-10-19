@@ -34,10 +34,17 @@
 #include "SDL_cocoamouse.h"
 #include "SDL_cocoaopengl.h"
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED < 1070
+/* Taken from AppKit/NSOpenGLView.h in 10.8 SDK. */
+@interface NSView (NSOpenGLSurfaceResolution)
+- (BOOL)wantsBestResolutionOpenGLSurface;
+- (void)setWantsBestResolutionOpenGLSurface:(BOOL)flag;
+@end
+#endif
 
 static Uint32 s_moveHack;
 
-static __inline__ void ConvertNSRect(NSRect *r)
+static void ConvertNSRect(NSRect *r)
 {
     r->origin.y = CGDisplayPixelsHigh(kCGDirectMainDisplay) - r->origin.y - r->size.height;
 }
@@ -739,6 +746,13 @@ Cocoa_CreateWindow(_THIS, SDL_Window * window)
     /* Create a default view for this window */
     rect = [nswindow contentRectForFrameRect:[nswindow frame]];
     NSView *contentView = [[SDLView alloc] initWithFrame:rect];
+
+    if ((window->flags & SDL_WINDOW_ALLOW_HIGHDPI) > 0) {
+        if ([contentView respondsToSelector:@selector(setWantsBestResolutionOpenGLSurface:)]) {
+            [contentView setWantsBestResolutionOpenGLSurface:YES];
+        }
+    }
+
     [nswindow setContentView: contentView];
     [contentView release];
 
@@ -906,8 +920,9 @@ Cocoa_RaiseWindow(_THIS, SDL_Window * window)
     SDL_WindowData *windowData = ((SDL_WindowData *) window->driverdata);
     NSWindow *nswindow = windowData->nswindow;
 
-    // makeKeyAndOrderFront: has the side-effect of deminiaturizing and showing
-    // a minimized or hidden window, so check for that before showing it.
+    /* makeKeyAndOrderFront: has the side-effect of deminiaturizing and showing
+       a minimized or hidden window, so check for that before showing it.
+     */
     [windowData->listener pauseVisibleObservation];
     if (![nswindow isMiniaturized] && [nswindow isVisible]) {
         [nswindow makeKeyAndOrderFront:nil];

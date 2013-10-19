@@ -20,6 +20,10 @@
 */
 #include "SDL_config.h"
 
+#if defined(__WIN32__)
+#include "core/windows/SDL_windows.h"
+#endif
+
 /* Initialization code for SDL */
 
 #include "SDL.h"
@@ -65,6 +69,8 @@ static void
 SDL_PrivateSubsystemRefCountDecr(Uint32 subsystem)
 {
     int subsystem_index = SDL_MostSignificantBitIndex32(subsystem);
+    /* If this assert triggers there is a mismatch between init and quit calls */
+    SDL_assert(SDL_SubsystemRefCount[subsystem_index] > 0);
     if (SDL_SubsystemRefCount[subsystem_index] > 0) {
         --SDL_SubsystemRefCount[subsystem_index];
     }
@@ -441,7 +447,6 @@ SDL_GetPlatform()
 
 #if !defined(HAVE_LIBC) || (defined(__WATCOMC__) && defined(BUILD_DLL))
 /* Need to include DllMain() on Watcom C for some reason.. */
-#include "core/windows/SDL_windows.h"
 
 BOOL APIENTRY
 _DllMainCRTStartup(HANDLE hModule,

@@ -80,6 +80,9 @@ static VideoBootStrap *bootstrap[] = {
 #if SDL_VIDEO_DRIVER_PSP
     &PSP_bootstrap,
 #endif
+#if SDL_VIDEO_DRIVER_RPI
+    &RPI_bootstrap,
+#endif 
 #if SDL_VIDEO_DRIVER_DUMMY
     &DUMMY_bootstrap,
 #endif
@@ -481,14 +484,14 @@ SDL_VideoInit(const char *driver_name)
 #if SDL_VIDEO_OPENGL
     _this->gl_config.major_version = 2;
     _this->gl_config.minor_version = 1;
-#elif SDL_VIDEO_OPENGL_ES
-    _this->gl_config.major_version = 1;
-    _this->gl_config.minor_version = 1;
-    _this->gl_config.profile_mask = SDL_GL_CONTEXT_PROFILE_ES;
 #elif SDL_VIDEO_OPENGL_ES2
     _this->gl_config.major_version = 2;
     _this->gl_config.minor_version = 0;
     _this->gl_config.profile_mask = SDL_GL_CONTEXT_PROFILE_ES;   
+#elif SDL_VIDEO_OPENGL_ES
+    _this->gl_config.major_version = 1;
+    _this->gl_config.minor_version = 1;
+    _this->gl_config.profile_mask = SDL_GL_CONTEXT_PROFILE_ES;
 #endif
     _this->gl_config.flags = 0;
     
@@ -1187,6 +1190,7 @@ SDL_Window *
 SDL_CreateWindow(const char *title, int x, int y, int w, int h, Uint32 flags)
 {
     SDL_Window *window;
+    const char *hint;
 
     if (!_this) {
         /* Initialize the video system if needed */
@@ -1245,6 +1249,17 @@ SDL_CreateWindow(const char *title, int x, int y, int w, int h, Uint32 flags)
     window->flags = ((flags & CREATE_FLAGS) | SDL_WINDOW_HIDDEN);
     window->brightness = 1.0f;
     window->next = _this->windows;
+
+    /* Unless the user has specified the high-DPI disabling hint, respect the
+     * SDL_WINDOW_ALLOW_HIGHDPI flag.
+     */
+    hint = SDL_GetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED);
+    if (!hint || *hint != '1') {
+        if ((flags & SDL_WINDOW_ALLOW_HIGHDPI)) {
+            window->flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+        }
+    }
+
     if (_this->windows) {
         _this->windows->prev = window;
     }
@@ -1536,14 +1551,21 @@ SDL_SetWindowPosition(SDL_Window * window, int x, int y)
         }
     }
 
-    if (!SDL_WINDOWPOS_ISUNDEFINED(x)) {
-        window->x = x;
-    }
-    if (!SDL_WINDOWPOS_ISUNDEFINED(y)) {
-        window->y = y;
-    }
+    if ((window->flags & SDL_WINDOW_FULLSCREEN)) {
+        if (!SDL_WINDOWPOS_ISUNDEFINED(x)) {
+            window->windowed.x = x;
+        }
+        if (!SDL_WINDOWPOS_ISUNDEFINED(y)) {
+            window->windowed.y = y;
+        }
+    } else {
+        if (!SDL_WINDOWPOS_ISUNDEFINED(x)) {
+            window->x = x;
+        }
+        if (!SDL_WINDOWPOS_ISUNDEFINED(y)) {
+            window->y = y;
+        }
 
-    if (!(window->flags & SDL_WINDOW_FULLSCREEN)) {
         if (_this->SetWindowPosition) {
             _this->SetWindowPosition(_this, window);
         }
@@ -2811,6 +2833,17 @@ SDL_GL_GetCurrentContext(void)
         return NULL;
     }
     return (SDL_GLContext)SDL_TLSGet(_this->current_glctx_tls);
+}
+
+void SDL_GL_GetDrawableSize(SDL_Window * window, int *w, int *h)
+{
+    CHECK_WINDOW_MAGIC(window, );
+
+    if (_this->GL_GetDrawableSize) {
+        _this->GL_GetDrawableSize(_this, window, w, h);
+    } else {
+        SDL_GetWindowSize(window, w, h);
+    }
 }
 
 int

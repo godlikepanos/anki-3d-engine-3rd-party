@@ -22,7 +22,9 @@
 
 #if SDL_VIDEO_DRIVER_WINDOWS
 
-#include "SDL.h"
+#include "../../core/windows/SDL_windows.h"
+
+#include "SDL_assert.h"
 #include "SDL_windowsvideo.h"
 
 

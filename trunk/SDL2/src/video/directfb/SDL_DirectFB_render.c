@@ -308,7 +308,7 @@ DisplayPaletteChanged(void *userdata, SDL_Palette * palette)
         entries[i].r = palette->colors[i].r;
         entries[i].g = palette->colors[i].g;
         entries[i].b = palette->colors[i].b;
-        entries[i].a = palette->colors[i].unused;
+        entries[i].a = palette->colors[i].a;
     }
     SDL_DFB_CHECKERR(surfpal->SetEntries(surfpal, entries, ncolors, 0));
     return 0;
@@ -674,7 +674,7 @@ DirectFB_GetTexturePalette(SDL_Renderer * renderer,
             colors[i].r = entries[i].r;
             colors[i].g = entries[i].g;
             colors[i].b = entries[i].b;
-            colors[i].unused = SDL_ALPHA_OPAQUE;
+            colors[i].a = SDL_ALPHA_OPAQUE;
         }
         return 0;
     } else {

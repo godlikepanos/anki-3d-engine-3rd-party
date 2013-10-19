@@ -20,6 +20,10 @@
 */
 #include "SDL_config.h"
 
+#if defined(__WIN32__)
+#include "../core/windows/SDL_windows.h"
+#endif
+
 /* CPU feature detection for SDL */
 
 #include "SDL_cpuinfo.h"
@@ -40,9 +44,6 @@
 #elif SDL_ALTIVEC_BLITTERS && HAVE_SETJMP
 #include <signal.h>
 #include <setjmp.h>
-#endif
-#ifdef __WIN32__
-#include "../core/windows/SDL_windows.h"
 #endif
 
 #define CPU_HAS_RDTSC   0x00000001
@@ -607,6 +608,50 @@ SDL_HasSSE42(void)
     return SDL_FALSE;
 }
 
+static int SDL_SystemRAM = 0;
+
+int
+SDL_GetSystemRAM(void)
+{
+    if (!SDL_SystemRAM) {
+#if defined(HAVE_SYSCONF) && defined(_SC_PHYS_PAGES) && defined(_SC_PAGESIZE)
+        if (SDL_SystemRAM <= 0) {
+            SDL_SystemRAM = (int)((Sint64)sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) / (1024*1024));
+        }
+#endif
+#ifdef HAVE_SYSCTLBYNAME
+        if (SDL_SystemRAM <= 0) {
+#ifdef __FreeBSD__
+#ifdef HW_REALMEM
+            int mib[2] = {CTL_HW, HW_REALMEM};
+#else
+            /* might only report up to 2 GiB */
+            int mib[2] = {CTL_HW, HW_PHYSMEM};
+#endif /* HW_REALMEM */
+#else
+            int mib[2] = {CTL_HW, HW_MEMSIZE};
+#endif /* __FreeBSD__ */
+            Uint64 memsize = 0;
+            size_t len = sizeof(memsize);
+            
+            if (sysctl(mib, 2, &memsize, &len, NULL, 0) == 0) {
+                SDL_SystemRAM = (int)(memsize / (1024*1024));
+            }
+        }
+#endif
+#ifdef __WIN32__
+        if (SDL_SystemRAM <= 0) {
+            MEMORYSTATUSEX stat;
+            if (GlobalMemoryStatusEx(&stat)) {
+                SDL_SystemRAM = (int)(stat.ullTotalPhys / (1024 * 1024));
+            }
+        }
+#endif
+    }
+    return SDL_SystemRAM;
+}
+
+
 #ifdef TEST_MAIN
 
 #include <stdio.h>
@@ -627,6 +672,7 @@ main()
     printf("SSE3: %d\n", SDL_HasSSE3());
     printf("SSE4.1: %d\n", SDL_HasSSE41());
     printf("SSE4.2: %d\n", SDL_HasSSE42());
+    printf("RAM: %d MB\n", SDL_GetSystemRAM());
     return 0;
 }
 
