@@ -22,16 +22,14 @@
 
 #if SDL_VIDEO_RENDER_D3D && !SDL_RENDER_DISABLED
 
-
 #include "../../core/windows/SDL_windows.h"
 
 #include "SDL_hints.h"
 #include "SDL_loadso.h"
 #include "SDL_syswm.h"
+#include "SDL_system.h"
 #include "../SDL_sysrender.h"
-#include "../../video/SDL_sysvideo.h"
-#include "../../video/windows/SDL_windowsmodes.h"
-#include <stdio.h>
+#include "../../video/windows/SDL_windowsvideo.h"
 
 #if SDL_VIDEO_RENDER_D3D
 #define D3D_DEBUG_INFO
@@ -209,6 +207,11 @@ static int D3D_CreateTexture(SDL_Renderer * renderer, SDL_Texture * texture);
 static int D3D_UpdateTexture(SDL_Renderer * renderer, SDL_Texture * texture,
                              const SDL_Rect * rect, const void *pixels,
                              int pitch);
+static int D3D_UpdateTextureYUV(SDL_Renderer * renderer, SDL_Texture * texture,
+                                const SDL_Rect * rect,
+                                const Uint8 *Yplane, int Ypitch,
+                                const Uint8 *Uplane, int Upitch,
+                                const Uint8 *Vplane, int Vpitch);
 static int D3D_LockTexture(SDL_Renderer * renderer, SDL_Texture * texture,
                            const SDL_Rect * rect, void **pixels, int *pitch);
 static void D3D_UnlockTexture(SDL_Renderer * renderer, SDL_Texture * texture);
@@ -533,72 +536,6 @@ D3D_ActivateRenderer(SDL_Renderer * renderer)
     return 0;
 }
 
-SDL_bool 
-D3D_LoadDLL( void **pD3DDLL, IDirect3D9 **pDirect3D9Interface )
-{
-	*pD3DDLL = SDL_LoadObject("D3D9.DLL");
-	if (*pD3DDLL) {
-		IDirect3D9 *(WINAPI * D3DCreate) (UINT SDKVersion);
-
-		D3DCreate =
-			(IDirect3D9 * (WINAPI *) (UINT)) SDL_LoadFunction(*pD3DDLL,
-			"Direct3DCreate9");
-		if (D3DCreate) {
-			*pDirect3D9Interface = D3DCreate(D3D_SDK_VERSION);
-		}
-		if (!*pDirect3D9Interface) {
-			SDL_UnloadObject(*pD3DDLL);
-			*pD3DDLL = NULL;
-			return SDL_FALSE;
-		}
-
-		return SDL_TRUE;
-	} else {
-		*pDirect3D9Interface = NULL;
-		return SDL_FALSE;
-	}
-}
-
-
-int 
-SDL_Direct3D9GetAdapterIndex( int displayIndex )
-{
-	void *pD3DDLL;
-	IDirect3D9 *pD3D;
-	if (!D3D_LoadDLL( &pD3DDLL, &pD3D)) {
-		SDL_SetError("Unable to create Direct3D interface");
-		return D3DADAPTER_DEFAULT;
-	} else {
-		SDL_DisplayData *pData = (SDL_DisplayData *)SDL_GetDisplayDriverData( displayIndex );
-		int adapterIndex = D3DADAPTER_DEFAULT;
-
-		if (!pData) {
-			SDL_SetError( "Invalid display index" );
-		} else {
-			char *displayName = WIN_StringToUTF8( pData->DeviceName );
-			unsigned int count = IDirect3D9_GetAdapterCount( pD3D );
-			unsigned int i;
-			for (i=0; i<count; i++) {
-				D3DADAPTER_IDENTIFIER9 id;
-				IDirect3D9_GetAdapterIdentifier(pD3D, i, 0, &id);
-
-				if (SDL_strcmp(id.DeviceName, displayName) == 0) {
-					adapterIndex = i;
-					break;
-				}
-			}
-			SDL_free( displayName );
-		}
-
-		/* free up the D3D stuff we inited */
-		IDirect3D9_Release(pD3D);
-		SDL_UnloadObject(pD3DDLL);
-
-		return adapterIndex;
-	}
-}
-
-
 SDL_Renderer *
 D3D_CreateRenderer(SDL_Window * window, Uint32 flags)
 {
@@ -606,9 +543,11 @@ D3D_CreateRenderer(SDL_Window * window, Uint32 flags)
     D3D_RenderData *data;
     SDL_SysWMinfo windowinfo;
     HRESULT result;
+	const char *hint;
     D3DPRESENT_PARAMETERS pparams;
     IDirect3DSwapChain9 *chain;
     D3DCAPS9 caps;
+	DWORD device_flags;
     Uint32 window_flags;
     int w, h;
     SDL_DisplayMode fullscreen_mode;
@@ -651,8 +590,6 @@ D3D_CreateRenderer(SDL_Window * window, Uint32 flags)
         }
     }
 
-
-
     if (!data->d3d || !data->matrixStack) {
         SDL_free(renderer);
         SDL_free(data);
@@ -663,6 +600,7 @@ D3D_CreateRenderer(SDL_Window * window, Uint32 flags)
     renderer->WindowEvent = D3D_WindowEvent;
     renderer->CreateTexture = D3D_CreateTexture;
     renderer->UpdateTexture = D3D_UpdateTexture;
+	renderer->UpdateTextureYUV = D3D_UpdateTextureYUV;
     renderer->LockTexture = D3D_LockTexture;
     renderer->UnlockTexture = D3D_UnlockTexture;
     renderer->SetRenderTarget = D3D_SetRenderTarget;
@@ -728,14 +666,22 @@ D3D_CreateRenderer(SDL_Window * window, Uint32 flags)
 
     IDirect3D9_GetDeviceCaps(data->d3d, data->adapter, D3DDEVTYPE_HAL, &caps);
 
+	device_flags = D3DCREATE_FPU_PRESERVE;
+	if (caps.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT) {
+		device_flags |= D3DCREATE_HARDWARE_VERTEXPROCESSING;
+	} else {
+		device_flags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
+	}
+
+	hint = SDL_GetHint(SDL_HINT_RENDER_DIRECT3D_THREADSAFE);
+	if (hint && SDL_atoi(hint)) {
+		device_flags |= D3DCREATE_MULTITHREADED;
+	}
+
     result = IDirect3D9_CreateDevice(data->d3d, data->adapter,
                                      D3DDEVTYPE_HAL,
                                      pparams.hDeviceWindow,
-                                     D3DCREATE_FPU_PRESERVE | ((caps.
-                                      DevCaps &
-                                      D3DDEVCAPS_HWTRANSFORMANDLIGHT) ?
-                                     D3DCREATE_HARDWARE_VERTEXPROCESSING :
-                                     D3DCREATE_SOFTWARE_VERTEXPROCESSING),
+                                     device_flags,
                                      &pparams, &data->device);
     if (FAILED(result)) {
         D3D_DestroyRenderer(renderer);
@@ -1081,6 +1027,36 @@ D3D_UpdateTexture(SDL_Renderer * renderer, SDL_Texture * texture,
 }
 
 static int
+D3D_UpdateTextureYUV(SDL_Renderer * renderer, SDL_Texture * texture,
+                     const SDL_Rect * rect,
+                     const Uint8 *Yplane, int Ypitch,
+                     const Uint8 *Uplane, int Upitch,
+                     const Uint8 *Vplane, int Vpitch)
+{
+	D3D_TextureData *data = (D3D_TextureData *) texture->driverdata;
+	SDL_bool full_texture = SDL_FALSE;
+
+#ifdef USE_DYNAMIC_TEXTURE
+	if (texture->access == SDL_TEXTUREACCESS_STREAMING &&
+		rect->x == 0 && rect->y == 0 &&
+		rect->w == texture->w && rect->h == texture->h) {
+			full_texture = SDL_TRUE;
+	}
+#endif
+
+	if (D3D_UpdateTextureInternal(data->texture, texture->format, full_texture, rect->x, rect->y, rect->w, rect->h, Yplane, Ypitch) < 0) {
+		return -1;
+	}
+	if (D3D_UpdateTextureInternal(data->utexture, texture->format, full_texture, rect->x / 2, rect->y / 2, rect->w / 2, rect->h / 2, Uplane, Upitch) < 0) {
+		return -1;
+	}
+	if (D3D_UpdateTextureInternal(data->vtexture, texture->format, full_texture, rect->x / 2, rect->y / 2, rect->w / 2, rect->h / 2, Vplane, Vpitch) < 0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int
 D3D_LockTexture(SDL_Renderer * renderer, SDL_Texture * texture,
                 const SDL_Rect * rect, void **pixels, int *pitch)
 {
@@ -1240,6 +1216,7 @@ D3D_RenderClear(SDL_Renderer * renderer)
     D3D_RenderData *data = (D3D_RenderData *) renderer->driverdata;
     DWORD color;
     HRESULT result;
+    int BackBufferWidth, BackBufferHeight;
 
     if (D3D_ActivateRenderer(renderer) < 0) {
         return -1;
@@ -1247,10 +1224,18 @@ D3D_RenderClear(SDL_Renderer * renderer)
 
     color = D3DCOLOR_ARGB(renderer->a, renderer->r, renderer->g, renderer->b);
 
+    if (renderer->target) {
+        BackBufferWidth = renderer->target->w;
+        BackBufferHeight = renderer->target->h;
+    } else {
+        BackBufferWidth = data->pparams.BackBufferWidth;
+        BackBufferHeight = data->pparams.BackBufferHeight;
+    }
+
     /* Don't reset the viewport if we don't have to! */
     if (!renderer->viewport.x && !renderer->viewport.y &&
-        renderer->viewport.w == data->pparams.BackBufferWidth &&
-        renderer->viewport.h == data->pparams.BackBufferHeight) {
+        renderer->viewport.w == BackBufferWidth &&
+        renderer->viewport.h == BackBufferHeight) {
         result = IDirect3DDevice9_Clear(data->device, 0, NULL, D3DCLEAR_TARGET, color, 0.0f, 0);
     } else {
         D3DVIEWPORT9 viewport;
@@ -1258,8 +1243,8 @@ D3D_RenderClear(SDL_Renderer * renderer)
         /* Clear is defined to clear the entire render target */
         viewport.X = 0;
         viewport.Y = 0;
-        viewport.Width = data->pparams.BackBufferWidth;
-        viewport.Height = data->pparams.BackBufferHeight;
+        viewport.Width = BackBufferWidth;
+        viewport.Height = BackBufferHeight;
         viewport.MinZ = 0.0f;
         viewport.MaxZ = 1.0f;
         IDirect3DDevice9_SetViewport(data->device, &viewport);
@@ -1904,6 +1889,25 @@ D3D_DestroyRenderer(SDL_Renderer * renderer)
         SDL_free(data);
     }
     SDL_free(renderer);
+}
+
+IDirect3DDevice9 *
+SDL_RenderGetD3D9Device(SDL_Renderer * renderer)
+{
+	D3D_RenderData *data = (D3D_RenderData *) renderer->driverdata;
+	IDirect3DDevice9 *device;
+
+	// Make sure that this is a D3D renderer
+	if (renderer->DestroyRenderer != D3D_DestroyRenderer) {
+		SDL_SetError("Renderer is not a D3D renderer");
+		return NULL;
+	}
+
+	device = data->device;
+	if (device) {
+		IDirect3DDevice9_AddRef( device );
+	}
+	return device;
 }
 
 #endif /* SDL_VIDEO_RENDER_D3D && !SDL_RENDER_DISABLED */
