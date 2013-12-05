@@ -919,8 +919,16 @@ GL_UpdateViewport(SDL_Renderer * renderer)
         return 0;
     }
 
-    data->glViewport(renderer->viewport.x, renderer->viewport.y,
-                     renderer->viewport.w, renderer->viewport.h);
+    if (renderer->target) {
+        data->glViewport(renderer->viewport.x, renderer->viewport.y,
+                         renderer->viewport.w, renderer->viewport.h);
+    } else {
+        int w, h;
+
+        SDL_GetRendererOutputSize(renderer, &w, &h);
+        data->glViewport(renderer->viewport.x, (h - renderer->viewport.y - renderer->viewport.h),
+                         renderer->viewport.w, renderer->viewport.h);
+    }
 
     data->glMatrixMode(GL_PROJECTION);
     data->glLoadIdentity();
@@ -1080,7 +1088,7 @@ GL_RenderDrawLines(SDL_Renderer * renderer, const SDL_FPoint * points,
         }
         data->glEnd();
     } else {
-#if defined(__APPLE__) || defined(__WIN32__)
+#if defined(__MACOSX__) || defined(__WIN32__)
 #else
         int x1, y1, x2, y2;
 #endif
@@ -1099,8 +1107,8 @@ GL_RenderDrawLines(SDL_Renderer * renderer, const SDL_FPoint * points,
          * least it would be pixel perfect.
          */
         data->glBegin(GL_POINTS);
-#if defined(__APPLE__) || defined(__WIN32__)
-        /* Mac OS X and Windows seem to always leave the second point open */
+#if defined(__MACOSX__) || defined(__WIN32__)
+        /* Mac OS X and Windows seem to always leave the last point open */
         data->glVertex2f(0.5f + points[count-1].x, 0.5f + points[count-1].y);
 #else
         /* Linux seems to leave the right-most or bottom-most point open */
@@ -1113,7 +1121,8 @@ GL_RenderDrawLines(SDL_Renderer * renderer, const SDL_FPoint * points,
             data->glVertex2f(0.5f + x1, 0.5f + y1);
         } else if (x2 > x1) {
             data->glVertex2f(0.5f + x2, 0.5f + y2);
-        } else if (y1 > y2) {
+        }
+        if (y1 > y2) {
             data->glVertex2f(0.5f + x1, 0.5f + y1);
         } else if (y2 > y1) {
             data->glVertex2f(0.5f + x2, 0.5f + y2);
