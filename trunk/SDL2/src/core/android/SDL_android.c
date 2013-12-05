@@ -34,6 +34,7 @@
 #include "../../video/android/SDL_androidtouch.h"
 #include "../../video/android/SDL_androidvideo.h"
 #include "../../video/android/SDL_androidwindow.h"
+#include "../../joystick/android/SDL_sysjoystick.h"
 
 #include <android/log.h>
 #include <pthread.h>
@@ -144,6 +145,30 @@ void Java_org_libsdl_app_SDLActivity_onNativeResize(
                                     jint width, jint height, jint format)
 {
     Android_SetScreenResolution(width, height, format);
+}
+
+// Paddown
+int Java_org_libsdl_app_SDLActivity_onNativePadDown(
+                                    JNIEnv* env, jclass jcls,
+                                    jint padId, jint keycode)
+{
+    return Android_OnPadDown(padId, keycode);
+}
+
+// Padup
+int Java_org_libsdl_app_SDLActivity_onNativePadUp(
+                                   JNIEnv* env, jclass jcls,
+                                   jint padId, jint keycode)
+{
+    return Android_OnPadUp(padId, keycode);
+}
+
+/* Joy */
+void Java_org_libsdl_app_SDLActivity_onNativeJoy(
+                                    JNIEnv* env, jclass jcls,
+                                    jint joyId, jint axis, jfloat value)
+{
+    Android_OnJoy(joyId, axis, value);
 }
 
 
@@ -259,25 +284,33 @@ void Java_org_libsdl_app_SDLActivity_nativeLowMemory(
 void Java_org_libsdl_app_SDLActivity_nativeQuit(
                                     JNIEnv* env, jclass cls)
 {
+    /* Discard previous events. The user should have handled state storage
+     * in SDL_APP_WILLENTERBACKGROUND. After nativeQuit() is called, no
+     * events other than SDL_QUIT and SDL_APP_TERMINATING should fire */
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
     /* Inject a SDL_QUIT event */
     SDL_SendQuit();
     SDL_SendAppEvent(SDL_APP_TERMINATING);
+    /* Resume the event loop so that the app can catch SDL_QUIT which
+     * should now be the top event in the event queue. */
+    if (!SDL_SemValue(Android_ResumeSem)) SDL_SemPost(Android_ResumeSem);
 }
 
 /* Pause */
 void Java_org_libsdl_app_SDLActivity_nativePause(
                                     JNIEnv* env, jclass cls)
 {
+    __android_log_print(ANDROID_LOG_VERBOSE, "SDL", "nativePause()");
     if (Android_Window) {
-        /* Signal the pause semaphore so the event loop knows to pause and (optionally) block itself */
-        if (!SDL_SemValue(Android_PauseSem)) SDL_SemPost(Android_PauseSem);
         SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_FOCUS_LOST, 0, 0);
         SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_MINIMIZED, 0, 0);
+        SDL_SendAppEvent(SDL_APP_WILLENTERBACKGROUND);
+        SDL_SendAppEvent(SDL_APP_DIDENTERBACKGROUND);
+    
+        /* *After* sending the relevant events, signal the pause semaphore 
+         * so the event loop knows to pause and (optionally) block itself */
+        if (!SDL_SemValue(Android_PauseSem)) SDL_SemPost(Android_PauseSem);
     }
-
-    __android_log_print(ANDROID_LOG_VERBOSE, "SDL", "nativePause()");
-    SDL_SendAppEvent(SDL_APP_WILLENTERBACKGROUND);
-    SDL_SendAppEvent(SDL_APP_DIDENTERBACKGROUND);
 }
 
 /* Resume */
@@ -285,17 +318,17 @@ void Java_org_libsdl_app_SDLActivity_nativeResume(
                                     JNIEnv* env, jclass cls)
 {
     __android_log_print(ANDROID_LOG_VERBOSE, "SDL", "nativeResume()");
-    SDL_SendAppEvent(SDL_APP_WILLENTERFOREGROUND);
-    SDL_SendAppEvent(SDL_APP_DIDENTERFOREGROUND);
 
     if (Android_Window) {
+        SDL_SendAppEvent(SDL_APP_WILLENTERFOREGROUND);
+        SDL_SendAppEvent(SDL_APP_DIDENTERFOREGROUND);
+        SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_FOCUS_GAINED, 0, 0);
+        SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_RESTORED, 0, 0);
         /* Signal the resume semaphore so the event loop knows to resume and restore the GL Context
          * We can't restore the GL Context here because it needs to be done on the SDL main thread
          * and this function will be called from the Java thread instead.
          */
         if (!SDL_SemValue(Android_ResumeSem)) SDL_SemPost(Android_ResumeSem);
-        SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_FOCUS_GAINED, 0, 0);
-        SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_RESTORED, 0, 0);
     }
 }
 
@@ -1009,7 +1042,7 @@ static jobject Android_JNI_GetSystemServiceObject(const char* name)
     mid = (*env)->GetStaticMethodID(env, mActivityClass, "getContext", "()Landroid/content/Context;");
     jobject context = (*env)->CallStaticObjectMethod(env, mActivityClass, mid);
 
-    mid = (*env)->GetMethodID(env, mActivityClass, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+    mid = (*env)->GetMethodID(env, mActivityClass, "getSystemServiceFromUiThread", "(Ljava/lang/String;)Ljava/lang/Object;");
     jobject manager = (*env)->CallObjectMethod(env, context, mid, service);
 
     (*env)->DeleteLocalRef(env, service);
@@ -1200,9 +1233,9 @@ int Android_JNI_GetTouchDeviceIds(int **ids) {
             jint* elements = (*env)->GetIntArrayElements(env, array, NULL);
             if (elements) {
                 int i;
-                *ids = SDL_malloc(number * sizeof (*ids[0]));
+                *ids = SDL_malloc(number * sizeof (**ids));
                 for (i = 0; i < number; ++i) { /* not assuming sizeof (jint) == sizeof (int) */
-                    *ids[i] = elements[i];
+                    (*ids)[i] = elements[i];
                 }
                 (*env)->ReleaseIntArrayElements(env, array, elements, JNI_ABORT);
             }
@@ -1211,6 +1244,62 @@ int Android_JNI_GetTouchDeviceIds(int **ids) {
     }
     return number;
 }
+
+/* return the total number of plugged in joysticks */
+int Android_JNI_GetNumJoysticks()
+{
+    JNIEnv* env = Android_JNI_GetEnv();
+    if (!env) {
+        return -1;
+    }
+    
+    jmethodID mid = (*env)->GetStaticMethodID(env, mActivityClass, "getNumJoysticks", "()I");
+    if (!mid) {
+        return -1;
+    }
+    
+    return (int)(*env)->CallStaticIntMethod(env, mActivityClass, mid);
+}
+
+/* Return the name of joystick number "i" */
+char* Android_JNI_GetJoystickName(int i)
+{
+    JNIEnv* env = Android_JNI_GetEnv();
+    if (!env) {
+        return SDL_strdup("");
+    }
+    
+    jmethodID mid = (*env)->GetStaticMethodID(env, mActivityClass, "getJoystickName", "(I)Ljava/lang/String;");
+    if (!mid) {
+        return SDL_strdup("");
+    }
+    jstring string = (jstring)((*env)->CallStaticObjectMethod(env, mActivityClass, mid, i));
+    const char* utf = (*env)->GetStringUTFChars(env, string, 0);
+    if (!utf) {
+        return SDL_strdup("");
+    }
+    
+    char* text = SDL_strdup(utf);
+    (*env)->ReleaseStringUTFChars(env, string, utf);
+    return text;
+}
+
+/* return the number of axes in the given joystick */
+int Android_JNI_GetJoystickAxes(int joy)
+{
+    JNIEnv* env = Android_JNI_GetEnv();
+    if (!env) {
+        return -1;
+    }
+    
+    jmethodID mid = (*env)->GetStaticMethodID(env, mActivityClass, "getJoystickAxes", "(I)I");
+    if (!mid) {
+        return -1;
+    }
+    
+    return (int)(*env)->CallIntMethod(env, mActivityClass, mid, joy);
+}
+
 
 /* sends message to be handled on the UI event dispatch thread */
 int Android_JNI_SendMessage(int command, int param)

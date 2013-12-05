@@ -245,7 +245,13 @@ X11_DispatchFocusOut(SDL_WindowData *data)
 #ifdef DEBUG_XEVENTS
     printf("window %p: Dispatching FocusOut\n", data);
 #endif
-    SDL_SetKeyboardFocus(NULL);
+    /* If another window has already processed a focus in, then don't try to
+     * remove focus here.  Doing so will incorrectly remove focus from that
+     * window, and the focus lost event for this window will have already
+     * been dispatched anyway. */
+    if (data->window == SDL_GetKeyboardFocus()) {
+        SDL_SetKeyboardFocus(NULL);
+    }
 #ifdef X_HAVE_UTF8_STRING
     if (data->ic) {
         X11_XUnsetICFocus(data->ic);
@@ -274,19 +280,39 @@ X11_DispatchEvent(_THIS)
     Display *display = videodata->display;
     SDL_WindowData *data;
     XEvent xevent;
-    int i;
+    int orig_event_type;
+    KeyCode orig_keycode;
     XClientMessageEvent m;
+    int i;
 
     SDL_zero(xevent);           /* valgrind fix. --ryan. */
     X11_XNextEvent(display, &xevent);
 
-    /* filter events catchs XIM events and sends them to the correct
-       handler */
+    /* Save the original keycode for dead keys, which are filtered out by
+       the XFilterEvent() call below.
+    */
+    orig_event_type = xevent.type;
+    if (orig_event_type == KeyPress || orig_event_type == KeyRelease) {
+        orig_keycode = xevent.xkey.keycode;
+    } else {
+        orig_keycode = 0;
+    }
+
+    /* filter events catchs XIM events and sends them to the correct handler */
     if (X11_XFilterEvent(&xevent, None) == True) {
 #if 0
         printf("Filtered event type = %d display = %d window = %d\n",
                xevent.type, xevent.xany.display, xevent.xany.window);
 #endif
+        if (orig_keycode) {
+            /* Make sure dead key press/release events are sent */
+            SDL_Scancode scancode = videodata->key_layout[orig_keycode];
+            if (orig_event_type == KeyPress) {
+                SDL_SendKeyboardKey(SDL_PRESSED, scancode);
+            } else {
+                SDL_SendKeyboardKey(SDL_RELEASED, scancode);
+            }
+        }
         return;
     }
 
@@ -373,6 +399,14 @@ X11_DispatchEvent(_THIS)
 
         /* Gaining input focus? */
     case FocusIn:{
+            if (xevent.xfocus.mode == NotifyGrab || xevent.xfocus.mode == NotifyUngrab) {
+                /* Someone is handling a global hotkey, ignore it */
+#ifdef DEBUG_XEVENTS
+                printf("window %p: FocusIn (NotifyGrab/NotifyUngrab, ignoring)\n", data);
+#endif
+                break;
+            }
+
             if (xevent.xfocus.detail == NotifyInferior) {
 #ifdef DEBUG_XEVENTS
                 printf("window %p: FocusIn (NotifierInferior, ignoring)\n", data);
@@ -402,6 +436,13 @@ X11_DispatchEvent(_THIS)
 
         /* Losing input focus? */
     case FocusOut:{
+            if (xevent.xfocus.mode == NotifyGrab || xevent.xfocus.mode == NotifyUngrab) {
+                /* Someone is handling a global hotkey, ignore it */
+#ifdef DEBUG_XEVENTS
+                printf("window %p: FocusOut (NotifyGrab/NotifyUngrab, ignoring)\n", data);
+#endif
+                break;
+            }
             if (xevent.xfocus.detail == NotifyInferior) {
                 /* We still have focus if a child gets focus */
 #ifdef DEBUG_XEVENTS
@@ -519,10 +560,35 @@ X11_DispatchEvent(_THIS)
                    xevent.xconfigure.x, xevent.xconfigure.y,
                    xevent.xconfigure.width, xevent.xconfigure.height);
 #endif
+            long border_left = 0;
+            long border_right = 0;
+            long border_top = 0;
+            long border_bottom = 0;
+            if (data->xwindow) {
+                Atom _net_frame_extents = X11_XInternAtom(display, "_NET_FRAME_EXTENTS", 0);
+                Atom type = None;
+                int format;
+                unsigned long nitems = 0, bytes_after;
+                unsigned char *property;
+                X11_XGetWindowProperty(display, data->xwindow,
+                    _net_frame_extents, 0, 16, 0,
+                    XA_CARDINAL, &type, &format,
+                    &nitems, &bytes_after, &property);
+
+                if (type != None && nitems == 4)
+                {
+                    border_left = ((long*)property)[0];
+                    border_right = ((long*)property)[1];
+                    border_top = ((long*)property)[2];
+                    border_bottom = ((long*)property)[3];
+                }
+            }
+
             if (xevent.xconfigure.x != data->last_xconfigure.x ||
                 xevent.xconfigure.y != data->last_xconfigure.y) {
                 SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_MOVED,
-                                    xevent.xconfigure.x, xevent.xconfigure.y);
+                                    xevent.xconfigure.x - border_left,
+                                    xevent.xconfigure.y - border_top);
             }
             if (xevent.xconfigure.width != data->last_xconfigure.width ||
                 xevent.xconfigure.height != data->last_xconfigure.height) {
@@ -887,7 +953,7 @@ X11_HandleFocusChanges(_THIS)
             SDL_WindowData *data = videodata->windowlist[i];
             if (data && data->pending_focus != PENDING_FOCUS_NONE) {
                 Uint32 now = SDL_GetTicks();
-                if ( (int)(data->pending_focus_time-now) <= 0 ) {
+                if (SDL_TICKS_PASSED(now, data->pending_focus_time)) {
                     if ( data->pending_focus == PENDING_FOCUS_IN ) {
                         X11_DispatchFocusIn(data);
                     } else {
@@ -941,7 +1007,7 @@ X11_PumpEvents(_THIS)
     if (_this->suspend_screensaver) {
         Uint32 now = SDL_GetTicks();
         if (!data->screensaver_activity ||
-            (int) (now - data->screensaver_activity) >= 30000) {
+            SDL_TICKS_PASSED(now, data->screensaver_activity + 30000)) {
             X11_XResetScreenSaver(data->display);
 
             #if SDL_USE_LIBDBUS
