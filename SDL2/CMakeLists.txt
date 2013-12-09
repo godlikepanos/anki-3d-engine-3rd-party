@@ -21,7 +21,7 @@ file(GLOB SDL_COMMON_SRC
 	src/loadso/*.c)
 
 if(LINUX)
-	ADD_DEFINITIONS(-fvisibility=hidden)
+	add_definitions(-fvisibility=hidden)
 
 	file(GLOB SDL_PLATFORM_SRC 
 		#src/atomic/xxx/*.c
