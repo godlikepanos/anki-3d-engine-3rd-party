@@ -8,4 +8,4 @@ extern "C" {
 #include "lauxlib.h"
 }
 
-#define ANKI_LUA_HPP
+#define ANKI_LUA_HPP 1
