@@ -1102,6 +1102,24 @@ LUA_API int lua_gc (lua_State *L, int what, int data) {
 */
 
 
+LUA_API void  lua_setuserdata (lua_State *L, void *data)
+{
+	lua_lock(L);
+	L->user_data = data;
+	lua_unlock(L);
+}
+
+
+LUA_API void *lua_getuserdata (lua_State *L)
+{
+	void *out;
+	lua_lock(L);
+	out = L->user_data;
+	lua_unlock(L);
+	return out;
+}
+
+
 LUA_API int lua_error (lua_State *L) {
   lua_lock(L);
   api_checknelems(L, 1);

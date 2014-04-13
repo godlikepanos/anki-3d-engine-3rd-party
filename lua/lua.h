@@ -298,6 +298,9 @@ LUA_API int (lua_gc) (lua_State *L, int what, int data);
 ** miscellaneous functions
 */
 
+LUA_API void  (lua_setuserdata) (lua_State *L, void *data);
+LUA_API void *(lua_getuserdata) (lua_State *L);
+
 LUA_API int   (lua_error) (lua_State *L);
 
 LUA_API int   (lua_next) (lua_State *L, int idx);
