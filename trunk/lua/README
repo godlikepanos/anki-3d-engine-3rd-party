@@ -1,8 +1,11 @@
 When copying the lua dont copy the 2 .c files that contain the main. you don't 
 need those (lua.c and luac.c)
 
-Also put to make it build on Android:
+Put the following to make it build on Android if needed:
 #ifndef getlocaledecpoin
 #define getlocaledecpoint() ('.') 
 #endif
+
+The LUA source code contains some additional AnKi code. See for user_data in
+lua_State structure, lua_setuserdata and lua_getuserdata
 
