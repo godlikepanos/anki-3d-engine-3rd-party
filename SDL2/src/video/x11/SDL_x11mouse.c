@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -18,7 +18,7 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
 #if SDL_VIDEO_DRIVER_X11
 
@@ -318,6 +318,15 @@ X11_WarpMouse(SDL_Window * window, int x, int y)
     X11_XSync(display, False);
 }
 
+static void
+X11_WarpMouseGlobal(int x, int y)
+{
+    Display *display = GetDisplay();
+
+    X11_XWarpPointer(display, None, DefaultRootWindow(display), 0, 0, 0, 0, x, y);
+    X11_XSync(display, False);
+}
+
 static int
 X11_SetRelativeMouseMode(SDL_bool enabled)
 {
@@ -340,6 +349,7 @@ X11_InitMouse(_THIS)
     mouse->ShowCursor = X11_ShowCursor;
     mouse->FreeCursor = X11_FreeCursor;
     mouse->WarpMouse = X11_WarpMouse;
+    mouse->WarpMouseGlobal = X11_WarpMouseGlobal;
     mouse->SetRelativeMouseMode = X11_SetRelativeMouseMode;
 
     SDL_SetDefaultCursor(X11_CreateDefaultCursor());

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -866,6 +866,11 @@ extern DECLSPEC SDL_bool SDLCALL SDL_GL_ExtensionSupported(const char
                                                            *extension);
 
 /**
+ *  \brief Reset all previously set OpenGL context attributes to their default values
+ */
+extern DECLSPEC void SDLCALL SDL_GL_ResetAttributes(void);
+
+/**
  *  \brief Set an OpenGL window attribute before window creation.
  */
 extern DECLSPEC int SDLCALL SDL_GL_SetAttribute(SDL_GLattr attr, int value);
@@ -909,7 +914,7 @@ extern DECLSPEC SDL_GLContext SDLCALL SDL_GL_GetCurrentContext(void);
  *  \param w        Pointer to variable for storing the width, may be NULL
  *  \param h        Pointer to variable for storing the height, may be NULL
  *
- * This may differ from SDL_GetWindowSize if we're rendering to a high-DPI
+ * This may differ from SDL_GetWindowSize() if we're rendering to a high-DPI
  * drawable, i.e. the window was created with SDL_WINDOW_ALLOW_HIGHDPI on a
  * platform with high-DPI support (Apple calls this "Retina"), and not disabled
  * by the SDL_HINT_VIDEO_HIGHDPI_DISABLED hint.
