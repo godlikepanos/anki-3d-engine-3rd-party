@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -391,9 +391,16 @@ typedef enum {
 #endif
 #include <windows.h>
 
+#if __WINRT__
+#include <Unknwn.h>
+typedef IUnknown * EGLNativeWindowType;
+typedef IUnknown * EGLNativePixmapType;
+typedef IUnknown * EGLNativeDisplayType;
+#else
 typedef HDC     EGLNativeDisplayType;
 typedef HBITMAP EGLNativePixmapType;
 typedef HWND    EGLNativeWindowType;
+#endif
 
 #elif defined(__WINSCW__) || defined(__SYMBIAN32__)  /* Symbian */
 
@@ -413,7 +420,7 @@ typedef struct gbm_device  *EGLNativeDisplayType;
 typedef struct gbm_bo      *EGLNativePixmapType;
 typedef void               *EGLNativeWindowType;
 
-#elif defined(ANDROID) /* Android */
+#elif defined(__ANDROID__) /* Android */
 
 struct ANativeWindow;
 struct egl_native_pixmap_t;

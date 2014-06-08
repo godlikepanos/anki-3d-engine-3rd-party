@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -47,6 +47,8 @@
 #cmakedefine HAVE_GCC_ATOMICS @HAVE_GCC_ATOMICS@
 #cmakedefine HAVE_GCC_SYNC_LOCK_TEST_AND_SET @HAVE_GCC_SYNC_LOCK_TEST_AND_SET@
 #cmakedefine HAVE_PTHREAD_SPINLOCK @HAVE_PTHREAD_SPINLOCK@
+
+#cmakedefine HAVE_DXGI_H @HAVE_DXGI_H@
 
 /* Comment this if you want to build without any C library requirements */
 #cmakedefine HAVE_LIBC 1
@@ -124,12 +126,13 @@
 #cmakedefine HAVE_STRCASECMP 1
 #cmakedefine HAVE__STRNICMP 1
 #cmakedefine HAVE_STRNCASECMP 1
-#cmakedefine HAVE_SSCANF 1
-#cmakedefine HAVE_SNPRINTF 1
+#cmakedefine HAVE_VSSCANF 1
 #cmakedefine HAVE_VSNPRINTF 1
 #cmakedefine HAVE_M_PI 1
 #cmakedefine HAVE_ATAN 1
 #cmakedefine HAVE_ATAN2 1
+#cmakedefine HAVE_ACOS 1
+#cmakedefine HAVE_ASIN 1
 #cmakedefine HAVE_CEIL 1
 #cmakedefine HAVE_COPYSIGN 1
 #cmakedefine HAVE_COS 1
@@ -257,6 +260,20 @@
 #cmakedefine SDL_VIDEO_DRIVER_DIRECTFB_DYNAMIC @SDL_VIDEO_DRIVER_DIRECTFB_DYNAMIC@
 #cmakedefine SDL_VIDEO_DRIVER_DUMMY @SDL_VIDEO_DRIVER_DUMMY@
 #cmakedefine SDL_VIDEO_DRIVER_WINDOWS @SDL_VIDEO_DRIVER_WINDOWS@
+#cmakedefine SDL_VIDEO_DRIVER_WAYLAND @SDL_VIDEO_DRIVER_WAYLAND@
+
+#if 0
+/* !!! FIXME: in configure script version, missing here: */
+#undef SDL_VIDEO_DRIVER_WAYLAND_QT_TOUCH
+#undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC
+#undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_EGL
+#undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_CURSOR
+#undef SDL_VIDEO_DRIVER_WAYLAND_DYNAMIC_XKBCOMMON
+#endif
+
+#cmakedefine SDL_VIDEO_DRIVER_MIR @SDL_VIDEO_DRIVER_MIR@
+#cmakedefine SDL_VIDEO_DRIVER_MIR_DYNAMIC @SDL_VIDEO_DRIVER_MIR_DYNAMIC@
+#cmakedefine SDL_VIDEO_DRIVER_MIR_DYNAMIC_XKBCOMMON @SDL_VIDEO_DRIVER_MIR_DYNAMIC_XKBCOMMON@
 #cmakedefine SDL_VIDEO_DRIVER_X11 @SDL_VIDEO_DRIVER_X11@
 #cmakedefine SDL_VIDEO_DRIVER_X11_DYNAMIC @SDL_VIDEO_DRIVER_X11_DYNAMIC@
 #cmakedefine SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT @SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT@
@@ -280,6 +297,7 @@
 #cmakedefine SDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM @SDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM@
 
 #cmakedefine SDL_VIDEO_RENDER_D3D @SDL_VIDEO_RENDER_D3D@
+#cmakedefine SDL_VIDEO_RENDER_D3D11 @SDL_VIDEO_RENDER_D3D11@
 #cmakedefine SDL_VIDEO_RENDER_OGL @SDL_VIDEO_RENDER_OGL@
 #cmakedefine SDL_VIDEO_RENDER_OGL_ES @SDL_VIDEO_RENDER_OGL_ES@
 #cmakedefine SDL_VIDEO_RENDER_OGL_ES2 @SDL_VIDEO_RENDER_OGL_ES2@

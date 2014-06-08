@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -18,7 +18,7 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
 #if SDL_VIDEO_DRIVER_ANDROID
 
@@ -35,12 +35,14 @@ void android_egl_context_restore();
 void 
 android_egl_context_restore() 
 {
+    SDL_Event event;
     SDL_WindowData *data = (SDL_WindowData *) Android_Window->driverdata;
     if (SDL_GL_MakeCurrent(Android_Window, (SDL_GLContext) data->egl_context) < 0) {
         /* The context is no longer valid, create a new one */
-        /* FIXME: Notify the user that the context changed and textures need to be re created */
         data->egl_context = (EGLContext) SDL_GL_CreateContext(Android_Window);
         SDL_GL_MakeCurrent(Android_Window, (SDL_GLContext) data->egl_context);
+        event.type = SDL_RENDER_DEVICE_RESET;
+        SDL_PushEvent(&event);
     }
 }
 

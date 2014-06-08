@@ -4,6 +4,9 @@ file(GLOB SDL_COMMON_SRC
 	src/*.c
 	src/atomic/*.c
 	src/audio/*.c
+	src/audio/dsp/*.c
+	src/audio/disk/*.c
+	src/audio/dummy/*.c
 	src/cpuinfo/*.c
 	src/events/*.c
 	src/file/*.c
@@ -18,7 +21,10 @@ file(GLOB SDL_COMMON_SRC
 	src/joystick/*.c
 	src/haptic/*.c
 	src/power/*.c
-	src/loadso/*.c)
+	src/loadso/*.c
+	src/core/linux/*.c
+	src/dynapi/*.c
+	src/filesystem/unix/*.c)
 
 if(LINUX)
 	add_definitions(-fvisibility=hidden)

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -1148,7 +1148,7 @@ extern DECLSPEC int SDLCALL SDL_HapticPause(SDL_Haptic * haptic);
  *
  *  Call to unpause after SDL_HapticPause().
  *
- *  \param haptic Haptic device to pause.
+ *  \param haptic Haptic device to unpause.
  *  \return 0 on success or -1 on error.
  *
  *  \sa SDL_HapticPause

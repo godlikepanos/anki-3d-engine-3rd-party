@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -18,13 +18,14 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
 #if SDL_VIDEO_DRIVER_WINDOWS
 
 #include "SDL_windowsvideo.h"
 #include "SDL_windowsshape.h"
 #include "SDL_syswm.h"
+#include "SDL_timer.h"
 #include "SDL_vkeys.h"
 #include "../../events/SDL_events_c.h"
 #include "../../events/SDL_touch_c.h"
@@ -70,19 +71,20 @@
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
 #endif
+#ifndef WM_UNICHAR
+#define WM_UNICHAR 0x0109
+#endif
 
 static SDL_Scancode
-WindowsScanCodeToSDLScanCode( LPARAM lParam, WPARAM wParam )
+WindowsScanCodeToSDLScanCode(LPARAM lParam, WPARAM wParam)
 {
     SDL_Scancode code;
     char bIsExtended;
-    int nScanCode = ( lParam >> 16 ) & 0xFF;
+    int nScanCode = (lParam >> 16) & 0xFF;
 
     /* 0x45 here to work around both pause and numlock sharing the same scancode, so use the VK key to tell them apart */
-    if ( nScanCode == 0 || nScanCode == 0x45 )
-    {
-        switch( wParam )
-        {
+    if (nScanCode == 0 || nScanCode == 0x45) {
+        switch(wParam) {
         case VK_CLEAR: return SDL_SCANCODE_CLEAR;
         case VK_MODECHANGE: return SDL_SCANCODE_MODE;
         case VK_SELECT: return SDL_SCANCODE_SELECT;
@@ -137,16 +139,14 @@ WindowsScanCodeToSDLScanCode( LPARAM lParam, WPARAM wParam )
         }
     }
 
-    if ( nScanCode > 127 )
+    if (nScanCode > 127)
         return SDL_SCANCODE_UNKNOWN;
 
     code = windows_scancode_table[nScanCode];
 
-    bIsExtended = ( lParam & ( 1 << 24 ) ) != 0;
-    if ( !bIsExtended )
-    {
-        switch ( code )
-        {
+    bIsExtended = (lParam & (1 << 24)) != 0;
+    if (!bIsExtended) {
+        switch (code) {
         case SDL_SCANCODE_HOME:
             return SDL_SCANCODE_KP_7;
         case SDL_SCANCODE_UP:
@@ -172,11 +172,8 @@ WindowsScanCodeToSDLScanCode( LPARAM lParam, WPARAM wParam )
         default:
             break;
         }
-    }
-    else
-    {
-        switch ( code )
-        {
+    } else {
+        switch (code) {
         case SDL_SCANCODE_RETURN:
             return SDL_SCANCODE_KP_ENTER;
         case SDL_SCANCODE_LALT:
@@ -197,14 +194,11 @@ WindowsScanCodeToSDLScanCode( LPARAM lParam, WPARAM wParam )
 
 
 void
-WIN_CheckWParamMouseButton( SDL_bool bwParamMousePressed, SDL_bool bSDLMousePressed, SDL_WindowData *data, Uint8 button )
+WIN_CheckWParamMouseButton(SDL_bool bwParamMousePressed, SDL_bool bSDLMousePressed, SDL_WindowData *data, Uint8 button)
 {
-    if ( bwParamMousePressed && !bSDLMousePressed )
-    {
+    if (bwParamMousePressed && !bSDLMousePressed) {
         SDL_SendMouseButton(data->window, 0, SDL_PRESSED, button);
-    }
-    else if ( !bwParamMousePressed && bSDLMousePressed )
-    {
+    } else if (!bwParamMousePressed && bSDLMousePressed) {
         SDL_SendMouseButton(data->window, 0, SDL_RELEASED, button);
     }
 }
@@ -214,49 +208,81 @@ WIN_CheckWParamMouseButton( SDL_bool bwParamMousePressed, SDL_bool bSDLMousePres
 *  so this funciton reconciles our view of the world with the current buttons reported by windows
 */
 void
-WIN_CheckWParamMouseButtons( WPARAM wParam, SDL_WindowData *data )
+WIN_CheckWParamMouseButtons(WPARAM wParam, SDL_WindowData *data)
 {
-    if ( wParam != data->mouse_button_flags )
-    {
-        Uint32 mouseFlags = SDL_GetMouseState( NULL, NULL );
-        WIN_CheckWParamMouseButton(  (wParam & MK_LBUTTON), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT );
-        WIN_CheckWParamMouseButton(  (wParam & MK_MBUTTON), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE );
-        WIN_CheckWParamMouseButton(  (wParam & MK_RBUTTON), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT );
-        WIN_CheckWParamMouseButton(  (wParam & MK_XBUTTON1), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1 );
-        WIN_CheckWParamMouseButton(  (wParam & MK_XBUTTON2), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2 );
+    if (wParam != data->mouse_button_flags) {
+        Uint32 mouseFlags = SDL_GetMouseState(NULL, NULL);
+        WIN_CheckWParamMouseButton((wParam & MK_LBUTTON), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT);
+        WIN_CheckWParamMouseButton((wParam & MK_MBUTTON), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE);
+        WIN_CheckWParamMouseButton((wParam & MK_RBUTTON), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT);
+        WIN_CheckWParamMouseButton((wParam & MK_XBUTTON1), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1);
+        WIN_CheckWParamMouseButton((wParam & MK_XBUTTON2), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2);
         data->mouse_button_flags = wParam;
     }
 }
 
 
 void
-WIN_CheckRawMouseButtons( ULONG rawButtons, SDL_WindowData *data )
+WIN_CheckRawMouseButtons(ULONG rawButtons, SDL_WindowData *data)
 {
-    if ( rawButtons != data->mouse_button_flags )
-    {
-        Uint32 mouseFlags = SDL_GetMouseState( NULL, NULL );
-        if ( (rawButtons & RI_MOUSE_BUTTON_1_DOWN) )
-            WIN_CheckWParamMouseButton(  (rawButtons & RI_MOUSE_BUTTON_1_DOWN), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT );
-        if ( (rawButtons & RI_MOUSE_BUTTON_1_UP) )
-            WIN_CheckWParamMouseButton(  !(rawButtons & RI_MOUSE_BUTTON_1_UP), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT );
-        if ( (rawButtons & RI_MOUSE_BUTTON_2_DOWN) )
-            WIN_CheckWParamMouseButton(  (rawButtons & RI_MOUSE_BUTTON_2_DOWN), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT );
-        if ( (rawButtons & RI_MOUSE_BUTTON_2_UP) )
-            WIN_CheckWParamMouseButton(  !(rawButtons & RI_MOUSE_BUTTON_2_UP), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT );
-        if ( (rawButtons & RI_MOUSE_BUTTON_3_DOWN) )
-            WIN_CheckWParamMouseButton(  (rawButtons & RI_MOUSE_BUTTON_3_DOWN), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE );
-        if ( (rawButtons & RI_MOUSE_BUTTON_3_UP) )
-            WIN_CheckWParamMouseButton(  !(rawButtons & RI_MOUSE_BUTTON_3_UP), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE );
-        if ( (rawButtons & RI_MOUSE_BUTTON_4_DOWN) )
-            WIN_CheckWParamMouseButton(  (rawButtons & RI_MOUSE_BUTTON_4_DOWN), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1 );
-        if ( (rawButtons & RI_MOUSE_BUTTON_4_UP) )
-            WIN_CheckWParamMouseButton(  !(rawButtons & RI_MOUSE_BUTTON_4_UP), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1 );
-        if ( (rawButtons & RI_MOUSE_BUTTON_5_DOWN) )
-            WIN_CheckWParamMouseButton(  (rawButtons & RI_MOUSE_BUTTON_5_DOWN), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2 );
-        if ( (rawButtons & RI_MOUSE_BUTTON_5_UP) )
-            WIN_CheckWParamMouseButton(  !(rawButtons & RI_MOUSE_BUTTON_5_UP), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2 );
+    if (rawButtons != data->mouse_button_flags) {
+        Uint32 mouseFlags = SDL_GetMouseState(NULL, NULL);
+        if ((rawButtons & RI_MOUSE_BUTTON_1_DOWN))
+            WIN_CheckWParamMouseButton((rawButtons & RI_MOUSE_BUTTON_1_DOWN), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT);
+        if ((rawButtons & RI_MOUSE_BUTTON_1_UP))
+            WIN_CheckWParamMouseButton(!(rawButtons & RI_MOUSE_BUTTON_1_UP), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT);
+        if ((rawButtons & RI_MOUSE_BUTTON_2_DOWN))
+            WIN_CheckWParamMouseButton((rawButtons & RI_MOUSE_BUTTON_2_DOWN), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT);
+        if ((rawButtons & RI_MOUSE_BUTTON_2_UP))
+            WIN_CheckWParamMouseButton(!(rawButtons & RI_MOUSE_BUTTON_2_UP), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT);
+        if ((rawButtons & RI_MOUSE_BUTTON_3_DOWN))
+            WIN_CheckWParamMouseButton((rawButtons & RI_MOUSE_BUTTON_3_DOWN), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE);
+        if ((rawButtons & RI_MOUSE_BUTTON_3_UP))
+            WIN_CheckWParamMouseButton(!(rawButtons & RI_MOUSE_BUTTON_3_UP), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE);
+        if ((rawButtons & RI_MOUSE_BUTTON_4_DOWN))
+            WIN_CheckWParamMouseButton((rawButtons & RI_MOUSE_BUTTON_4_DOWN), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1);
+        if ((rawButtons & RI_MOUSE_BUTTON_4_UP))
+            WIN_CheckWParamMouseButton(!(rawButtons & RI_MOUSE_BUTTON_4_UP), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1);
+        if ((rawButtons & RI_MOUSE_BUTTON_5_DOWN))
+            WIN_CheckWParamMouseButton((rawButtons & RI_MOUSE_BUTTON_5_DOWN), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2);
+        if ((rawButtons & RI_MOUSE_BUTTON_5_UP))
+            WIN_CheckWParamMouseButton(!(rawButtons & RI_MOUSE_BUTTON_5_UP), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2);
         data->mouse_button_flags = rawButtons;
     }
+}
+
+void
+WIN_CheckAsyncMouseRelease(SDL_WindowData *data)
+{
+    Uint32 mouseFlags;
+    SHORT keyState;
+
+    /* mouse buttons may have changed state here, we need to resync them,
+       but we will get a WM_MOUSEMOVE right away which will fix things up if in non raw mode also
+    */
+    mouseFlags = SDL_GetMouseState(NULL, NULL);
+
+    keyState = GetAsyncKeyState(VK_LBUTTON);
+    if (!(keyState & 0x8000)) {
+        WIN_CheckWParamMouseButton(SDL_FALSE, (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT);
+    }
+    keyState = GetAsyncKeyState(VK_RBUTTON);
+    if (!(keyState & 0x8000)) {
+        WIN_CheckWParamMouseButton(SDL_FALSE, (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT);
+    }
+    keyState = GetAsyncKeyState(VK_MBUTTON);
+    if (!(keyState & 0x8000)) {
+        WIN_CheckWParamMouseButton(SDL_FALSE, (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE);
+    }
+    keyState = GetAsyncKeyState(VK_XBUTTON1);
+    if (!(keyState & 0x8000)) {
+        WIN_CheckWParamMouseButton(SDL_FALSE, (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1);
+    }
+    keyState = GetAsyncKeyState(VK_XBUTTON2);
+    if (!(keyState & 0x8000)) {
+        WIN_CheckWParamMouseButton(SDL_FALSE, (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2);
+    }
+    data->mouse_button_flags = 0;
 }
 
 SDL_FORCE_INLINE BOOL
@@ -284,45 +310,6 @@ WIN_ConvertUTF32toUTF8(UINT32 codepoint, char * text)
         return SDL_FALSE;
     }
     return SDL_TRUE;
-}
-
-static void
-WIN_UpdateClipCursor(SDL_Window *window)
-{
-    SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
-
-    /* Don't clip the cursor while we're in the modal resize or move loop */
-    if (data->in_modal_loop) {
-        ClipCursor(NULL);
-        return;
-    }
-        
-    if (SDL_GetMouse()->relative_mode) {
-        LONG cx, cy;
-        RECT rect;
-        GetWindowRect(data->hwnd, &rect);
-
-        cx = (rect.left + rect.right) / 2;
-        cy = (rect.top + rect.bottom) / 2;
-
-        /* Make an absurdly small clip rect */
-        rect.left = cx-1;
-        rect.right = cx+1;
-        rect.top = cy-1;
-        rect.bottom = cy+1;
-
-        ClipCursor(&rect);
-    } else if ((window->flags & SDL_WINDOW_INPUT_GRABBED) &&
-               (window->flags & SDL_WINDOW_INPUT_FOCUS)) {
-        RECT rect;
-        if (GetClientRect(data->hwnd, &rect) && !IsRectEmpty(&rect)) {
-            ClientToScreen(data->hwnd, (LPPOINT) & rect);
-            ClientToScreen(data->hwnd, (LPPOINT) & rect + 1);
-            ClipCursor(&rect);
-        }
-    } else {
-        ClipCursor(NULL);
-    }
 }
 
 LRESULT CALLBACK
@@ -379,36 +366,22 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case WM_ACTIVATE:
         {
+            POINT cursorPos;
             BOOL minimized;
 
             minimized = HIWORD(wParam);
             if (!minimized && (LOWORD(wParam) != WA_INACTIVE)) {
-                Uint32 mouseFlags;
-                SHORT keyState;
-
                 SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_SHOWN, 0, 0);
                 if (SDL_GetKeyboardFocus() != data->window) {
                     SDL_SetKeyboardFocus(data->window);
                 }
-                /* mouse buttons may have changed state here, we need
-                to resync them, but we will get a WM_MOUSEMOVE right away which will fix
-                things up if in non raw mode also
-                */
-                mouseFlags = SDL_GetMouseState( NULL, NULL );
-
-                keyState = GetAsyncKeyState( VK_LBUTTON );
-                WIN_CheckWParamMouseButton( ( keyState & 0x8000 ), (mouseFlags & SDL_BUTTON_LMASK), data, SDL_BUTTON_LEFT );
-                keyState = GetAsyncKeyState( VK_RBUTTON );
-                WIN_CheckWParamMouseButton( ( keyState & 0x8000 ), (mouseFlags & SDL_BUTTON_RMASK), data, SDL_BUTTON_RIGHT );
-                keyState = GetAsyncKeyState( VK_MBUTTON );
-                WIN_CheckWParamMouseButton( ( keyState & 0x8000 ), (mouseFlags & SDL_BUTTON_MMASK), data, SDL_BUTTON_MIDDLE );
-                keyState = GetAsyncKeyState( VK_XBUTTON1 );
-                WIN_CheckWParamMouseButton( ( keyState & 0x8000 ), (mouseFlags & SDL_BUTTON_X1MASK), data, SDL_BUTTON_X1 );
-                keyState = GetAsyncKeyState( VK_XBUTTON2 );
-                WIN_CheckWParamMouseButton( ( keyState & 0x8000 ), (mouseFlags & SDL_BUTTON_X2MASK), data, SDL_BUTTON_X2 );
-                data->mouse_button_flags = 0;
-
                 WIN_UpdateClipCursor(data->window);
+                
+                GetCursorPos(&cursorPos);
+                ScreenToClient(hwnd, &cursorPos);
+                SDL_SendMouseMotion(data->window, 0, 0, cursorPos.x, cursorPos.y);
+                
+                WIN_CheckAsyncMouseRelease(data);
 
                 /*
                  * FIXME: Update keyboard state
@@ -426,60 +399,69 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_MOUSEMOVE:
-        if( !SDL_GetMouse()->relative_mode )
-            SDL_SendMouseMotion(data->window, 0, 0, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        {
+            SDL_Mouse *mouse = SDL_GetMouse();
+            if (!mouse->relative_mode || mouse->relative_mode_warp) {
+                SDL_SendMouseMotion(data->window, 0, 0, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+            }
+        }
         /* don't break here, fall through to check the wParam like the button presses */
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
     case WM_MBUTTONUP:
     case WM_XBUTTONUP:
     case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
+    case WM_RBUTTONDBLCLK:
     case WM_MBUTTONDOWN:
+    case WM_MBUTTONDBLCLK:
     case WM_XBUTTONDOWN:
-        if( !SDL_GetMouse()->relative_mode )
-            WIN_CheckWParamMouseButtons( wParam, data );
+    case WM_XBUTTONDBLCLK:
+        {
+            SDL_Mouse *mouse = SDL_GetMouse();
+            if (!mouse->relative_mode || mouse->relative_mode_warp) {
+                WIN_CheckWParamMouseButtons(wParam, data);
+            }
+        }
         break;
 
     case WM_INPUT:
-    {
-        HRAWINPUT hRawInput = (HRAWINPUT)lParam;
-        RAWINPUT inp;
-        UINT size = sizeof(inp);
-
-        if(!SDL_GetMouse()->relative_mode)
-            break;
-
-        GetRawInputData(hRawInput, RID_INPUT, &inp, &size, sizeof(RAWINPUTHEADER));
-
-        /* Mouse data */
-        if(inp.header.dwType == RIM_TYPEMOUSE)
         {
-            RAWMOUSE* mouse = &inp.data.mouse;
+            SDL_Mouse *mouse = SDL_GetMouse();
+            HRAWINPUT hRawInput = (HRAWINPUT)lParam;
+            RAWINPUT inp;
+            UINT size = sizeof(inp);
 
-            if((mouse->usFlags & 0x01) == MOUSE_MOVE_RELATIVE)
-            {
-                SDL_SendMouseMotion(data->window, 0, 1, (int)mouse->lLastX, (int)mouse->lLastY);
+            if (!mouse->relative_mode || mouse->relative_mode_warp || mouse->focus != data->window) {
+                break;
             }
-            else
-            {
-                /* synthesize relative moves from the abs position */
-                static SDL_Point initialMousePoint;
-                if ( initialMousePoint.x == 0 && initialMousePoint.y == 0 )
-                {
+
+            GetRawInputData(hRawInput, RID_INPUT, &inp, &size, sizeof(RAWINPUTHEADER));
+
+            /* Mouse data */
+            if (inp.header.dwType == RIM_TYPEMOUSE) {
+                RAWMOUSE* mouse = &inp.data.mouse;
+
+                if ((mouse->usFlags & 0x01) == MOUSE_MOVE_RELATIVE) {
+                    SDL_SendMouseMotion(data->window, 0, 1, (int)mouse->lLastX, (int)mouse->lLastY);
+                } else {
+                    /* synthesize relative moves from the abs position */
+                    static SDL_Point initialMousePoint;
+                    if (initialMousePoint.x == 0 && initialMousePoint.y == 0) {
+                        initialMousePoint.x = mouse->lLastX;
+                        initialMousePoint.y = mouse->lLastY;
+                    }
+
+                    SDL_SendMouseMotion(data->window, 0, 1, (int)(mouse->lLastX-initialMousePoint.x), (int)(mouse->lLastY-initialMousePoint.y));
+
                     initialMousePoint.x = mouse->lLastX;
                     initialMousePoint.y = mouse->lLastY;
                 }
-
-                SDL_SendMouseMotion(data->window, 0, 1, (int)(mouse->lLastX-initialMousePoint.x), (int)(mouse->lLastY-initialMousePoint.y) );
-
-                initialMousePoint.x = mouse->lLastX;
-                initialMousePoint.y = mouse->lLastY;
+                WIN_CheckRawMouseButtons(mouse->usButtonFlags, data);
             }
-            WIN_CheckRawMouseButtons( mouse->usButtonFlags, data );
         }
         break;
-    }
 
     case WM_MOUSEWHEEL:
         {
@@ -497,8 +479,8 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     s_AccumulatedMotion += WHEEL_DELTA;
                 }
             }
-            break;
         }
+        break;
 
     case WM_MOUSEHWHEEL:
         {
@@ -516,8 +498,8 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     s_AccumulatedMotion += WHEEL_DELTA;
                 }
             }
-            break;
         }
+        break;
 
 #ifdef WM_MOUSELEAVE
     case WM_MOUSELEAVE:
@@ -537,9 +519,9 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
         {
-            SDL_Scancode code = WindowsScanCodeToSDLScanCode( lParam, wParam );
-            if ( code != SDL_SCANCODE_UNKNOWN ) {
-                SDL_SendKeyboardKey(SDL_PRESSED, code );
+            SDL_Scancode code = WindowsScanCodeToSDLScanCode(lParam, wParam);
+            if (code != SDL_SCANCODE_UNKNOWN) {
+                SDL_SendKeyboardKey(SDL_PRESSED, code);
             }
         }
         if (msg == WM_KEYDOWN) {
@@ -549,8 +531,8 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
             GetKeyboardState(keyboardState);
             if (ToUnicode(wParam, (lParam >> 16) & 0xff, keyboardState, (LPWSTR)&utf32, 1, 0) > 0) {
-                WORD repitition;
-                for (repitition = lParam & 0xffff; repitition > 0; repitition--) {
+                WORD repetition;
+                for (repetition = lParam & 0xffff; repetition > 0; repetition--) {
                     WIN_ConvertUTF32toUTF8(utf32, text);
                     SDL_SendKeyboardText(text);
                 }
@@ -562,18 +544,18 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_SYSKEYUP:
     case WM_KEYUP:
         {
-            SDL_Scancode code = WindowsScanCodeToSDLScanCode( lParam, wParam );
+            SDL_Scancode code = WindowsScanCodeToSDLScanCode(lParam, wParam);
             const Uint8 *keyboardState = SDL_GetKeyboardState(NULL);
 
             /* Detect relevant keyboard shortcuts */
-            if (keyboardState[SDL_SCANCODE_LALT] == SDL_PRESSED || keyboardState[SDL_SCANCODE_RALT] == SDL_PRESSED ) {
-	            /* ALT+F4: Close window */
-	            if (code == SDL_SCANCODE_F4) {
-		            SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_CLOSE, 0, 0);
-	            }
+            if (keyboardState[SDL_SCANCODE_LALT] == SDL_PRESSED || keyboardState[SDL_SCANCODE_RALT] == SDL_PRESSED) {
+                /* ALT+F4: Close window */
+                if (code == SDL_SCANCODE_F4) {
+                    SDL_SendWindowEvent(data->window, SDL_WINDOWEVENT_CLOSE, 0, 0);
+                }
             }
 
-            if ( code != SDL_SCANCODE_UNKNOWN ) {
+            if (code != SDL_SCANCODE_UNKNOWN) {
                 if (code == SDL_SCANCODE_PRINTSCREEN &&
                     keyboardState[code] == SDL_RELEASED) {
                     SDL_SendKeyboardKey(SDL_PRESSED, code);
@@ -585,20 +567,8 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_UNICHAR:
-        {
-            if (wParam == UNICODE_NOCHAR) {
-                returnCode = 1;
-                break;
-            }
-        }
-        /* no break */
     case WM_CHAR:
-        {
-            char text[5];
-
-            WIN_ConvertUTF32toUTF8(wParam, text);
-            SDL_SendKeyboardText(text);
-        }
+        /* Ignore WM_CHAR messages that come from TranslateMessage(), since we handle WM_KEY* messages directly */
         returnCode = 0;
         break;
 
@@ -610,6 +580,20 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         returnCode = 1;
         break;
 #endif /* WM_INPUTLANGCHANGE */
+
+    case WM_NCLBUTTONDOWN:
+        {
+            data->in_title_click = SDL_TRUE;
+            WIN_UpdateClipCursor(data->window);
+        }
+        break;
+
+    case WM_NCMOUSELEAVE:
+        {
+            data->in_title_click = SDL_FALSE;
+            WIN_UpdateClipCursor(data->window);
+        }
+        break;
 
     case WM_ENTERSIZEMOVE:
     case WM_ENTERMENULOOP:
@@ -624,6 +608,9 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
             data->in_modal_loop = SDL_FALSE;
             WIN_UpdateClipCursor(data->window);
+
+            /* The mouse may have been released during the modal loop */
+            WIN_CheckAsyncMouseRelease(data);
         }
         break;
 
@@ -678,7 +665,7 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             style = GetWindowLong(hwnd, GWL_STYLE);
             /* DJM - according to the docs for GetMenu(), the
                return value is undefined if hwnd is a child window.
-               Aparently it's too difficult for MS to check
+               Apparently it's too difficult for MS to check
                inside their function, so I have to do it here.
              */
             menu = (style & WS_CHILDWINDOW) ? FALSE : (GetMenu(hwnd) != NULL);
@@ -715,6 +702,10 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             RECT rect;
             int x, y;
             int w, h;
+            
+            if (data->in_border_change) {
+                break;
+            }
 
             if (!GetClientRect(hwnd, &rect) || IsRectEmpty(&rect)) {
                 break;
@@ -737,8 +728,7 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
         {
-            switch (wParam)
-            {
+            switch (wParam) {
             case SIZE_MAXIMIZED:
                 SDL_SendWindowEvent(data->window,
                     SDL_WINDOWEVENT_MAXIMIZED, 0, 0);
@@ -762,6 +752,9 @@ WIN_WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             hittest = LOWORD(lParam);
             if (hittest == HTCLIENT) {
                 SetCursor(SDL_cursor);
+                returnCode = TRUE;
+            } else if (!g_WindowFrameUsableWhileCursorHidden && !SDL_cursor) {
+                SetCursor(NULL);
                 returnCode = TRUE;
             }
         }
@@ -899,8 +892,19 @@ WIN_PumpEvents(_THIS)
 {
     const Uint8 *keystate;
     MSG msg;
-    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-        DispatchMessage(&msg);
+    DWORD start_ticks = GetTickCount();
+
+    if (g_WindowsEnableMessageLoop) {
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            /* Always translate the message in case it's a non-SDL window (e.g. with Qt integration) */
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+
+            /* Make sure we don't busy loop here forever if there are lots of events coming in */
+            if (SDL_TICKS_PASSED(msg.time, start_ticks)) {
+                break;
+            }
+        }
     }
 
     /* Windows loses a shift KEYUP event when you have both pressed at once and let go of one.
