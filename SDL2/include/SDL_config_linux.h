@@ -50,7 +50,7 @@
 #endif
 #define HAVE_GCC_ATOMICS 1
 /* #undef HAVE_GCC_SYNC_LOCK_TEST_AND_SET */
-#define HAVE_PTHREAD_SPINLOCK 1
+/* #undef HAVE_PTHREAD_SPINLOCK */
 
 /* #undef HAVE_DXGI_H */
 
@@ -151,6 +151,9 @@
 #define HAVE_SIN 1
 #define HAVE_SINF 1
 #define HAVE_SQRT 1
+#define HAVE_SQRTF 1
+#define HAVE_TAN 1
+#define HAVE_TANF 1
 #define HAVE_FSEEKO 1
 #define HAVE_FSEEKO64 1
 #define HAVE_SIGACTION 1
@@ -163,9 +166,9 @@
 /* #undef HAVE_GETPAGESIZE */
 #define HAVE_MPROTECT 1
 #define HAVE_ICONV 1
-#define HAVE_PTHREAD_SETNAME_NP 1
+/* #undef HAVE_PTHREAD_SETNAME_NP */
 /* #undef HAVE_PTHREAD_SET_NAME_NP */
-#define HAVE_SEM_TIMEDWAIT 1
+/* #undef HAVE_SEM_TIMEDWAIT */
 
 #else
 #define HAVE_STDARG_H 1
@@ -177,19 +180,19 @@
 /* #undef SDL_DEFAULT_ASSERT_LEVEL */
 
 /* Allow disabling of core subsystems */
-/* #undef SDL_ATOMIC_DISABLED */
-/* #undef SDL_AUDIO_DISABLED */
-/* #undef SDL_CPUINFO_DISABLED */
+#define SDL_ATOMIC_DISABLED 1
+#define SDL_AUDIO_DISABLED 1
+#define SDL_CPUINFO_DISABLED 1
 /* #undef SDL_EVENTS_DISABLED */
 /* #undef SDL_FILE_DISABLED */
 /* #undef SDL_JOYSTICK_DISABLED */
 /* #undef SDL_HAPTIC_DISABLED */
 /* #undef SDL_LOADSO_DISABLED */
-/* #undef SDL_RENDER_DISABLED */
-/* #undef SDL_THREADS_DISABLED */
-/* #undef SDL_TIMERS_DISABLED */
+#define SDL_RENDER_DISABLED 1
+#define SDL_THREADS_DISABLED 1
+#define SDL_TIMERS_DISABLED 1
 /* #undef SDL_VIDEO_DISABLED */
-/* #undef SDL_POWER_DISABLED */
+#define SDL_POWER_DISABLED 1
 /* #undef SDL_FILESYSTEM_DISABLED */
 
 /* Enable various audio drivers */
@@ -202,8 +205,8 @@
 /* #undef SDL_AUDIO_DRIVER_HAIKU */
 /* #undef SDL_AUDIO_DRIVER_BSD */
 /* #undef SDL_AUDIO_DRIVER_COREAUDIO */
-#define SDL_AUDIO_DRIVER_DISK 1
-#define SDL_AUDIO_DRIVER_DUMMY 1
+/* #undef SDL_AUDIO_DRIVER_DISK */
+/* #undef SDL_AUDIO_DRIVER_DUMMY */
 /* #undef SDL_AUDIO_DRIVER_ANDROID */
 /* #undef SDL_AUDIO_DRIVER_XAUDIO2 */
 /* #undef SDL_AUDIO_DRIVER_DSOUND */
@@ -214,7 +217,7 @@
 /* #undef SDL_AUDIO_DRIVER_NAS_DYNAMIC */
 /* #undef SDL_AUDIO_DRIVER_SNDIO */
 /* #undef SDL_AUDIO_DRIVER_SNDIO_DYNAMIC */
-#define SDL_AUDIO_DRIVER_OSS 1
+/* #undef SDL_AUDIO_DRIVER_OSS */
 /* #undef SDL_AUDIO_DRIVER_OSS_SOUNDCARD_H */
 /* #undef SDL_AUDIO_DRIVER_PAUDIO */
 /* #undef SDL_AUDIO_DRIVER_QSA */
@@ -249,15 +252,15 @@
 /* #undef SDL_LOADSO_WINDOWS */
 
 /* Enable various threading systems */
-#define SDL_THREAD_PTHREAD 1
-#define SDL_THREAD_PTHREAD_RECURSIVE_MUTEX 1
+/* #undef SDL_THREAD_PTHREAD */
+/* #undef SDL_THREAD_PTHREAD_RECURSIVE_MUTEX */
 /* #undef SDL_THREAD_PTHREAD_RECURSIVE_MUTEX_NP */
 /* #undef SDL_THREAD_WINDOWS */
 
 /* Enable various timer systems */
 /* #undef SDL_TIMER_HAIKU */
 /* #undef SDL_TIMER_DUMMY */
-#define SDL_TIMER_UNIX 1
+/* #undef SDL_TIMER_UNIX */
 /* #undef SDL_TIMER_WINDOWS */
 
 /* Enable various video drivers */
@@ -296,8 +299,8 @@
 #define SDL_VIDEO_DRIVER_X11_XSHAPE 1
 /* #undef SDL_VIDEO_DRIVER_X11_XVIDMODE */
 #define SDL_VIDEO_DRIVER_X11_SUPPORTS_GENERIC_EVENTS 1
-#define SDL_VIDEO_DRIVER_X11_CONST_PARAM_XDATA32 1
-#define SDL_VIDEO_DRIVER_X11_CONST_PARAM_XEXTADDDISPLAY 1
+/* #undef SDL_VIDEO_DRIVER_X11_CONST_PARAM_XDATA32 */
+/* #undef SDL_VIDEO_DRIVER_X11_CONST_PARAM_XEXTADDDISPLAY */
 #define SDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM 1
 /* #undef SDL_VIDEO_DRIVER_NACL */
 
@@ -321,7 +324,7 @@
 /* #undef SDL_VIDEO_OPENGL_OSMESA_DYNAMIC */
 
 /* Enable system power support */
-#define SDL_POWER_LINUX 1
+/* #undef SDL_POWER_LINUX */
 /* #undef SDL_POWER_WINDOWS */
 /* #undef SDL_POWER_MACOSX */
 /* #undef SDL_POWER_HAIKU */
@@ -334,9 +337,10 @@
 /* #undef SDL_FILESYSTEM_DUMMY */
 #define SDL_FILESYSTEM_UNIX 1
 /* #undef SDL_FILESYSTEM_WINDOWS */
+/* #undef SDL_FILESYSTEM_NACL */
 
 /* Enable assembly routines */
-#define SDL_ASSEMBLY_ROUTINES 1
+/* #undef SDL_ASSEMBLY_ROUTINES */
 /* #undef SDL_ALTIVEC_BLITTERS */
 
 #endif /* _SDL_config_h */
