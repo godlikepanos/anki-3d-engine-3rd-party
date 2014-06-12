@@ -122,7 +122,7 @@
 #define GLEW_APIENTRY_DEFINED
 #  if defined(__MINGW32__) || defined(__CYGWIN__)
 #    define APIENTRY __stdcall
-#  elif (_MSC_VER >= 800) || defined(_STDCALL_SUPPORTED) || defined(__BORLANDC__)
+#  elif (defined(_MSC_VER) && (_MSC_VER >= 800)) || defined(_STDCALL_SUPPORTED) || defined(__BORLANDC__)
 #    define APIENTRY __stdcall
 #  else
 #    define APIENTRY

@@ -27,8 +27,7 @@ file(GLOB SDL_COMMON_SRC
 	src/loadso/*.c
 	src/core/linux/*.c
 	src/dynapi/*.c
-	src/filesystem/*.c
-	)
+	src/filesystem/*.c)
 
 if(LINUX)
 	add_definitions(-fvisibility=hidden)
@@ -54,10 +53,19 @@ if(LINUX)
 #		src/thread/pthread/*.c
 #		src/power/linux/*.c
 #		src/timer/unix/*.c
-		src/filesystem/unix/*.c
-	)
+		src/filesystem/unix/*.c)
+
+		set(EXTRA_LIBS dl)
 elseif(WINDOWS)
-	message(FATAL_ERROR "TODO")
+	add_definitions(-fvisibility=hidden)
+
+	file(GLOB SDL_PLATFORM_SRC 
+		src/loadso/windows/*.c
+		src/video/windows/*.c
+		src/haptic/windows/*.c
+		src/joystick/windows/*.c
+		src/filesystem/windows/*.c
+	)
 elseif(MACOS)
 	message(FATAL_ERROR "TODO")
 else()
@@ -67,4 +75,4 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_library(ankisdl ${SDL_COMMON_SRC} ${SDL_PLATFORM_SRC})
-target_link_libraries(ankisdl m dl)
+target_link_libraries(ankisdl m ${EXTRA_LIBS})
