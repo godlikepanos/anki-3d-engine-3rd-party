@@ -4,19 +4,22 @@ file(GLOB SDL_COMMON_SRC
 	src/*.c
 	src/atomic/*.c
 	src/audio/*.c
-	src/audio/dsp/*.c
-	src/audio/disk/*.c
-	src/audio/dummy/*.c
+#	src/audio/dsp/*.c
+#	src/audio/disk/*.c
+#	src/audio/dummy/*.c
 	src/cpuinfo/*.c
 	src/events/*.c
 	src/file/*.c
 	src/libm/*.c
-	src/render/*.c
 	src/render/*/*.c
+	src/render/*.c
 	src/stdlib/*.c
 	src/thread/*.c
+	src/thread/generic/*.c
 	src/timer/*.c
+	src/timer/dummy/*.c
 	src/video/*.c
+	src/video/dummy/*.c
 	# Extra subsystems
 	src/joystick/*.c
 	src/haptic/*.c
@@ -24,7 +27,8 @@ file(GLOB SDL_COMMON_SRC
 	src/loadso/*.c
 	src/core/linux/*.c
 	src/dynapi/*.c
-	src/filesystem/unix/*.c)
+	src/filesystem/*.c
+	)
 
 if(LINUX)
 	add_definitions(-fvisibility=hidden)
@@ -44,14 +48,14 @@ if(LINUX)
 		#src/stdlib/*.c
 		#src/test/*.c
 		src/loadso/dlopen/*.c
-		src/video/dummy/*.c
 		src/video/x11/*.c
 		src/haptic/linux/*.c
 		src/joystick/linux/*.c
-		src/thread/pthread/*.c
-		src/power/linux/*.c
-		src/timer/unix/*.c
-		src/filesystem/dummy/*.c)
+#		src/thread/pthread/*.c
+#		src/power/linux/*.c
+#		src/timer/unix/*.c
+		src/filesystem/unix/*.c
+	)
 elseif(WINDOWS)
 	message(FATAL_ERROR "TODO")
 elseif(MACOS)
