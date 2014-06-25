@@ -1,7 +1,16 @@
-FILE(GLOB_RECURSE GLEW_SOURCES *.c)
-FILE(GLOB_RECURSE GLEW_HEADERS *.h)
+file(GLOB_RECURSE GLEW_SOURCES *.c)
+file(GLOB_RECURSE GLEW_HEADERS *.h)
 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-ADD_LIBRARY(ankiglew ${GLEW_SOURCES} ${GLEW_HEADERS})
-SET_TARGET_PROPERTIES(ankiglew PROPERTIES LINKER_LANGUAGE C COMPILE_FLAGS "-DGLEW_NO_GLU")
+add_definitions("-DGLEW_NO_GLU")
+
+if(WINDOWS)
+	add_definitions("-DGLEW_STATIC")
+endif()
+
+add_library(ankiglew ${GLEW_SOURCES} ${GLEW_HEADERS})
+
+if(WINDOWS)
+	target_link_libraries(ankiglew opengl32)
+endif()

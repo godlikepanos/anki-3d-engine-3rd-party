@@ -25,7 +25,6 @@ file(GLOB SDL_COMMON_SRC
 	src/haptic/*.c
 	src/power/*.c
 	src/loadso/*.c
-	src/core/linux/*.c
 	src/dynapi/*.c
 	src/filesystem/*.c)
 
@@ -46,6 +45,7 @@ if(LINUX)
 		#src/render/opengl/*.c
 		#src/stdlib/*.c
 		#src/test/*.c
+		src/core/linux/*.c
 		src/loadso/dlopen/*.c
 		src/video/x11/*.c
 		src/haptic/linux/*.c
@@ -60,12 +60,15 @@ elseif(WINDOWS)
 	add_definitions(-fvisibility=hidden)
 
 	file(GLOB SDL_PLATFORM_SRC 
+		src/core/windows/*.c
 		src/loadso/windows/*.c
 		src/video/windows/*.c
-		src/haptic/windows/*.c
+		src/haptic/dummy/*.c
 		src/joystick/windows/*.c
 		src/filesystem/windows/*.c
 	)
+
+	set(EXTRA_LIBS Imm32 Winmm)
 elseif(MACOS)
 	message(FATAL_ERROR "TODO")
 else()

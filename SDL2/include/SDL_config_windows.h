@@ -100,8 +100,8 @@
 #define HAVE_MEMMOVE 1
 #define HAVE_MEMCMP 1
 #define HAVE_STRLEN 1
-#define HAVE_STRLCPY 1
-#define HAVE_STRLCAT 1
+/*#define HAVE_STRLCPY 1*/
+/*#define HAVE_STRLCAT 1*/
 #define HAVE_STRDUP 1
 /* #undef HAVE__STRREV */
 #define HAVE__STRUPR 1
@@ -186,7 +186,7 @@
 /* #undef SDL_EVENTS_DISABLED */
 /* #undef SDL_FILE_DISABLED */
 /* #undef SDL_JOYSTICK_DISABLED */
-#define SDL_HAPTIC_DISABLED 1
+/*#define SDL_HAPTIC_DISABLED 1*/
 /* #undef SDL_LOADSO_DISABLED */
 #define SDL_RENDER_DISABLED 1
 #define SDL_THREADS_DISABLED 1
@@ -239,7 +239,7 @@
 #define SDL_JOYSTICK_WINMM 1
 /* #undef SDL_JOYSTICK_USBHID */
 /* #undef SDL_JOYSTICK_USBHID_MACHINE_JOYSTICK_H */
-/* #undef SDL_HAPTIC_DUMMY */
+#define SDL_HAPTIC_DUMMY 1
 /* #undef SDL_HAPTIC_LINUX */
 /* #undef SDL_HAPTIC_IOKIT */
 /* #undef SDL_HAPTIC_DINPUT */
