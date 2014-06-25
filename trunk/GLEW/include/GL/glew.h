@@ -79,7 +79,6 @@
 #ifndef __glew_h__
 #define __glew_h__
 #define __GLEW_H__
-#define ANKI_GLEW_H
 
 #if defined(__gl_h_) || defined(__GL_H__) || defined(__X_GL_H)
 #error gl.h included before glew.h
@@ -109,6 +108,7 @@
 #define __glext_h_
 #define __GLEXT_H_
 #define __gl_ATI_h_
+#define ANKI_GLEW_H
 
 #if defined(_WIN32)
 
@@ -122,7 +122,7 @@
 #define GLEW_APIENTRY_DEFINED
 #  if defined(__MINGW32__) || defined(__CYGWIN__)
 #    define APIENTRY __stdcall
-#  elif (defined(_MSC_VER) && (_MSC_VER >= 800)) || defined(_STDCALL_SUPPORTED) || defined(__BORLANDC__)
+#  elif (_MSC_VER >= 800) || defined(_STDCALL_SUPPORTED) || defined(__BORLANDC__)
 #    define APIENTRY __stdcall
 #  else
 #    define APIENTRY
