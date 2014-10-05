@@ -14,7 +14,7 @@ following conditions are met:
   following disclaimer.
 
 * Redistributions in binary form must reproduce the above
-  copyright notice, this list of conditions and the
+  copyright notice, this list of conditions and the*
   following disclaimer in the documentation and/or other
   materials provided with the distribution.
 
@@ -176,6 +176,9 @@ const Object* LazyObject::Get(bool dieOnError)
 		else if (!strncmp(obtype,"Texture",length)) {
 			object.reset(new Texture(id,element,doc,name));
 		}
+		else if (!strncmp(obtype,"LayeredTexture",length)) {
+			object.reset(new LayeredTexture(id,element,doc,name));
+		}
 		else if (!strncmp(obtype,"AnimationStack",length)) {
 			object.reset(new AnimationStack(id,element,name,doc));
 		}
@@ -290,14 +293,19 @@ void Document::ReadHeader()
 	const Scope& shead = *ehead->Compound();
 	fbxVersion = ParseTokenAsInt(GetRequiredToken(GetRequiredElement(shead,"FBXVersion",ehead),0));
 
-	
-	if(fbxVersion < 7200 || fbxVersion > 7300) {
+	// while we maye have some success with newer files, we don't support
+	// the older 6.n fbx format
+	if(fbxVersion < 7100) {
+		DOMError("unsupported, old format version, supported are only FBX 2011, FBX 2012 and FBX 2013");
+	}
+	if(fbxVersion > 7300) {
 		if(Settings().strictMode) {
-			DOMError("unsupported format version, supported are only FBX 2012 and FBX 2013"\
-				" in ASCII format (turn off strict mode to try anyhow) ");
+			DOMError("unsupported, newer format version, supported are only FBX 2011, FBX 2012 and FBX 2013"
+				" (turn off strict mode to try anyhow) ");
 		}
 		else {
-			DOMWarning("unsupported format version, supported are only FBX 2012 and FBX 2013, trying to read it nevertheless");
+			DOMWarning("unsupported, newer format version, supported are only FBX 2011, FBX 2012 and FBX 2013,"
+				" trying to read it nevertheless");
 		}
 	}
 	
