@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(ANKI_EXTERN_SUB_DIRS tinyxml2 lua bullet z)
+set(ANKI_EXTERN_SUB_DIRS tinyxml2 lua z)
 
 if(LINUX OR MACOS OR WINDOWS)
 	set(ANKI_EXTERN_SUB_DIRS ${ANKI_EXTERN_SUB_DIRS} GLEW)
