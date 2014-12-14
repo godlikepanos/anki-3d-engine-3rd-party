@@ -19,12 +19,11 @@
 * 3. This notice may not be removed or altered from any source distribution.
 */
 
-#if !defined(AFX_DGCONTACT_H__BDE5B2AC_5834_46FD_A994_65D855788F69_H)
-#define AFX_DGCONTACT_H__BDE5B2AC_5834_46FD_A994_65D855788F69_H
+#ifndef __DGCONTACT_H__
+#define __DGCONTACT_H__
 
 
 #include "dgConstraint.h"
-
 
 class dgBody;
 class dgWorld;
@@ -35,8 +34,8 @@ class dgPolygonMeshDesc;
 class dgCollisionInstance;
 
 
-#define DG_MAX_CONTATCS			128
-
+#define DG_MAX_CONTATCS					128
+#define DG_RESTING_CONTACT_PENETRATION	dgFloat32 (1.0f / 256.0f)
 
 class dgActiveContacts: public dgList<dgContact*>
 {
@@ -206,6 +205,7 @@ class dgContact: public dgConstraint, public dgList<dgContactMaterial>
 
 	DG_CLASS_ALLOCATOR(allocator)
 
+	virtual void ResetMaxDOF();
 	virtual void GetInfo (dgConstraintInfo* const info) const;
 	virtual dgUnsigned32 JacobianDerivative (dgContraintDescritor& params); 
 	virtual void JointAccelerations (dgJointAccelerationDecriptor* const params); 
@@ -267,6 +267,7 @@ inline void dgContactMaterial::SetUserData (void* const userData)
 	m_userData = userData;
 }
 
+
 inline bool dgContact::IsDeformable() const 
 {
 	return false;
@@ -295,5 +296,11 @@ inline dgFloat32 dgContact::GetClosestDistance() const
 {
     return m_closestDistance;
 }
+
+inline void dgContact::ResetMaxDOF()
+{
+	m_maxDOF = 0;
+}
+
 #endif 
 

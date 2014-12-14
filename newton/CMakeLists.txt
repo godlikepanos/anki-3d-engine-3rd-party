@@ -6,7 +6,7 @@ file(GLOB_RECURSE NT_PHYSICS_SOURCES physics/*.cpp)
 #include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(LINUX)
-	add_definitions("-D_POSIX_VER")
+	add_definitions("-D_POSIX_VER_64")
 endif()
 
 #IF(ANKI_MATH_SIMD STREQUAL "SSE")
