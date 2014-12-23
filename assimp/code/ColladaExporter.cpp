@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Bitmap.h"
 #include "fast_atof.h"
 #include "SceneCombiner.h" 
+#include "XMLTools.h"
 
 #include <ctime>
 #include <set>
@@ -58,7 +59,7 @@ namespace Assimp
 
 // ------------------------------------------------------------------------------------------------
 // Worker function for exporting a scene to Collada. Prototyped and registered in Exporter.cpp
-void ExportSceneCollada(const char* pFile,IOSystem* pIOSystem, const aiScene* pScene)
+void ExportSceneCollada(const char* pFile, IOSystem* pIOSystem, const aiScene* pScene)
 {
 	std::string path = "";
 	std::string file = pFile;
@@ -93,6 +94,7 @@ void ExportSceneCollada(const char* pFile,IOSystem* pIOSystem, const aiScene* pS
 } // end of namespace Assimp
 
 
+
 // ------------------------------------------------------------------------------------------------
 // Constructor for a specific scene to export
 ColladaExporter::ColladaExporter( const aiScene* pScene, IOSystem* pIOSystem, const std::string& path, const std::string& file) : mIOSystem(pIOSystem), mPath(path), mFile(file)
@@ -124,7 +126,7 @@ ColladaExporter::~ColladaExporter()
 void ColladaExporter::WriteFile()
 {
 	// write the DTD
-	mOutput << "<?xml version=\"1.0\"?>" << endstr;
+	mOutput << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>" << endstr;
 	// COLLADA element start
 	mOutput << "<COLLADA xmlns=\"http://www.collada.org/2005/11/COLLADASchema\" version=\"1.4.1\">" << endstr;
 	PushTag();
@@ -140,7 +142,7 @@ void ColladaExporter::WriteFile()
 	// useless Collada fu at the end, just in case we haven't had enough indirections, yet. 
 	mOutput << startstr << "<scene>" << endstr;
 	PushTag();
-	mOutput << startstr << "<instance_visual_scene url=\"#" + std::string(mScene->mRootNode->mName.C_Str()) + "\" />" << endstr;
+	mOutput << startstr << "<instance_visual_scene url=\"#" + XMLEscape(mScene->mRootNode->mName.C_Str()) + "\" />" << endstr;
 	PopTag();
 	mOutput << startstr << "</scene>" << endstr;
 	PopTag();
@@ -151,7 +153,7 @@ void ColladaExporter::WriteFile()
 // Writes the asset header
 void ColladaExporter::WriteHeader()
 {
-	static const float epsilon = 0.000001f;
+	static const float epsilon = 0.00001f;
 	static const aiQuaternion x_rot(aiMatrix3x3( 
 		0, -1,  0,
 		1,  0,  0,
@@ -176,6 +178,7 @@ void ColladaExporter::WriteHeader()
 	aiQuaternion rotation;
 	aiVector3D position;
 	mScene->mRootNode->mTransformation.Decompose(scaling, rotation, position);
+	rotation.Normalize();
 
 	bool add_root_node = false;
 
@@ -229,8 +232,22 @@ void ColladaExporter::WriteHeader()
 	PushTag();
 	mOutput << startstr << "<contributor>" << endstr;
 	PushTag();
-	mOutput << startstr << "<author>Assimp</author>" << endstr;
-	mOutput << startstr << "<authoring_tool>Assimp Collada Exporter</authoring_tool>" << endstr;
+
+	aiMetadata* meta = mScene->mRootNode->mMetaData;
+	aiString value;
+	if (!meta || !meta->Get("Author", value))		
+		mOutput << startstr << "<author>" << "Assimp" << "</author>" << endstr;
+	else		
+		mOutput << startstr << "<author>" << XMLEscape(value.C_Str()) << "</author>" << endstr;
+
+	if (!meta || !meta->Get("AuthoringTool", value))
+		mOutput << startstr << "<authoring_tool>" << "Assimp Exporter" << "</authoring_tool>" << endstr;
+	else		
+		mOutput << startstr << "<authoring_tool>" << XMLEscape(value.C_Str()) << "</authoring_tool>" << endstr;
+
+	//mOutput << startstr << "<author>" << mScene->author.C_Str() << "</author>" << endstr;
+	//mOutput << startstr << "<authoring_tool>" << mScene->authoringTool.C_Str() << "</authoring_tool>" << endstr;
+	
 	PopTag();
 	mOutput << startstr << "</contributor>" << endstr;
 	mOutput << startstr << "<created>" << date_str << "</created>" << endstr;
@@ -327,16 +344,20 @@ void ColladaExporter::WriteImageEntry( const Surface& pSurface, const std::strin
 {
   if( !pSurface.texture.empty() )
   {
-    mOutput << startstr << "<image id=\"" << pNameAdd << "\">" << endstr;
+    mOutput << startstr << "<image id=\"" << XMLEscape(pNameAdd) << "\">" << endstr;
     PushTag(); 
     mOutput << startstr << "<init_from>";
+	
+	// URL encode image file name first, then XML encode on top
+	std::stringstream imageUrlEncoded;
     for( std::string::const_iterator it = pSurface.texture.begin(); it != pSurface.texture.end(); ++it )
     {
       if( isalnum( *it) || *it == '_' || *it == '.' || *it == '/' || *it == '\\' )
-        mOutput << *it;
+        imageUrlEncoded << *it;
       else
-        mOutput << '%' << std::hex << size_t( (unsigned char) *it) << std::dec;
+        imageUrlEncoded << '%' << std::hex << size_t( (unsigned char) *it) << std::dec;
     }
+	mOutput << XMLEscape(imageUrlEncoded.str());
     mOutput << "</init_from>" << endstr;
     PopTag();
     mOutput << startstr << "</image>" << endstr;
@@ -353,9 +374,10 @@ void ColladaExporter::WriteTextureColorEntry( const Surface& pSurface, const std
     if( pSurface.texture.empty() )
     {
       mOutput << startstr << "<color sid=\"" << pTypeName << "\">" << pSurface.color.r << "   " << pSurface.color.g << "   " << pSurface.color.b << "   " << pSurface.color.a << "</color>" << endstr;
-    } else
+    }
+	else
     {
-      mOutput << startstr << "<texture texture=\"" << pImageName << "\" texcoord=\"CHANNEL" << pSurface.channel << "\" />" << endstr;
+      mOutput << startstr << "<texture texture=\"" << XMLEscape(pImageName) << "\" texcoord=\"CHANNEL" << pSurface.channel << "\" />" << endstr;
     }
     PopTag();
     mOutput << startstr << "</" << pTypeName << ">" << endstr;
@@ -369,21 +391,21 @@ void ColladaExporter::WriteTextureParamEntry( const Surface& pSurface, const std
   // if surface is a texture, write out the sampler and the surface parameters necessary to reference the texture
   if( !pSurface.texture.empty() )
   {
-    mOutput << startstr << "<newparam sid=\"" << pMatName << "-" << pTypeName << "-surface\">" << endstr;
+    mOutput << startstr << "<newparam sid=\"" << XMLEscape(pMatName) << "-" << pTypeName << "-surface\">" << endstr;
     PushTag();
     mOutput << startstr << "<surface type=\"2D\">" << endstr;
     PushTag();
-    mOutput << startstr << "<init_from>" << pMatName << "-" << pTypeName << "-image</init_from>" << endstr;
+    mOutput << startstr << "<init_from>" << XMLEscape(pMatName) << "-" << pTypeName << "-image</init_from>" << endstr;
     PopTag();
     mOutput << startstr << "</surface>" << endstr;
     PopTag();
     mOutput << startstr << "</newparam>" << endstr;
 
-    mOutput << startstr << "<newparam sid=\"" << pMatName << "-" << pTypeName << "-sampler\">" << endstr;
+    mOutput << startstr << "<newparam sid=\"" << XMLEscape(pMatName) << "-" << pTypeName << "-sampler\">" << endstr;
     PushTag();
     mOutput << startstr << "<sampler2D>" << endstr;
     PushTag();
-    mOutput << startstr << "<source>" << pMatName << "-" << pTypeName << "-surface</source>" << endstr;
+    mOutput << startstr << "<source>" << XMLEscape(pMatName) << "-" << pTypeName << "-surface</source>" << endstr;
     PopTag();
     mOutput << startstr << "</sampler2D>" << endstr;
     PopTag();
@@ -423,7 +445,7 @@ void ColladaExporter::WriteMaterials()
       name = "mat";
     materials[a].name = std::string( "m") + boost::lexical_cast<std::string> (a) + name.C_Str();
     for( std::string::iterator it = materials[a].name.begin(); it != materials[a].name.end(); ++it ) {
-		// isalnum on MSVC asserts for code points in [0,255]. Thus prevent unwanted promotion
+		// isalnum on MSVC asserts for code points outside [0,255]. Thus prevent unwanted promotion
 		// of char to signed int and take the unsigned char value.
       if( !isalnum( static_cast<uint8_t>(*it) ) ) {
         *it = '_';
@@ -494,7 +516,7 @@ void ColladaExporter::WriteMaterials()
     {
       const Material& mat = *it;
       // this is so ridiculous it must be right
-      mOutput << startstr << "<effect id=\"" << mat.name << "-fx\" name=\"" << mat.name << "\">" << endstr;
+      mOutput << startstr << "<effect id=\"" << XMLEscape(mat.name) << "-fx\" name=\"" << XMLEscape(mat.name) << "\">" << endstr;
       PushTag();
       mOutput << startstr << "<profile_COMMON>" << endstr;
       PushTag();
@@ -545,9 +567,9 @@ void ColladaExporter::WriteMaterials()
     for( std::vector<Material>::const_iterator it = materials.begin(); it != materials.end(); ++it )
     {
       const Material& mat = *it;
-      mOutput << startstr << "<material id=\"" << mat.name << "\" name=\"" << mat.name << "\">" << endstr;
+      mOutput << startstr << "<material id=\"" << XMLEscape(mat.name) << "\" name=\"" << mat.name << "\">" << endstr;
       PushTag();
-      mOutput << startstr << "<instance_effect url=\"#" << mat.name << "-fx\"/>" << endstr;
+      mOutput << startstr << "<instance_effect url=\"#" << XMLEscape(mat.name) << "-fx\"/>" << endstr;
       PopTag();
       mOutput << startstr << "</material>" << endstr;
     }
@@ -575,13 +597,14 @@ void ColladaExporter::WriteGeometryLibrary()
 void ColladaExporter::WriteGeometry( size_t pIndex)
 {
 	const aiMesh* mesh = mScene->mMeshes[pIndex];
-	std::string idstr = GetMeshId( pIndex);
+	const std::string idstr = GetMeshId( pIndex);
+	const std::string idstrEscaped = XMLEscape(idstr);
 
   if( mesh->mNumFaces == 0 || mesh->mNumVertices == 0 )
     return;
 
 	// opening tag
-	mOutput << startstr << "<geometry id=\"" << idstr << "\" name=\"" << idstr << "_name\" >" << endstr;
+	mOutput << startstr << "<geometry id=\"" << idstrEscaped << "\" name=\"" << idstrEscaped << "_name\" >" << endstr;
 	PushTag();
 
 	mOutput << startstr << "<mesh>" << endstr;
@@ -611,45 +634,82 @@ void ColladaExporter::WriteGeometry( size_t pIndex)
 	}
 
 	// assemble vertex structure
-	mOutput << startstr << "<vertices id=\"" << idstr << "-vertices" << "\">" << endstr;
+	mOutput << startstr << "<vertices id=\"" << idstrEscaped << "-vertices" << "\">" << endstr;
 	PushTag();
-	mOutput << startstr << "<input semantic=\"POSITION\" source=\"#" << idstr << "-positions\" />" << endstr;
+	mOutput << startstr << "<input semantic=\"POSITION\" source=\"#" << idstrEscaped << "-positions\" />" << endstr;
 	if( mesh->HasNormals() )
-		mOutput << startstr << "<input semantic=\"NORMAL\" source=\"#" << idstr << "-normals\" />" << endstr;
+		mOutput << startstr << "<input semantic=\"NORMAL\" source=\"#" << idstrEscaped << "-normals\" />" << endstr;
 	for( size_t a = 0; a < AI_MAX_NUMBER_OF_TEXTURECOORDS; ++a )
 	{
 		if( mesh->HasTextureCoords( a) )
-			mOutput << startstr << "<input semantic=\"TEXCOORD\" source=\"#" << idstr << "-tex" << a << "\" " /*<< "set=\"" << a << "\"" */ << " />" << endstr;
+			mOutput << startstr << "<input semantic=\"TEXCOORD\" source=\"#" << idstrEscaped << "-tex" << a << "\" " /*<< "set=\"" << a << "\"" */ << " />" << endstr;
 	}
 	for( size_t a = 0; a < AI_MAX_NUMBER_OF_COLOR_SETS; ++a )
 	{
 		if( mesh->HasVertexColors( a) )
-			mOutput << startstr << "<input semantic=\"COLOR\" source=\"#" << idstr << "-color" << a << "\" " /*<< set=\"" << a << "\"" */ << " />" << endstr;
+			mOutput << startstr << "<input semantic=\"COLOR\" source=\"#" << idstrEscaped << "-color" << a << "\" " /*<< set=\"" << a << "\"" */ << " />" << endstr;
 	}
 	
 	PopTag();
 	mOutput << startstr << "</vertices>" << endstr;
 
-	// write face setup
-	mOutput << startstr << "<polylist count=\"" << mesh->mNumFaces << "\" material=\"theresonlyone\">" << endstr;
-	PushTag();
-	mOutput << startstr << "<input offset=\"0\" semantic=\"VERTEX\" source=\"#" << idstr << "-vertices\" />" << endstr;
-	
-	mOutput << startstr << "<vcount>";
-	for( size_t a = 0; a < mesh->mNumFaces; ++a )
-		mOutput << mesh->mFaces[a].mNumIndices << " ";
-	mOutput << "</vcount>" << endstr;
-	
-	mOutput << startstr << "<p>";
+	// count the number of lines, triangles and polygon meshes
+	int countLines = 0;
+	int countPoly = 0;
 	for( size_t a = 0; a < mesh->mNumFaces; ++a )
 	{
-		const aiFace& face = mesh->mFaces[a];
-		for( size_t b = 0; b < face.mNumIndices; ++b )
-			mOutput << face.mIndices[b] << " ";
+		if (mesh->mFaces[a].mNumIndices == 2) countLines++;
+		else if (mesh->mFaces[a].mNumIndices >= 3) countPoly++;
 	}
-	mOutput << "</p>" << endstr;
-	PopTag();
-	mOutput << startstr << "</polylist>" << endstr;
+
+	// lines
+	if (countLines)
+	{
+		mOutput << startstr << "<lines count=\"" << countLines << "\" material=\"defaultMaterial\">" << endstr;
+		PushTag();
+		mOutput << startstr << "<input offset=\"0\" semantic=\"VERTEX\" source=\"#" << idstrEscaped << "-vertices\" />" << endstr;
+		mOutput << startstr << "<p>";
+		for( size_t a = 0; a < mesh->mNumFaces; ++a )
+		{
+			const aiFace& face = mesh->mFaces[a];
+			if (face.mNumIndices != 2) continue;
+			for( size_t b = 0; b < face.mNumIndices; ++b )
+				mOutput << face.mIndices[b] << " ";
+		}
+		mOutput << "</p>" << endstr;
+		PopTag();
+		mOutput << startstr << "</lines>" << endstr;
+	}
+
+	// triangle - dont use it, because compatibility problems
+
+	// polygons
+	if (countPoly)
+	{		
+		mOutput << startstr << "<polylist count=\"" << countPoly << "\" material=\"defaultMaterial\">" << endstr;
+		PushTag();
+		mOutput << startstr << "<input offset=\"0\" semantic=\"VERTEX\" source=\"#" << idstrEscaped << "-vertices\" />" << endstr;
+	
+		mOutput << startstr << "<vcount>";
+		for( size_t a = 0; a < mesh->mNumFaces; ++a )
+		{
+			if (mesh->mFaces[a].mNumIndices < 3) continue;
+			mOutput << mesh->mFaces[a].mNumIndices << " ";
+		}
+		mOutput << "</vcount>" << endstr;
+	
+		mOutput << startstr << "<p>";
+		for( size_t a = 0; a < mesh->mNumFaces; ++a )
+		{
+			const aiFace& face = mesh->mFaces[a];
+			if (face.mNumIndices < 3) continue;
+			for( size_t b = 0; b < face.mNumIndices; ++b )
+				mOutput << face.mIndices[b] << " ";
+		}
+		mOutput << "</p>" << endstr;
+		PopTag();
+		mOutput << startstr << "</polylist>" << endstr;
+	}
 
 	// closing tags
 	PopTag();
@@ -675,11 +735,11 @@ void ColladaExporter::WriteFloatArray( const std::string& pIdString, FloatDataTy
 
 	std::string arrayId = pIdString + "-array";
 
-	mOutput << startstr << "<source id=\"" << pIdString << "\" name=\"" << pIdString << "\">" << endstr;
+	mOutput << startstr << "<source id=\"" << XMLEscape(pIdString) << "\" name=\"" << XMLEscape(pIdString) << "\">" << endstr;
 	PushTag();
 
 	// source array
-	mOutput << startstr << "<float_array id=\"" << arrayId << "\" count=\"" << pElementCount * floatsPerElement << "\"> ";
+	mOutput << startstr << "<float_array id=\"" << XMLEscape(arrayId) << "\" count=\"" << pElementCount * floatsPerElement << "\"> ";
 	PushTag();
 
 	if( pType == FloatType_TexCoord2 )
@@ -751,11 +811,11 @@ void ColladaExporter::WriteFloatArray( const std::string& pIdString, FloatDataTy
 // Writes the scene library
 void ColladaExporter::WriteSceneLibrary()
 {
-	std::string scene_name = mScene->mRootNode->mName.C_Str();
+	const std::string scene_name_escaped = XMLEscape(mScene->mRootNode->mName.C_Str());
 
 	mOutput << startstr << "<library_visual_scenes>" << endstr;
 	PushTag();
-	mOutput << startstr << "<visual_scene id=\"" + scene_name + "\" name=\"" + scene_name + "\">" << endstr;
+	mOutput << startstr << "<visual_scene id=\"" + scene_name_escaped + "\" name=\"" + scene_name_escaped + "\">" << endstr;
 	PushTag();
 
 	// start recursive write at the root node
@@ -770,9 +830,18 @@ void ColladaExporter::WriteSceneLibrary()
 
 // ------------------------------------------------------------------------------------------------
 // Recursively writes the given node
-void ColladaExporter::WriteNode( const aiNode* pNode)
+void ColladaExporter::WriteNode(aiNode* pNode)
 {
-	mOutput << startstr << "<node id=\"" << pNode->mName.data << "\" name=\"" << pNode->mName.data << "\">" << endstr;
+	// the must have a name
+	if (pNode->mName.length == 0)
+	{		
+		std::stringstream ss;
+		ss << "Node_" << pNode;
+		pNode->mName.Set(ss.str());
+	}
+
+	const std::string node_name_escaped = XMLEscape(pNode->mName.data);
+	mOutput << startstr << "<node id=\"" << node_name_escaped << "\" name=\"" << node_name_escaped << "\">" << endstr;
 	PushTag();
 
 	// write transformation - we can directly put the matrix there
@@ -793,13 +862,13 @@ void ColladaExporter::WriteNode( const aiNode* pNode)
 	if( mesh->mNumFaces == 0 || mesh->mNumVertices == 0 )
 		continue;
 
-		mOutput << startstr << "<instance_geometry url=\"#" << GetMeshId( pNode->mMeshes[a]) << "\">" << endstr;
+		mOutput << startstr << "<instance_geometry url=\"#" << XMLEscape(GetMeshId( pNode->mMeshes[a])) << "\">" << endstr;
 		PushTag();
 	mOutput << startstr << "<bind_material>" << endstr;
 	PushTag();
 	mOutput << startstr << "<technique_common>" << endstr;
 	PushTag();
-	mOutput << startstr << "<instance_material symbol=\"theresonlyone\" target=\"#" << materials[mesh->mMaterialIndex].name << "\" />" << endstr;
+	mOutput << startstr << "<instance_material symbol=\"defaultMaterial\" target=\"#" << XMLEscape(materials[mesh->mMaterialIndex].name) << "\" />" << endstr;
 		PopTag();
 	mOutput << startstr << "</technique_common>" << endstr;
 	PopTag();

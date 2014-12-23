@@ -118,7 +118,6 @@ struct Camera
 	float mZNear, mZFar;
 };
 
-#define aiLightSource_AMBIENT 0xdeaddead
 #define ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET 1e9f
 
 /** A collada light source. */
@@ -498,7 +497,8 @@ struct Effect
 
 	// Textures
 	Sampler mTexEmissive, mTexAmbient, mTexDiffuse, mTexSpecular,
-		mTexTransparent, mTexBump, mTexReflective;
+		mTexTransparent, mTexBump, mTexReflective, mTexRoughness,
+		mTexHeight;
 
 	// Scalar factory
 	float mShininess, mRefractIndex, mReflectivity;
