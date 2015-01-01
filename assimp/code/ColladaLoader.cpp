@@ -364,6 +364,11 @@ void ColladaLoader::BuildLightsForNode( const ColladaParser& pParser, const Coll
 			if (srcLight->mBlenderFlags & LA_SHAD_RAY)
 				out->mShadow = true;
 
+		if (!srcLight->mLensFlare.empty()) {
+			out->mLensFlare = (char*)malloc(srcLight->mLensFlare.length() + 1);
+			strcpy(out->mLensFlare, &srcLight->mLensFlare[0]);
+		}
+
 		// add to light list
 		mLights.push_back(out);
 	}

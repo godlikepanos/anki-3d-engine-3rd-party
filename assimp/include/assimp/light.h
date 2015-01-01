@@ -219,6 +219,7 @@ struct aiLight
 
 	/** AnKi extra */
 	bool mShadow;
+	char* mLensFlare;
 
 #ifdef __cplusplus
 
@@ -230,7 +231,14 @@ struct aiLight
 		,	mAngleInnerCone       ((float)AI_MATH_TWO_PI)
 		,	mAngleOuterCone       ((float)AI_MATH_TWO_PI)
 		,	mShadow               (false)
+		,	mLensFlare            (NULL)    
 	{
+	}
+
+	~aiLight()
+	{
+		if (mLensFlare)
+			free(mLensFlare);
 	}
 
 #endif

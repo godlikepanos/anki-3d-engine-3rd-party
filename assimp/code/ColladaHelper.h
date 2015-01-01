@@ -161,6 +161,7 @@ struct Light
 	// -----------------------------------------------------
 	// Blender extension from here
 	int mBlenderFlags;
+	std::string mLensFlare;
 };
 
 /** Short vertex index description */

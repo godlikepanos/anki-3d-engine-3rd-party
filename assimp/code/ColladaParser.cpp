@@ -1040,6 +1040,10 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 				pLight.mBlenderFlags = ReadFloatFromTextContent();
 				TestClosing("mode");
 			}
+			else if (IsElement("lens_flare")) {
+				pLight.mLensFlare = GetTextContent();
+				TestClosing("lens_flare");
+			}
 		}
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {
 			if( strcmp( mReader->getNodeName(), "light") == 0)
