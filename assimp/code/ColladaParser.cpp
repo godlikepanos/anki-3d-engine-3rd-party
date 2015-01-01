@@ -1034,6 +1034,12 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 				pLight.mFalloffAngle = ReadFloatFromTextContent();
 				TestClosing("hotspot_beam");
 			}
+			// Blender extension
+			// -------------------------------------------------------
+			else if (IsElement("mode")) {
+				pLight.mBlenderFlags = ReadFloatFromTextContent();
+				TestClosing("mode");
+			}
 		}
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {
 			if( strcmp( mReader->getNodeName(), "light") == 0)

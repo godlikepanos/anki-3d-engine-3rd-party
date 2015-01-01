@@ -217,6 +217,9 @@ struct aiLight
 	 */
 	float mAngleOuterCone;
 
+	/** AnKi extra */
+	bool mShadow;
+
 #ifdef __cplusplus
 
 	aiLight()
@@ -226,6 +229,7 @@ struct aiLight
 		,   mAttenuationQuadratic (0.f)
 		,	mAngleInnerCone       ((float)AI_MATH_TWO_PI)
 		,	mAngleOuterCone       ((float)AI_MATH_TWO_PI)
+		,	mShadow               (false)
 	{
 	}
 

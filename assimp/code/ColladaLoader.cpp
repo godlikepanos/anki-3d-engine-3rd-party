@@ -349,6 +349,21 @@ void ColladaLoader::BuildLightsForNode( const ColladaParser& pParser, const Coll
 			else out->mAngleOuterCone = AI_DEG_TO_RAD(  srcLight->mOuterAngle );
 		}
 
+		// Blender
+		const unsigned LA_NO_SPEC = (1 << 12);
+		if (srcLight->mBlenderFlags & LA_NO_SPEC) {
+			out->mColorSpecular = aiColor3D(0.0, 0.0, 0.0);
+		}
+
+		const unsigned LA_SHAD_BUF = (1 << 0);
+		const unsigned LA_SHAD_RAY = (1 << 13);
+		if (out->mType == aiLightSource_SPOT)
+			if (srcLight->mBlenderFlags & (LA_SHAD_BUF | LA_SHAD_RAY))
+				out->mShadow = true;
+		else
+			if (srcLight->mBlenderFlags & LA_SHAD_RAY)
+				out->mShadow = true;
+
 		// add to light list
 		mLights.push_back(out);
 	}

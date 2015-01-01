@@ -132,6 +132,7 @@ struct Light
 		,	mPenumbraAngle	 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mOuterAngle		 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mIntensity		 (1.f)
+		,	mBlenderFlags    (0)
 	{}
 
 	//! Type of the light source aiLightSourceType + ambient
@@ -156,6 +157,10 @@ struct Light
 
 	//! Common light intensity
 	float mIntensity;
+
+	// -----------------------------------------------------
+	// Blender extension from here
+	int mBlenderFlags;
 };
 
 /** Short vertex index description */
