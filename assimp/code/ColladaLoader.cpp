@@ -324,6 +324,12 @@ void ColladaLoader::BuildLightsForNode( const ColladaParser& pParser, const Coll
 		// collada doesn't differenciate between these color types
 		out->mColorDiffuse = out->mColorSpecular = out->mColorAmbient = srcLight->mColor*srcLight->mIntensity;
 
+		if (srcLight->mSpecularColor != aiColor3D())
+		{
+			// Specular color overriden
+			out->mColorSpecular = srcLight->mSpecularColor;
+		}
+
 		// convert falloff angle and falloff exponent in our representation, if given
 		if (out->mType == aiLightSource_SPOT) {
 			
@@ -368,6 +374,10 @@ void ColladaLoader::BuildLightsForNode( const ColladaParser& pParser, const Coll
 			out->mLensFlare = (char*)malloc(srcLight->mLensFlare.length() + 1);
 			strcpy(out->mLensFlare, &srcLight->mLensFlare[0]);
 		}
+
+		out->mLensFlareFirstSpriteSize = srcLight->mLensFlareFirstSpriteSize;
+
+		out->mLensFlareColor = srcLight->mLensFlareColor;
 
 		// add to light list
 		mLights.push_back(out);

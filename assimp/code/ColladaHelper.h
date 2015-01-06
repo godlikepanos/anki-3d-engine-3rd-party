@@ -133,6 +133,8 @@ struct Light
 		,	mOuterAngle		 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mIntensity		 (1.f)
 		,	mBlenderFlags    (0)
+		,	mLensFlareFirstSpriteSize(0, 0, 0)
+		,	mLensFlareColor  (0, 0, 0, 0)
 	{}
 
 	//! Type of the light source aiLightSourceType + ambient
@@ -162,6 +164,9 @@ struct Light
 	// Blender extension from here
 	int mBlenderFlags;
 	std::string mLensFlare;
+	aiVector3D mLensFlareFirstSpriteSize;
+	aiColor4D mLensFlareColor;
+	aiColor3D mSpecularColor;
 };
 
 /** Short vertex index description */

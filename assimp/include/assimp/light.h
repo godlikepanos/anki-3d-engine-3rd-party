@@ -220,6 +220,8 @@ struct aiLight
 	/** AnKi extra */
 	bool mShadow;
 	char* mLensFlare;
+	aiVector3D mLensFlareFirstSpriteSize;
+	aiColor4D mLensFlareColor;
 
 #ifdef __cplusplus
 
@@ -231,7 +233,7 @@ struct aiLight
 		,	mAngleInnerCone       ((float)AI_MATH_TWO_PI)
 		,	mAngleOuterCone       ((float)AI_MATH_TWO_PI)
 		,	mShadow               (false)
-		,	mLensFlare            (NULL)    
+		,	mLensFlare            (NULL)
 	{
 	}
 

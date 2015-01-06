@@ -1044,6 +1044,51 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 				pLight.mLensFlare = GetTextContent();
 				TestClosing("lens_flare");
 			}
+			else if (IsElement("lens_flare_first_sprite_size")) {
+				// text content contains 2 floats
+				const char* content = GetTextContent();
+				  
+				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareFirstSpriteSize[0]);
+				SkipSpacesAndLineEnd( &content);
+				
+				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareFirstSpriteSize[1]);
+				SkipSpacesAndLineEnd( &content);
+
+				TestClosing("lens_flare_first_sprite_size");
+			}
+			else if (IsElement("lens_flare_color")) {
+				// text content contains 4 floats
+				const char* content = GetTextContent();
+				  
+				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.r);
+				SkipSpacesAndLineEnd( &content);
+				
+				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.g);
+				SkipSpacesAndLineEnd( &content);
+
+				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.b);
+				SkipSpacesAndLineEnd( &content);
+
+				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.a);
+				SkipSpacesAndLineEnd( &content);
+
+				TestClosing( "lens_flare_color");
+			}
+			else if (IsElement("specular_color")) {
+				// text content contains 3 floats
+				const char* content = GetTextContent();
+				  
+				content = fast_atoreal_move<float>( content, (float&)pLight.mSpecularColor.r);
+				SkipSpacesAndLineEnd( &content);
+				
+				content = fast_atoreal_move<float>( content, (float&)pLight.mSpecularColor.g);
+				SkipSpacesAndLineEnd( &content);
+
+				content = fast_atoreal_move<float>( content, (float&)pLight.mSpecularColor.b);
+				SkipSpacesAndLineEnd( &content);
+
+				TestClosing( "specular_color");
+			}
 		}
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {
 			if( strcmp( mReader->getNodeName(), "light") == 0)
