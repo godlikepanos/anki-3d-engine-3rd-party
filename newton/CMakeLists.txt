@@ -9,11 +9,7 @@ if(LINUX)
 	add_definitions("-D_POSIX_VER_64")
 endif()
 
-#IF(ANKI_MATH_SIMD STREQUAL "SSE")
-#	ADD_DEFINITIONS("-DBT_USE_SSE_IN_API -DBT_USE_SSE")
-#ELSEIF(ANKI_MATH_SIMD STREQUAL "NEON")
-#	ADD_DEFINITIONS("-DBT_USE_SSE_IN_API -DBT_USE_NEON")
-#ENDIF()
+add_definitions("-msse4")
 
 include_directories(core meshUtil newton physics)
 
