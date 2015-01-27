@@ -354,7 +354,8 @@ dgInt32 dgConvexHull3d::InitVertexArray(dgHullVertex* const points, const dgFloa
 		for (; i < count; i ++) {
 			if (ConvexCompareVertex (&points[indexCount], &points[i], NULL)) {
 				indexCount ++;
-				points[indexCount] = points[i];
+				if (indexCount != i)
+					points[indexCount] = points[i];
 				break;
 			}
 		}
