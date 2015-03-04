@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ---------------------------------------------------------------------------
 */
 
-/** @file aiScene.h
+/** @file scene.h
  *  @brief Defines the data structures in which the imported scene is returned.
  */
 #ifndef __AI_SCENE_H_INC__
@@ -119,6 +119,8 @@ struct aiNode
 	  */
 	C_STRUCT aiMetadata* mMetaData;
 
+	C_STRUCT aiString mGroup;
+
 #ifdef __cplusplus
 	/** Constructor */
 	aiNode() 
@@ -130,6 +132,7 @@ struct aiNode
 		, mNumMeshes(0)
 		, mMeshes(NULL)
 		, mMetaData(NULL)
+		, mGroup("")
 	{
 	}
 	
@@ -182,8 +185,6 @@ struct aiNode
 	}
 
 
-	/** @override
-	 */
 	inline const aiNode* FindNode(const char* name) const
 	{
 		if (!::strcmp( mName.data,name))return this;
@@ -217,7 +218,7 @@ struct aiNode
 
 
 // -------------------------------------------------------------------------------
-/** @def AI_SCENE_FLAGS_INCOMPLETE
+/**
  * Specifies that the scene data structure that was imported is not complete.
  * This flag bypasses some internal validations and allows the import 
  * of animation skeletons, material libraries or camera animation paths 
@@ -225,14 +226,14 @@ struct aiNode
  */
 #define AI_SCENE_FLAGS_INCOMPLETE	0x1
 
-/** @def AI_SCENE_FLAGS_VALIDATED
+/**
  * This flag is set by the validation postprocess-step (aiPostProcess_ValidateDS)
  * if the validation is successful. In a validated scene you can be sure that
  * any cross references in the data structure (e.g. vertex indices) are valid.
  */
 #define AI_SCENE_FLAGS_VALIDATED	0x2
 
-/** @def AI_SCENE_FLAGS_VALIDATION_WARNING
+/**
  * This flag is set by the validation postprocess-step (aiPostProcess_ValidateDS)
  * if the validation is successful but some issues have been found.
  * This can for example mean that a texture that does not exist is referenced 
@@ -242,7 +243,7 @@ struct aiNode
  */
 #define AI_SCENE_FLAGS_VALIDATION_WARNING  	0x4
 
-/** @def AI_SCENE_FLAGS_NON_VERBOSE_FORMAT
+/**
  * This flag is currently only set by the aiProcess_JoinIdenticalVertices step.
  * It indicates that the vertices of the output meshes aren't in the internal
  * verbose format anymore. In the verbose format all vertices are unique,
@@ -250,7 +251,7 @@ struct aiNode
  */
 #define AI_SCENE_FLAGS_NON_VERBOSE_FORMAT  	0x8
 
- /** @def AI_SCENE_FLAGS_TERRAIN
+ /**
  * Denotes pure height-map terrain data. Pure terrains usually consist of quads, 
  * sometimes triangles, in a regular grid. The x,y coordinates of all vertex 
  * positions refer to the x,y coordinates on the terrain height map, the z-axis

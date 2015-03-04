@@ -258,6 +258,9 @@ struct Node
 	/** Rootnodes: Name of primary camera, if any */
 	std::string mPrimaryCamera;
 
+	/** AnKi: The group it belongs */
+	std::string mGroup;
+
 	//! Constructor. Begin with a zero parent
 	Node() { 
 		mParent = NULL;

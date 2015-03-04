@@ -2546,14 +2546,22 @@ void ColladaParser::ReadSceneNode( Node* pNode)
 					pNode->mCameras.back().mCamera = url+1;
 				}
 			}
+			else if (IsElement("group"))
+			{
+				mReader->read();
+				std::string groupName = mReader->getNodeName();
+				pNode->mGroup = groupName;
+			}
 			else
 			{
 				// skip everything else for the moment
-				SkipElement();
+				//SkipElement();
 			}
 		} 
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {
-			break;
+			if( strcmp( mReader->getNodeName(), "node") == 0
+				|| strcmp( mReader->getNodeName(), "visual_scene") == 0)
+				break;
 		}
 	}
 }
@@ -2725,7 +2733,7 @@ void ColladaParser::ReadScene()
 
 // ------------------------------------------------------------------------------------------------
 // Aborts the file reading with an exception
-void ColladaParser::ThrowException( const std::string& pError) const
+AI_WONT_RETURN void ColladaParser::ThrowException( const std::string& pError) const
 {
 	throw DeadlyImportError( boost::str( boost::format( "Collada: %s - %s") % mFileName % pError));
 }
