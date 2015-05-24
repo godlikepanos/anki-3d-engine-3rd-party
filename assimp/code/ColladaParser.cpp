@@ -1623,6 +1623,36 @@ void ColladaParser::ReadGeometry( Collada::Mesh* pMesh)
 				pMesh->mProperties["particles_file"] = std::string(filename);
 				mReader->read();
 			}
+			else if(IsElement("collision"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <collision> element.");
+
+				pMesh->mProperties["collision"] = std::string(value);
+				mReader->read();
+			}
+			else if(IsElement("portal"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <portal> element.");
+
+				pMesh->mProperties["portal"] = std::string(value);
+				mReader->read();
+			}
+			else if(IsElement("sector"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <sector> element.");
+
+				pMesh->mProperties["sector"] = std::string(value);
+				mReader->read();
+			}
 			else
 			{
 				// ignore the rest
