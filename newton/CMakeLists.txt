@@ -5,13 +5,17 @@ file(GLOB_RECURSE NT_PHYSICS_SOURCES physics/*.cpp)
 
 #include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+set(NT_PTHREAD_SOURCES "")
+
 if(LINUX)
 	add_definitions("-D_POSIX_VER_64")
+elseif(WINDOWS)
+	include_directories("pthreads.2")
+	add_definitions("-DPTW32_STATIC_LIB -D_NEWTON_STATIC_LIB -D_MINGW_64_VER")
+	set(NT_PTHREAD_SOURCES "pthreads.2/pthread.c")
 endif()
 
-add_definitions("-msse4")
+include_directories("core" "meshUtil" "newton" "physics")
 
-include_directories(core meshUtil newton physics)
-
-add_library(ankinewton ${NT_CORE_SOURCES} ${NT_MESH_UTIL_SOURCES} ${NT_NEWTON_SOURCES} ${NT_PHYSICS_SOURCES})
+add_library(ankinewton ${NT_PTHREAD_SOURCES} ${NT_CORE_SOURCES} ${NT_MESH_UTIL_SOURCES} ${NT_PHYSICS_SOURCES} ${NT_NEWTON_SOURCES})
 
