@@ -57,11 +57,8 @@ typedef struct
     /* Free a window manager cursor */
     void (*FreeCursor) (SDL_Cursor * cursor);
 
-    /* Warp the mouse to (x,y) within a window */
+    /* Warp the mouse to (x,y) */
     void (*WarpMouse) (SDL_Window * window, int x, int y);
-
-    /* Warp the mouse to (x,y) in screen space */
-    void (*WarpMouseGlobal) (int x, int y);
 
     /* Set relative mode */
     int (*SetRelativeMouseMode) (SDL_bool enabled);

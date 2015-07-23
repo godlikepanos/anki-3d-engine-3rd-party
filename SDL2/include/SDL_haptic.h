@@ -1148,7 +1148,7 @@ extern DECLSPEC int SDLCALL SDL_HapticPause(SDL_Haptic * haptic);
  *
  *  Call to unpause after SDL_HapticPause().
  *
- *  \param haptic Haptic device to unpause.
+ *  \param haptic Haptic device to pause.
  *  \return 0 on success or -1 on error.
  *
  *  \sa SDL_HapticPause

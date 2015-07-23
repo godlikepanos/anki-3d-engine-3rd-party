@@ -116,7 +116,7 @@ extern "C" {
  *
  *  By default, SDL does not use Direct3D Debug Layer.
  */
-#define SDL_HINT_RENDER_DIRECT3D11_DEBUG    "SDL_RENDER_DIRECT3D11_DEBUG"
+#define SDL_HINT_RENDER_DIRECT3D11_DEBUG    "SDL_HINT_RENDER_DIRECT3D11_DEBUG"
 
 /**
  *  \brief  A variable controlling the scaling quality
@@ -184,28 +184,6 @@ extern "C" {
  *  By default SDL will not use XRandR because of window manager issues.
  */
 #define SDL_HINT_VIDEO_X11_XRANDR           "SDL_VIDEO_X11_XRANDR"
-
-/**
- *  \brief  A variable controlling whether the window frame and title bar are interactive when the cursor is hidden 
- *
- *  This variable can be set to the following values:
- *    "0"       - The window frame is not interactive when the cursor is hidden (no move, resize, etc)
- *    "1"       - The window frame is interactive when the cursor is hidden
- *
- *  By default SDL will allow interaction with the window frame when the cursor is hidden
- */
-#define SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN    "SDL_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN"
-
-/**
- *  \brief  A variable controlling whether the windows message loop is processed by SDL 
- *
- *  This variable can be set to the following values:
- *    "0"       - The window message loop is not run
- *    "1"       - The window message loop is processed in SDL_PumpEvents()
- *
- *  By default SDL will process the windows message loop
- */
-#define SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP "SDL_WINDOWS_ENABLE_MESSAGELOOP"
 
 /**
  *  \brief  A variable controlling whether grabbing input grabs the keyboard
@@ -307,7 +285,7 @@ extern "C" {
 
 
 /**
- *  \brief If set to "0" then never set the top most bit on a SDL Window, even if the video mode expects it.
+ *  \brief If set to 0 then never set the top most bit on a SDL Window, even if the video mode expects it.
  *      This is a debugging aid for developers and not expected to be used by end users. The default is "1"
  *
  *  This variable can be set to the following values:
@@ -341,7 +319,7 @@ extern "C" {
 
 /**
  *  \brief A variable that determines whether ctrl+click should generate a right-click event on Mac
- *
+ *  
  *  If present, holding ctrl while left clicking will generate a right click
  *  event when on Mac.
  */
@@ -382,7 +360,7 @@ extern "C" {
 */
 #define SDL_HINT_VIDEO_WINDOW_SHARE_PIXEL_FORMAT    "SDL_VIDEO_WINDOW_SHARE_PIXEL_FORMAT"
 
-/**
+/*
  *  \brief A URL to a WinRT app's privacy policy
  *
  *  All network-enabled WinRT apps must make a privacy policy available to its
@@ -406,13 +384,13 @@ extern "C" {
  *  will not get used on that platform.  Network-enabled phone apps should display
  *  their privacy policy through some other, in-app means.
  */
-#define SDL_HINT_WINRT_PRIVACY_POLICY_URL "SDL_WINRT_PRIVACY_POLICY_URL"
+#define SDL_HINT_WINRT_PRIVACY_POLICY_URL "SDL_HINT_WINRT_PRIVACY_POLICY_URL"
 
 /** \brief Label text for a WinRT app's privacy policy link
  *
  *  Network-enabled WinRT apps must include a privacy policy.  On Windows 8, 8.1, and RT,
  *  Microsoft mandates that this policy be available via the Windows Settings charm.
- *  SDL provides code to add a link there, with its label text being set via the
+ *  SDL provides code to add a link there, with it's label text being set via the
  *  optional hint, SDL_HINT_WINRT_PRIVACY_POLICY_LABEL.
  *
  *  Please note that a privacy policy's contents are not set via this hint.  A separate
@@ -427,16 +405,16 @@ extern "C" {
  *  For additional information on linking to a privacy policy, see the documentation for
  *  SDL_HINT_WINRT_PRIVACY_POLICY_URL.
  */
-#define SDL_HINT_WINRT_PRIVACY_POLICY_LABEL "SDL_WINRT_PRIVACY_POLICY_LABEL"
+#define SDL_HINT_WINRT_PRIVACY_POLICY_LABEL "SDL_HINT_WINRT_PRIVACY_POLICY_LABEL"
 
-/** \brief If set to "1", back button press events on Windows Phone 8+ will be marked as handled.
+/** \brief If set to 1, back button press events on Windows Phone 8+ will be marked as handled.
  *
  *  TODO, WinRT: document SDL_HINT_WINRT_HANDLE_BACK_BUTTON need and use
  *  For now, more details on why this is needed can be found at the
  *  beginning of the following web page:
  *  http://msdn.microsoft.com/en-us/library/windowsphone/develop/jj247550(v=vs.105).aspx
  */
-#define SDL_HINT_WINRT_HANDLE_BACK_BUTTON "SDL_WINRT_HANDLE_BACK_BUTTON"
+#define SDL_HINT_WINRT_HANDLE_BACK_BUTTON "SDL_HINT_WINRT_HANDLE_BACK_BUTTON"
 
 /**
  *  \brief  A variable that dictates policy for fullscreen Spaces on Mac OS X.
@@ -449,7 +427,7 @@ extern "C" {
  *                button on their titlebars).
  *    "1"       - Enable Spaces support (FULLSCREEN_DESKTOP will use them and
  *                SDL_WINDOW_RESIZABLE windows will offer the "fullscreen"
- *                button on their titlebars).
+ *                button on their titlebars.
  *
  *  The default value is "1". Spaces are disabled regardless of this hint if
  *   the OS isn't at least Mac OS X Lion (10.7). This hint must be set before

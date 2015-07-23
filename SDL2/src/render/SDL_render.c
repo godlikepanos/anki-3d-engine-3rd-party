@@ -350,7 +350,7 @@ SDL_GetRendererOutputSize(SDL_Renderer * renderer, int *w, int *h)
         SDL_GetWindowSize(renderer->window, w, h);
         return 0;
     } else {
-        SDL_assert(0 && "This should never happen");
+        /* This should never happen */
         return SDL_SetError("Renderer doesn't support querying output size");
     }
 }
@@ -403,10 +403,6 @@ SDL_CreateTexture(SDL_Renderer * renderer, Uint32 format, int access, int w, int
 
     if (!format) {
         format = renderer->info.texture_formats[0];
-    }
-    if (SDL_BYTESPERPIXEL(format) == 0) {
-        SDL_SetError("Invalid texture format");
-        return NULL;
     }
     if (SDL_ISPIXELFORMAT_INDEXED(format)) {
         SDL_SetError("Palettized textures are not supported");
@@ -974,8 +970,8 @@ static void
 SDL_UnlockTextureYUV(SDL_Texture * texture)
 {
     SDL_Texture *native = texture->native;
-    void *native_pixels = NULL;
-    int native_pitch = 0;
+    void *native_pixels;
+    int native_pitch;
     SDL_Rect rect;
 
     rect.x = 0;
@@ -995,8 +991,8 @@ static void
 SDL_UnlockTextureNative(SDL_Texture * texture)
 {
     SDL_Texture *native = texture->native;
-    void *native_pixels = NULL;
-    int native_pitch = 0;
+    void *native_pixels;
+    int native_pitch;
     const SDL_Rect *rect = &texture->locked_rect;
     const void* pixels = (void *) ((Uint8 *) texture->pixels +
                         rect->y * texture->pitch +
@@ -1071,7 +1067,6 @@ SDL_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture)
         /* Make a backup of the viewport */
         renderer->viewport_backup = renderer->viewport;
         renderer->clip_rect_backup = renderer->clip_rect;
-        renderer->clipping_enabled_backup = renderer->clipping_enabled;
         renderer->scale_backup = renderer->scale;
         renderer->logical_w_backup = renderer->logical_w;
         renderer->logical_h_backup = renderer->logical_h;
@@ -1094,7 +1089,6 @@ SDL_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture)
     } else {
         renderer->viewport = renderer->viewport_backup;
         renderer->clip_rect = renderer->clip_rect_backup;
-        renderer->clipping_enabled = renderer->clipping_enabled_backup;
         renderer->scale = renderer->scale_backup;
         renderer->logical_w = renderer->logical_w_backup;
         renderer->logical_h = renderer->logical_h_backup;
@@ -1119,7 +1113,7 @@ SDL_GetRenderTarget(SDL_Renderer *renderer)
 static int
 UpdateLogicalSize(SDL_Renderer *renderer)
 {
-    int w = 1, h = 1;
+    int w, h;
     float want_aspect;
     float real_aspect;
     float scale;
@@ -1235,13 +1229,11 @@ SDL_RenderSetClipRect(SDL_Renderer * renderer, const SDL_Rect * rect)
     CHECK_RENDERER_MAGIC(renderer, -1)
 
     if (rect) {
-        renderer->clipping_enabled = SDL_TRUE;
         renderer->clip_rect.x = (int)SDL_floor(rect->x * renderer->scale.x);
         renderer->clip_rect.y = (int)SDL_floor(rect->y * renderer->scale.y);
         renderer->clip_rect.w = (int)SDL_ceil(rect->w * renderer->scale.x);
         renderer->clip_rect.h = (int)SDL_ceil(rect->h * renderer->scale.y);
     } else {
-        renderer->clipping_enabled = SDL_FALSE;
         SDL_zero(renderer->clip_rect);
     }
     return renderer->UpdateClipRect(renderer);
@@ -1258,13 +1250,6 @@ SDL_RenderGetClipRect(SDL_Renderer * renderer, SDL_Rect * rect)
         rect->w = (int)(renderer->clip_rect.w / renderer->scale.x);
         rect->h = (int)(renderer->clip_rect.h / renderer->scale.y);
     }
-}
-
-SDL_bool
-SDL_RenderIsClipEnabled(SDL_Renderer * renderer)
-{
-    CHECK_RENDERER_MAGIC(renderer, SDL_FALSE)
-    return renderer->clipping_enabled;
 }
 
 int

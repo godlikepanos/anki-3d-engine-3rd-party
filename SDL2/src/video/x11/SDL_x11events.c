@@ -305,15 +305,12 @@ X11_DispatchEvent(_THIS)
 #endif
         if (orig_keycode) {
             /* Make sure dead key press/release events are sent */
-            /* Actually, don't do this because it causes double-delivery
-               of some keys on Ubuntu 14.04 (bug 2526)
             SDL_Scancode scancode = videodata->key_layout[orig_keycode];
             if (orig_event_type == KeyPress) {
                 SDL_SendKeyboardKey(SDL_PRESSED, scancode);
             } else {
                 SDL_SendKeyboardKey(SDL_RELEASED, scancode);
             }
-            */
         }
         return;
     }
@@ -563,23 +560,26 @@ X11_DispatchEvent(_THIS)
                    xevent.xconfigure.width, xevent.xconfigure.height);
 #endif
             long border_left = 0;
+            long border_right = 0;
             long border_top = 0;
+            long border_bottom = 0;
             if (data->xwindow) {
                 Atom _net_frame_extents = X11_XInternAtom(display, "_NET_FRAME_EXTENTS", 0);
-                Atom type;
+                Atom type = None;
                 int format;
-                unsigned long nitems, bytes_after;
+                unsigned long nitems = 0, bytes_after;
                 unsigned char *property;
-                if (X11_XGetWindowProperty(display, data->xwindow,
-                        _net_frame_extents, 0, 16, 0,
-                        XA_CARDINAL, &type, &format,
-                        &nitems, &bytes_after, &property) == Success) {
-                    if (type != None && nitems == 4)
-                    {
-                        border_left = ((long*)property)[0];
-                        border_top = ((long*)property)[2];
-                    }
-                    X11_XFree(property);
+                X11_XGetWindowProperty(display, data->xwindow,
+                    _net_frame_extents, 0, 16, 0,
+                    XA_CARDINAL, &type, &format,
+                    &nitems, &bytes_after, &property);
+
+                if (type != None && nitems == 4)
+                {
+                    border_left = ((long*)property)[0];
+                    border_right = ((long*)property)[1];
+                    border_top = ((long*)property)[2];
+                    border_bottom = ((long*)property)[3];
                 }
             }
 

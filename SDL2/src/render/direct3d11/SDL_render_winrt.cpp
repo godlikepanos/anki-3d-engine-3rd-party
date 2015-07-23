@@ -23,7 +23,6 @@
 #if SDL_VIDEO_RENDER_D3D11 && !SDL_RENDER_DISABLED
 
 #include "SDL_syswm.h"
-#include "../../video/winrt/SDL_winrtvideo_cpp.h"
 extern "C" {
 #include "../SDL_sysrender.h"
 }
@@ -80,7 +79,11 @@ D3D11_GetCoreWindowFromSDLRenderer(SDL_Renderer * renderer)
 extern "C" DXGI_MODE_ROTATION
 D3D11_GetCurrentRotation()
 {
-    const DisplayOrientations currentOrientation = WINRT_DISPLAY_PROPERTY(CurrentOrientation);
+#if NTDDI_VERSION > NTDDI_WIN8
+    const DisplayOrientations currentOrientation = DisplayInformation::GetForCurrentView()->CurrentOrientation;
+#else
+    const DisplayOrientations currentOrientation = DisplayProperties::CurrentOrientation;
+#endif
 
     switch (currentOrientation) {
 

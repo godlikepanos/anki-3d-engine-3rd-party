@@ -26,7 +26,6 @@
 
 /* Simple log messages in SDL */
 
-#include "SDL_error.h"
 #include "SDL_log.h"
 
 #if HAVE_STDIO_H
@@ -41,6 +40,9 @@
 #define DEFAULT_ASSERT_PRIORITY         SDL_LOG_PRIORITY_WARN
 #define DEFAULT_APPLICATION_PRIORITY    SDL_LOG_PRIORITY_INFO
 #define DEFAULT_TEST_PRIORITY           SDL_LOG_PRIORITY_VERBOSE
+
+/* Forward definition of error function */
+extern int SDL_SetError(const char *fmt, ...);
 
 typedef struct SDL_LogLevel
 {
@@ -170,7 +172,7 @@ SDL_LogResetPriorities(void)
 }
 
 void
-SDL_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_Log(const char *fmt, ...)
 {
     va_list ap;
 
@@ -180,7 +182,7 @@ SDL_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogVerbose(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogVerbose(int category, const char *fmt, ...)
 {
     va_list ap;
 
@@ -190,7 +192,7 @@ SDL_LogVerbose(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogDebug(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogDebug(int category, const char *fmt, ...)
 {
     va_list ap;
 
@@ -200,7 +202,7 @@ SDL_LogDebug(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogInfo(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogInfo(int category, const char *fmt, ...)
 {
     va_list ap;
 
@@ -210,7 +212,7 @@ SDL_LogInfo(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogWarn(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogWarn(int category, const char *fmt, ...)
 {
     va_list ap;
 
@@ -220,7 +222,7 @@ SDL_LogWarn(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogError(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogError(int category, const char *fmt, ...)
 {
     va_list ap;
 
@@ -230,7 +232,7 @@ SDL_LogError(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogCritical(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogCritical(int category, const char *fmt, ...)
 {
     va_list ap;
 
@@ -240,7 +242,7 @@ SDL_LogCritical(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 }
 
 void
-SDL_LogMessage(int category, SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+SDL_LogMessage(int category, SDL_LogPriority priority, const char *fmt, ...)
 {
     va_list ap;
 
@@ -413,9 +415,6 @@ SDL_LogOutput(void *userdata, int category, SDL_LogPriority priority,
 #endif
 #if HAVE_STDIO_H
     fprintf(stderr, "%s: %s\n", SDL_priority_prefixes[priority], message);
-#if __NACL__
-    fflush(stderr);
-#endif
 #endif
 }
 

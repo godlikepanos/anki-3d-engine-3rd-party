@@ -347,9 +347,11 @@ SW_UpdateClipRect(SDL_Renderer * renderer)
 {
     SW_RenderData *data = (SW_RenderData *) renderer->driverdata;
     SDL_Surface *surface = data->surface;
+    const SDL_Rect *rect = &renderer->clip_rect;
+
     if (surface) {
-        if (renderer->clipping_enabled) {
-            SDL_SetClipRect(surface, &renderer->clip_rect);
+        if (!SDL_RectEmpty(rect)) {
+            SDL_SetClipRect(surface, rect);
         } else {
             SDL_SetClipRect(surface, NULL);
         }

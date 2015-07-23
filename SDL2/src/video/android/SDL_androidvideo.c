@@ -111,7 +111,6 @@ Android_CreateDevice(int devindex)
     device->CreateWindow = Android_CreateWindow;
     device->SetWindowTitle = Android_SetWindowTitle;
     device->DestroyWindow = Android_DestroyWindow;
-    device->GetWindowWMInfo = Android_GetWindowWMInfo;
 
     device->free = Android_DeleteDevice;
 

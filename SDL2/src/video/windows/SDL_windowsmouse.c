@@ -198,16 +198,6 @@ WIN_WarpMouse(SDL_Window * window, int x, int y)
     SetCursorPos(pt.x, pt.y);
 }
 
-static void
-WIN_WarpMouseGlobal(int x, int y)
-{
-    POINT pt;
-
-    pt.x = x;
-    pt.y = y;
-    SetCursorPos(pt.x, pt.y);
-}
-
 static int
 WIN_SetRelativeMouseMode(SDL_bool enabled)
 {
@@ -239,7 +229,6 @@ WIN_InitMouse(_THIS)
     mouse->ShowCursor = WIN_ShowCursor;
     mouse->FreeCursor = WIN_FreeCursor;
     mouse->WarpMouse = WIN_WarpMouse;
-    mouse->WarpMouseGlobal = WIN_WarpMouseGlobal;
     mouse->SetRelativeMouseMode = WIN_SetRelativeMouseMode;
 
     SDL_SetDefaultCursor(WIN_CreateDefaultCursor());

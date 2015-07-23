@@ -110,12 +110,6 @@ MIR_WarpMouse(SDL_Window* window, int x, int y)
     SDL_Unsupported();
 }
 
-static void
-MIR_WarpMouseGlobal(int x, int y)
-{
-    SDL_Unsupported();
-}
-
 static int
 MIR_SetRelativeMouseMode(SDL_bool enabled)
 {
@@ -132,7 +126,6 @@ MIR_InitMouse()
     mouse->ShowCursor           = MIR_ShowCursor;
     mouse->FreeCursor           = MIR_FreeCursor;
     mouse->WarpMouse            = MIR_WarpMouse;
-    mouse->WarpMouseGlobal      = MIR_WarpMouseGlobal;
     mouse->CreateSystemCursor   = MIR_CreateSystemCursor;
     mouse->SetRelativeMouseMode = MIR_SetRelativeMouseMode;
 

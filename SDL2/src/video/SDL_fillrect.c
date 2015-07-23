@@ -99,11 +99,12 @@ static void
 SDL_FillRect1SSE(Uint8 *pixels, int pitch, Uint32 color, int w, int h)
 {
     int i, n;
-
+    Uint8 *p = NULL;
+    
     SSE_BEGIN;
     while (h--) {
-        Uint8 *p = pixels;
         n = w;
+        p = pixels;
 
         if (n > 63) {
             int adjust = 16 - ((uintptr_t)p & 15);
@@ -117,6 +118,7 @@ SDL_FillRect1SSE(Uint8 *pixels, int pitch, Uint32 color, int w, int h)
         if (n & 63) {
             int remainder = (n & 63);
             SDL_memset(p, color, remainder);
+            p += remainder;
         }
         pixels += pitch;
     }

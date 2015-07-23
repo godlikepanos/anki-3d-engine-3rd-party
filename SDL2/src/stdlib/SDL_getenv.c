@@ -33,27 +33,16 @@ static size_t SDL_envmemlen = 0;
 #endif
 
 /* Put a variable into the environment */
-/* Note: Name may not contain a '=' character. (Reference: http://www.unix.com/man-page/Linux/3/setenv/) */
 #if defined(HAVE_SETENV)
 int
 SDL_setenv(const char *name, const char *value, int overwrite)
 {
-    /* Input validation */
-    if (!name || SDL_strlen(name) == 0 || SDL_strchr(name, '=') != NULL || !value) {
-        return (-1);
-    }
-    
     return setenv(name, value, overwrite);
 }
 #elif defined(__WIN32__)
 int
 SDL_setenv(const char *name, const char *value, int overwrite)
 {
-    /* Input validation */
-    if (!name || SDL_strlen(name) == 0 || SDL_strchr(name, '=') != NULL || !value) {
-        return (-1);
-    }
-    
     if (!overwrite) {
         char ch = 0;
         const size_t len = GetEnvironmentVariableA(name, &ch, sizeof (ch));
@@ -74,11 +63,6 @@ SDL_setenv(const char *name, const char *value, int overwrite)
     size_t len;
     char *new_variable;
 
-    /* Input validation */
-    if (!name || SDL_strlen(name) == 0 || SDL_strchr(name, '=') != NULL || !value) {
-        return (-1);
-    }
-    
     if (getenv(name) != NULL) {
         if (overwrite) {
             unsetenv(name);
@@ -107,8 +91,8 @@ SDL_setenv(const char *name, const char *value, int overwrite)
     char **new_env;
     char *new_variable;
 
-    /* Input validation */
-    if (!name || SDL_strlen(name) == 0 || SDL_strchr(name, '=') != NULL || !value) {
+    /* A little error checking */
+    if (!name || !value) {
         return (-1);
     }
 
@@ -168,11 +152,6 @@ SDL_setenv(const char *name, const char *value, int overwrite)
 char *
 SDL_getenv(const char *name)
 {
-    /* Input validation */
-    if (!name || SDL_strlen(name)==0) {
-        return NULL;
-    }
-
     return getenv(name);
 }
 #elif defined(__WIN32__)
@@ -181,11 +160,6 @@ SDL_getenv(const char *name)
 {
     size_t bufferlen;
 
-    /* Input validation */
-    if (!name || SDL_strlen(name)==0) {
-        return NULL;
-    }
-    
     bufferlen =
         GetEnvironmentVariableA(name, SDL_envmem, (DWORD) SDL_envmemlen);
     if (bufferlen == 0) {
@@ -209,11 +183,6 @@ SDL_getenv(const char *name)
     int len, i;
     char *value;
 
-    /* Input validation */
-    if (!name || SDL_strlen(name)==0) {
-        return NULL;
-    }
-    
     value = (char *) 0;
     if (SDL_env) {
         len = SDL_strlen(name);
