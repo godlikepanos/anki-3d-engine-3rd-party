@@ -1709,8 +1709,44 @@ void ColladaParser::ReadMesh( Mesh* pMesh)
 			{
 				// read per-index mesh data and faces setup
 				ReadIndexData( pMesh);
-			} else
-			{
+			}
+			// AnKi mesh properties
+			else if (IsElement("portal")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <portal> element.");
+				pMesh->mProperties["portal"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("sector")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <sector> element.");
+				pMesh->mProperties["sector"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("collision")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <collision> element.");
+				pMesh->mProperties["collision"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("particles")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <particles> element.");
+				pMesh->mProperties["particles"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("lod1")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <lod1> element.");
+				pMesh->mProperties["lod1"] = std::string(value);
+				mReader->read();
+			}
+			else {
 				// ignore the rest
 				SkipElement();
 			}
