@@ -1034,12 +1034,8 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 				pLight.mFalloffAngle = ReadFloatFromTextContent();
 				TestClosing("hotspot_beam");
 			}
-			// Blender extension
+			// AnKi extension
 			// -------------------------------------------------------
-			else if (IsElement("mode")) {
-				pLight.mBlenderFlags = ReadFloatFromTextContent();
-				TestClosing("mode");
-			}
 			else if (IsElement("lens_flare")) {
 				pLight.mLensFlare = GetTextContent();
 				TestClosing("lens_flare");
@@ -1088,6 +1084,24 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 				SkipSpacesAndLineEnd( &content);
 
 				TestClosing( "specular_color");
+			}
+			else if (IsElement("shadow")) {
+				const char* content = GetTextContent();
+
+				if (std::string(content) == "true")
+				{
+					pLight.mShadow = true;
+				}
+				else if (std::string(content) == "false")
+				{
+					pLight.mShadow = false;
+				}
+				else
+				{
+					ThrowException("Expecting true or false for <shadow>");
+				}
+
+				TestClosing( "shadow");
 			}
 		}
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {

@@ -132,7 +132,7 @@ struct Light
 		,	mPenumbraAngle	 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mOuterAngle		 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mIntensity		 (1.f)
-		,	mBlenderFlags    (0)
+		,	mShadow          (false)
 		,	mLensFlareFirstSpriteSize(0, 0, 0)
 		,	mLensFlareColor  (0, 0, 0, 0)
 	{}
@@ -162,7 +162,7 @@ struct Light
 
 	// -----------------------------------------------------
 	// Blender extension from here
-	int mBlenderFlags;
+	bool mShadow;
 	std::string mLensFlare;
 	aiVector3D mLensFlareFirstSpriteSize;
 	aiColor4D mLensFlareColor;
