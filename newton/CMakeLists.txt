@@ -15,6 +15,8 @@ elseif(WINDOWS)
 	set(NT_PTHREAD_SOURCES "pthreads.2/pthread.c")
 endif()
 
+add_definitions("-O2")
+
 include_directories("core" "meshUtil" "newton" "physics")
 
 add_library(ankinewton ${NT_PTHREAD_SOURCES} ${NT_CORE_SOURCES} ${NT_MESH_UTIL_SOURCES} ${NT_PHYSICS_SOURCES} ${NT_NEWTON_SOURCES})
