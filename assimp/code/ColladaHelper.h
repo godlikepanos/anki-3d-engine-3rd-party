@@ -132,9 +132,6 @@ struct Light
 		,	mPenumbraAngle	 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mOuterAngle		 (ASSIMP_COLLADA_LIGHT_ANGLE_NOT_SET)
 		,	mIntensity		 (1.f)
-		,	mShadow          (false)
-		,	mLensFlareFirstSpriteSize(0, 0, 0)
-		,	mLensFlareColor  (0, 0, 0, 0)
 	{}
 
 	//! Type of the light source aiLightSourceType + ambient
@@ -161,12 +158,8 @@ struct Light
 	float mIntensity;
 
 	// -----------------------------------------------------
-	// Blender extension from here
-	bool mShadow;
-	std::string mLensFlare;
-	aiVector3D mLensFlareFirstSpriteSize;
-	aiColor4D mLensFlareColor;
-	aiColor3D mSpecularColor;
+	// AnKi extension from here
+	std::map<std::string, std::string> mProperties;
 };
 
 /** Short vertex index description */

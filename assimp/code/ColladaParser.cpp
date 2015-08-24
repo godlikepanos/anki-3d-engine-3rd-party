@@ -1037,71 +1037,24 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 			// AnKi extension
 			// -------------------------------------------------------
 			else if (IsElement("lens_flare")) {
-				pLight.mLensFlare = GetTextContent();
+				pLight.mProperties["lens_flare"] = GetTextContent();
 				TestClosing("lens_flare");
 			}
 			else if (IsElement("lens_flare_first_sprite_size")) {
-				// text content contains 2 floats
-				const char* content = GetTextContent();
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareFirstSpriteSize[0]);
-				SkipSpacesAndLineEnd( &content);
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareFirstSpriteSize[1]);
-				SkipSpacesAndLineEnd( &content);
-
+				pLight.mProperties["lens_flare_first_sprite_size"] = GetTextContent();
 				TestClosing("lens_flare_first_sprite_size");
 			}
 			else if (IsElement("lens_flare_color")) {
-				// text content contains 4 floats
-				const char* content = GetTextContent();
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.r);
-				SkipSpacesAndLineEnd( &content);
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.g);
-				SkipSpacesAndLineEnd( &content);
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.b);
-				SkipSpacesAndLineEnd( &content);
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mLensFlareColor.a);
-				SkipSpacesAndLineEnd( &content);
-
-				TestClosing( "lens_flare_color");
+				pLight.mProperties["lens_flare_color"] = GetTextContent();
+				TestClosing("lens_flare_color");
 			}
 			else if (IsElement("specular_color")) {
-				// text content contains 3 floats
-				const char* content = GetTextContent();
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mSpecularColor.r);
-				SkipSpacesAndLineEnd( &content);
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mSpecularColor.g);
-				SkipSpacesAndLineEnd( &content);
-
-				content = fast_atoreal_move<float>( content, (float&)pLight.mSpecularColor.b);
-				SkipSpacesAndLineEnd( &content);
-
-				TestClosing( "specular_color");
+				pLight.mProperties["specular_color"] = GetTextContent();
+				TestClosing("specular_color");
 			}
 			else if (IsElement("shadow")) {
-				const char* content = GetTextContent();
-
-				if (std::string(content) == "true")
-				{
-					pLight.mShadow = true;
-				}
-				else if (std::string(content) == "false")
-				{
-					pLight.mShadow = false;
-				}
-				else
-				{
-					ThrowException("Expecting true or false for <shadow>");
-				}
-
-				TestClosing( "shadow");
+				pLight.mProperties["shadow"] = GetTextContent();
+				TestClosing("shadow");
 			}
 		}
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {
