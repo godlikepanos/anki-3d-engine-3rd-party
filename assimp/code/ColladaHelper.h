@@ -518,6 +518,9 @@ struct Effect
 	typedef std::map<std::string, Collada::EffectParam> ParamLibrary;
 	ParamLibrary mParams;
 
+	// AnKi
+	std::map<std::string, std::string> mParameters;
+
 	// MAX3D extensions
 	// ---------------------------------------------------------
 	// Double-sided?

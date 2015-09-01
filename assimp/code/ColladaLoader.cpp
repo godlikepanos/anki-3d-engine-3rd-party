@@ -1376,6 +1376,9 @@ void ColladaLoader::FillMaterials( const ColladaParser& pParser, aiScene* /*pSce
 
 		if( !effect.mTexReflective.mName.empty())
 			AddTexture( mat, pParser, effect, effect.mTexReflective, aiTextureType_REFLECTION);
+
+		// AnKi
+		mat.mAnKiProperties = effect.mParameters;
 	}
 }
 
