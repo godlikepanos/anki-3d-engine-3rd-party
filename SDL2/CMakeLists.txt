@@ -677,7 +677,7 @@ if(UNIX AND NOT APPLE)
         #include <linux/kd.h>
         #include <linux/keyboard.h>
 
-        int main(int argc, char **argv) 
+        int main(int argc, char **argv)
         {
             struct kbentry kbe;
             kbe.kb_table = KG_CTRL;
@@ -1304,6 +1304,8 @@ if(NOT WINDOWS OR CYGWIN)
   # TODO: what about the .spec file? Is it only needed for RPM creation?
   install(FILES "${SDL2_SOURCE_DIR}/sdl2.m4" DESTINATION "share/aclocal")
 else()
-  install(TARGETS SDL2 RUNTIME DESTINATION bin)
+  if(SDL_SHARED)
+    install(TARGETS SDL2 RUNTIME DESTINATION bin)
+  endif()
 endif()
 
