@@ -1056,6 +1056,14 @@ void ColladaParser::ReadLight( Collada::Light& pLight)
 				pLight.mProperties["shadow"] = GetTextContent();
 				TestClosing("shadow");
 			}
+			else if (IsElement("light_event_intensity")) {
+				pLight.mProperties["light_event_intensity"] = GetTextContent();
+				TestClosing("light_event_intensity");
+			}
+			else if (IsElement("light_event_frequency")) {
+				pLight.mProperties["light_event_frequency"] = GetTextContent();
+				TestClosing("light_event_frequency");
+			}
 		}
 		else if( mReader->getNodeType() == irr::io::EXN_ELEMENT_END) {
 			if( strcmp( mReader->getNodeName(), "light") == 0)
