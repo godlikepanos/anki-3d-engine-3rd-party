@@ -1271,6 +1271,11 @@ void ColladaParser::ReadEffectProfileCommon( Collada::Effect& pEffect)
 				aiColor4D dummy;
 				ReadEffectColor( dummy,pEffect.mTexRoughness);
 			}
+			else if( IsElement( "metallic"))	{
+				const char* txt = GetTextContent();
+				pEffect.mParameters["metallic"] = txt;
+				TestClosing( "metallic");
+			}
 			else if( IsElement( "material_override"))	{
 				const char* txt = GetTextContent();
 				pEffect.mParameters["material_override"] = txt;
