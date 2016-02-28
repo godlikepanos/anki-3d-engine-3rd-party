@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -21,13 +21,6 @@
 #include "../../SDL_internal.h"
 
 #if SDL_VIDEO_DRIVER_COCOA
-
-#if defined(__APPLE__) && defined(__POWERPC__) && !defined(__APPLE_ALTIVEC__)
-#include <altivec.h>
-#undef bool
-#undef vector
-#undef pixel
-#endif
 
 #include "SDL.h"
 #include "SDL_endian.h"
@@ -76,16 +69,16 @@ Cocoa_CreateDevice(int devindex)
     }
     device->driverdata = data;
 
-    /* Find out what version of Mac OS X we're running */
-    Gestalt(gestaltSystemVersion, &data->osversion);
-
     /* Set the function pointers */
     device->VideoInit = Cocoa_VideoInit;
     device->VideoQuit = Cocoa_VideoQuit;
     device->GetDisplayBounds = Cocoa_GetDisplayBounds;
+    device->GetDisplayUsableBounds = Cocoa_GetDisplayUsableBounds;
+    device->GetDisplayDPI = Cocoa_GetDisplayDPI;
     device->GetDisplayModes = Cocoa_GetDisplayModes;
     device->SetDisplayMode = Cocoa_SetDisplayMode;
     device->PumpEvents = Cocoa_PumpEvents;
+    device->SuspendScreenSaver = Cocoa_SuspendScreenSaver;
 
     device->CreateWindow = Cocoa_CreateWindow;
     device->CreateWindowFrom = Cocoa_CreateWindowFrom;
@@ -95,6 +88,7 @@ Cocoa_CreateDevice(int devindex)
     device->SetWindowSize = Cocoa_SetWindowSize;
     device->SetWindowMinimumSize = Cocoa_SetWindowMinimumSize;
     device->SetWindowMaximumSize = Cocoa_SetWindowMaximumSize;
+    device->SetWindowOpacity = Cocoa_SetWindowOpacity;
     device->ShowWindow = Cocoa_ShowWindow;
     device->HideWindow = Cocoa_HideWindow;
     device->RaiseWindow = Cocoa_RaiseWindow;
@@ -108,6 +102,7 @@ Cocoa_CreateDevice(int devindex)
     device->SetWindowGrab = Cocoa_SetWindowGrab;
     device->DestroyWindow = Cocoa_DestroyWindow;
     device->GetWindowWMInfo = Cocoa_GetWindowWMInfo;
+    device->SetWindowHitTest = Cocoa_SetWindowHitTest;
 
     device->shape_driver.CreateShaper = Cocoa_CreateShaper;
     device->shape_driver.SetWindowShape = Cocoa_SetWindowShape;
@@ -155,7 +150,10 @@ Cocoa_VideoInit(_THIS)
     Cocoa_InitMouse(_this);
 
     const char *hint = SDL_GetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES);
-    data->allow_spaces = ( (data->osversion >= 0x1070) && (!hint || (*hint != '0')) );
+    data->allow_spaces = ( (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6) && (!hint || (*hint != '0')) );
+
+    /* The IOPM assertion API can disable the screensaver as of 10.7. */
+    data->screensaver_use_iopm = floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6;
 
     return 0;
 }

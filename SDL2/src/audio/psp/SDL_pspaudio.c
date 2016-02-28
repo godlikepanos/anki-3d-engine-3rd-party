@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2014 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -18,6 +18,9 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
+#include "../../SDL_internal.h"
+
+#if SDL_AUDIO_DRIVER_PSP
 
 #include <stdio.h>
 #include <string.h>
@@ -40,7 +43,7 @@
 #define PSPAUD_DRIVER_NAME         "psp"
 
 static int
-PSPAUD_OpenDevice(_THIS, const char *devname, int iscapture)
+PSPAUD_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
 {
     int format, mixlen, i;
     this->hidden = (struct SDL_PrivateAudioData *)
@@ -63,20 +66,7 @@ PSPAUD_OpenDevice(_THIS, const char *devname, int iscapture)
     this->spec.freq = 44100;
 
     /* Update the fragment size as size in bytes. */
-/*  SDL_CalculateAudioSpec(this->spec); MOD */
-    switch (this->spec.format) {
-    case AUDIO_U8:
-        this->spec.silence = 0x80;
-        break;
-    default:
-        this->spec.silence = 0x00;
-        break;
-    }
-    this->spec.size = SDL_AUDIO_BITSIZE(this->spec.format) / 8;
-    this->spec.size *= this->spec.channels;
-    this->spec.size *= this->spec.samples;
-
-/* ========================================== */
+    SDL_CalculateAudioSpec(&this->spec);
 
     /* Allocate the mixing buffer.  Its size and starting address must
        be a multiple of 64 bytes.  Our sample count is already a multiple of
@@ -191,5 +181,6 @@ AudioBootStrap PSPAUD_bootstrap = {
 
  /* SDL_AUDI */
 
+#endif /* SDL_AUDIO_DRIVER_PSP */
 
-
+/* vi: set ts=4 sw=4 expandtab: */
