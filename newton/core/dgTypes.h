@@ -23,18 +23,9 @@
 #define __DGTYPES_H__
 
 
-#ifdef DG_SSE4_INSTRUCTIONS_SET
-	#undef DG_SCALAR_VECTOR_CLASS
+#if !defined(DG_SSE4_INSTRUCTIONS_SET) || (_NEWTON_USE_DOUBLE) || defined (__ppc__) || defined(__arm__) || defined (ANDROID) || defined (IOS)
+	#define DG_SCALAR_VECTOR_CLASS 1
 #endif
-
-
-#if defined (_NEWTON_USE_DOUBLE) || defined (__ppc__) || defined(__arm__) || defined (ANDROID) || defined (IOS)
-	#undef DG_SSE4_INSTRUCTIONS_SET
-	#ifndef DG_SCALAR_VECTOR_CLASS
-		#define DG_SCALAR_VECTOR_CLASS
-	#endif		
-#endif
-
 
 
 #ifdef _MSC_VER 
@@ -129,6 +120,7 @@
 		#include <pmmintrin.h> 
 		#include <emmintrin.h> 
 		#include <mmintrin.h> 
+		#include <smmintrin.h> 
 	} 
 #endif
 

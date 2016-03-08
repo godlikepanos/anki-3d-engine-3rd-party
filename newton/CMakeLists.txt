@@ -15,6 +15,10 @@ elseif(WINDOWS)
 	set(NT_PTHREAD_SOURCES "pthreads.2/pthread.c")
 endif()
 
+if(ANKI_ENABLE_SIMD)
+	add_definitions(-DDG_SSE4_INSTRUCTIONS_SET)
+endif()
+
 add_definitions("-O2")
 
 include_directories("core" "meshUtil" "newton" "physics")
