@@ -1658,6 +1658,16 @@ void ColladaParser::ReadGeometry( Collada::Mesh* pMesh)
 				pMesh->mProperties["reflection_proxy"] = std::string(value);
 				mReader->read();
 			}
+			else if(IsElement("occluder"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <occluder> element.");
+
+				pMesh->mProperties["occluder"] = std::string(value);
+				mReader->read();
+			}
 			else
 			{
 				// ignore the rest
@@ -1749,6 +1759,13 @@ void ColladaParser::ReadMesh( Mesh* pMesh)
 				if(!value)
 					ThrowException( "Missing string in <reflection_proxy> element.");
 				pMesh->mProperties["reflection_proxy"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("occluder")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <occluder> element.");
+				pMesh->mProperties["occluder"] = std::string(value);
 				mReader->read();
 			}
 			else {
