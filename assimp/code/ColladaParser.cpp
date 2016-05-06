@@ -1668,6 +1668,26 @@ void ColladaParser::ReadGeometry( Collada::Mesh* pMesh)
 				pMesh->mProperties["occluder"] = std::string(value);
 				mReader->read();
 			}
+			else if(IsElement("collision_mesh"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <collision_mesh> element.");
+
+				pMesh->mProperties["collision_mesh"] = std::string(value);
+				mReader->read();
+			}
+			else if(IsElement("collision_mesh"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <collision_mesh> element.");
+
+				pMesh->mProperties["collision_mesh"] = std::string(value);
+				mReader->read();
+			}
 			else
 			{
 				// ignore the rest
@@ -1766,6 +1786,13 @@ void ColladaParser::ReadMesh( Mesh* pMesh)
 				if(!value)
 					ThrowException( "Missing string in <occluder> element.");
 				pMesh->mProperties["occluder"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("collision_mesh")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <collision_mesh> element.");
+				pMesh->mProperties["collision_mesh"] = std::string(value);
 				mReader->read();
 			}
 			else {
