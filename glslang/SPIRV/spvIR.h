@@ -32,10 +32,6 @@
 //ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 //POSSIBILITY OF SUCH DAMAGE.
 
-//
-// Author: John Kessenich, LunarG
-//
-
 // SPIRV-IR
 //
 // Simple in-memory representation (IR) of SPIRV.  Just for holding
@@ -182,6 +178,9 @@ public:
     void addLocalVariable(std::unique_ptr<Instruction> inst) { localVariables.push_back(std::move(inst)); }
     const std::vector<Block*>& getPredecessors() const { return predecessors; }
     const std::vector<Block*>& getSuccessors() const { return successors; }
+    const std::vector<std::unique_ptr<Instruction> >& getInstructions() const {
+        return instructions;
+    }
     void setUnreachable() { unreachable = true; }
     bool isUnreachable() const { return unreachable; }
     // Returns the block's merge instruction, if one exists (otherwise null).
@@ -275,6 +274,7 @@ public:
     Module& getParent() const { return parent; }
     Block* getEntryBlock() const { return blocks.front(); }
     Block* getLastBlock() const { return blocks.back(); }
+    const std::vector<Block*>& getBlocks() const { return blocks; }
     void addLocalVariable(std::unique_ptr<Instruction> inst);
     Id getReturnType() const { return functionInstruction.getTypeId(); }
     void dump(std::vector<unsigned int>& out) const
@@ -326,6 +326,7 @@ public:
     }
 
     Instruction* getInstruction(Id id) const { return idToInstruction[id]; }
+    const std::vector<Function*>& getFunctions() const { return functions; }
     spv::Id getTypeId(Id resultId) const { return idToInstruction[resultId]->getTypeId(); }
     StorageClass getStorageClass(Id typeId) const
     {

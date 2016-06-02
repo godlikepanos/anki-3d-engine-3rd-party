@@ -81,22 +81,44 @@ enum TOperator {
     EOpConvUintToBool,
     EOpConvFloatToBool,
     EOpConvDoubleToBool,
+    EOpConvInt64ToBool,
+    EOpConvUint64ToBool,
     EOpConvBoolToFloat,
     EOpConvIntToFloat,
     EOpConvUintToFloat,
     EOpConvDoubleToFloat,
+    EOpConvInt64ToFloat,
+    EOpConvUint64ToFloat,
     EOpConvUintToInt,
     EOpConvFloatToInt,
     EOpConvBoolToInt,
     EOpConvDoubleToInt,
+    EOpConvInt64ToInt,
+    EOpConvUint64ToInt,
     EOpConvIntToUint,
     EOpConvFloatToUint,
     EOpConvBoolToUint,
     EOpConvDoubleToUint,
+    EOpConvInt64ToUint,
+    EOpConvUint64ToUint,
     EOpConvIntToDouble,
     EOpConvUintToDouble,
     EOpConvFloatToDouble,
     EOpConvBoolToDouble,
+    EOpConvInt64ToDouble,
+    EOpConvUint64ToDouble,
+    EOpConvBoolToInt64,
+    EOpConvIntToInt64,
+    EOpConvUintToInt64,
+    EOpConvFloatToInt64,
+    EOpConvDoubleToInt64,
+    EOpConvUint64ToInt64,
+    EOpConvBoolToUint64,
+    EOpConvIntToUint64,
+    EOpConvUintToUint64,
+    EOpConvFloatToUint64,
+    EOpConvDoubleToUint64,
+    EOpConvInt64ToUint64,
 
     //
     // binary operations
@@ -194,6 +216,10 @@ enum TOperator {
     EOpFloatBitsToUint,
     EOpIntBitsToFloat,
     EOpUintBitsToFloat,
+    EOpDoubleBitsToInt64,
+    EOpDoubleBitsToUint64,
+    EOpInt64BitsToDouble,
+    EOpUint64BitsToDouble,
     EOpPackSnorm2x16,
     EOpUnpackSnorm2x16,
     EOpPackUnorm2x16,
@@ -206,6 +232,10 @@ enum TOperator {
     EOpUnpackHalf2x16,
     EOpPackDouble2x32,
     EOpUnpackDouble2x32,
+    EOpPackInt2x32,
+    EOpUnpackInt2x32,
+    EOpPackUint2x32,
+    EOpUnpackUint2x32,
 
     EOpLength,
     EOpDistance,
@@ -253,6 +283,14 @@ enum TOperator {
     EOpMemoryBarrierShared,  // compute only
     EOpGroupMemoryBarrier,   // compute only
 
+    EOpBallot,
+    EOpReadInvocation,
+    EOpReadFirstInvocation,
+
+    EOpAnyInvocation,
+    EOpAllInvocations,
+    EOpAllInvocationsEqual,
+
     EOpAtomicAdd,
     EOpAtomicMin,
     EOpAtomicMax,
@@ -287,6 +325,8 @@ enum TOperator {
     EOpConstructGuardStart,
     EOpConstructInt,          // these first scalar forms also identify what implicit conversion is needed
     EOpConstructUint,
+    EOpConstructInt64,
+    EOpConstructUint64,
     EOpConstructBool,
     EOpConstructFloat,
     EOpConstructDouble,
@@ -305,6 +345,12 @@ enum TOperator {
     EOpConstructUVec2,
     EOpConstructUVec3,
     EOpConstructUVec4,
+    EOpConstructI64Vec2,
+    EOpConstructI64Vec3,
+    EOpConstructI64Vec4,
+    EOpConstructU64Vec2,
+    EOpConstructU64Vec3,
+    EOpConstructU64Vec4,
     EOpConstructMat2x2,
     EOpConstructMat2x3,
     EOpConstructMat2x4,
@@ -612,25 +658,29 @@ public:
     // if symbol is initialized as symbol(sym), the memory comes from the pool allocator of sym. If sym comes from
     // per process threadPoolAllocator, then it causes increased memory usage per compile
     // it is essential to use "symbol = sym" to assign to symbol
-    TIntermSymbol(int i, const TString& n, const TType& t) : 
-        TIntermTyped(t), id(i) { name = n;} 
+    TIntermSymbol(int i, const TString& n, const TType& t)
+        : TIntermTyped(t), id(i), constSubtree(nullptr)
+          { name = n; }
     virtual int getId() const { return id; }
     virtual const TString& getName() const { return name; }
     virtual void traverse(TIntermTraverser*);
     virtual       TIntermSymbol* getAsSymbolNode()       { return this; }
     virtual const TIntermSymbol* getAsSymbolNode() const { return this; }
-    void setConstArray(const TConstUnionArray& c) { unionArray = c; }
-    const TConstUnionArray& getConstArray() const { return unionArray; }
+    void setConstArray(const TConstUnionArray& c) { constArray = c; }
+    const TConstUnionArray& getConstArray() const { return constArray; }
+    void setConstSubtree(TIntermTyped* subtree) { constSubtree = subtree; }
+    TIntermTyped* getConstSubtree() const { return constSubtree; }
 protected:
     int id;                      // the unique id of the symbol this node represents
     TString name;                // the name of the symbol this node represents
-    TConstUnionArray unionArray; // if the symbol is a front-end compile-time constant, this is its value
+    TConstUnionArray constArray; // if the symbol is a front-end compile-time constant, this is its value
+    TIntermTyped* constSubtree;
 };
 
 class TIntermConstantUnion : public TIntermTyped {
 public:
-    TIntermConstantUnion(const TConstUnionArray& ua, const TType& t) : TIntermTyped(t), unionArray(ua), literal(false) { }
-    const TConstUnionArray& getConstArray() const { return unionArray; }
+    TIntermConstantUnion(const TConstUnionArray& ua, const TType& t) : TIntermTyped(t), constArray(ua), literal(false) { }
+    const TConstUnionArray& getConstArray() const { return constArray; }
     virtual       TIntermConstantUnion* getAsConstantUnion()       { return this; }
     virtual const TIntermConstantUnion* getAsConstantUnion() const { return this; }
     virtual void traverse(TIntermTraverser*);
@@ -640,7 +690,7 @@ public:
     void setExpression() { literal = false; }
     bool isLiteral() const { return literal; }
 protected:
-    const TConstUnionArray unionArray;
+    const TConstUnionArray constArray;
     bool literal;  // true if node represents a literal in the source code
 };
 
@@ -951,6 +1001,11 @@ enum TVisit
 //
 // If you only want post-visits, explicitly turn off preVisit (and inVisit) 
 // and turn on postVisit.
+//
+// In general, for the visit*() methods, return true from interior nodes 
+// to have the traversal continue on to children.
+//
+// If you process children yourself, or don't want them processed, return false.
 //
 class TIntermTraverser {
 public:
