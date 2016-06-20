@@ -49,9 +49,9 @@ extern int yyparse(glslang::TParseContext*);
 namespace glslang {
 
 TParseContext::TParseContext(TSymbolTable& symbolTable, TIntermediate& interm, bool parsingBuiltins,
-                             int version, EProfile profile, int spv, int vulkan, EShLanguage language,
+                             int version, EProfile profile, const SpvVersion& spvVersion, EShLanguage language,
                              TInfoSink& infoSink, bool forwardCompatible, EShMessages messages) :
-            TParseContextBase(symbolTable, interm, version, profile, spv, vulkan, language, infoSink, forwardCompatible, messages), 
+            TParseContextBase(symbolTable, interm, version, profile, spvVersion, language, infoSink, forwardCompatible, messages), 
             contextPragma(true, false), loopNestingLevel(0), structNestingLevel(0), controlFlowNestingLevel(0), statementNestingLevel(0),
             inMain(false), postMainReturn(false), currentFunctionType(nullptr), blockName(nullptr),
             limits(resources.limits), parsingBuiltins(parsingBuiltins),
@@ -104,11 +104,11 @@ TParseContext::TParseContext(TSymbolTable& symbolTable, TIntermediate& interm, b
 
     globalUniformDefaults.clear();
     globalUniformDefaults.layoutMatrix = ElmColumnMajor;
-    globalUniformDefaults.layoutPacking = vulkan > 0 ? ElpStd140 : ElpShared;
+    globalUniformDefaults.layoutPacking = spvVersion.spv != 0 ? ElpStd140 : ElpShared;
 
     globalBufferDefaults.clear();
     globalBufferDefaults.layoutMatrix = ElmColumnMajor;
-    globalBufferDefaults.layoutPacking = vulkan > 0 ? ElpStd430 : ElpShared;
+    globalBufferDefaults.layoutPacking = spvVersion.spv != 0 ? ElpStd430 : ElpShared;
 
     globalInputDefaults.clear();
     globalOutputDefaults.clear();
@@ -2565,7 +2565,7 @@ void TParseContext::transparentCheck(const TSourceLoc& loc, const TType& type, c
         return;
 
     // Vulkan doesn't allow transparent uniforms outside of blocks
-    if (vulkan == 0 || type.getQualifier().storage != EvqUniform)
+    if (spvVersion.vulkan == 0 || type.getQualifier().storage != EvqUniform)
         return;
     if (type.containsNonOpaque())
         vulkanRemoved(loc, "non-opaque uniforms outside a block");
@@ -2661,6 +2661,8 @@ void TParseContext::globalQualifierTypeCheck(const TSourceLoc& loc, const TQuali
                 requireProfile(loc, ~EEsProfile, "vertex input arrays");
                 profileRequires(loc, ENoProfile, 150, nullptr, "vertex input arrays");
             }
+            if (publicType.basicType == EbtDouble)
+                profileRequires(loc, ~EEsProfile, 410, nullptr, "vertex-shader `double` type input");
             if (qualifier.isAuxiliary() || qualifier.isInterpolation() || qualifier.isMemory() || qualifier.invariant)
                 error(loc, "vertex input cannot be further qualified", "", "");
             break;
@@ -2735,6 +2737,8 @@ void TParseContext::globalQualifierTypeCheck(const TSourceLoc& loc, const TQuali
                 error(loc, "can't use auxiliary qualifier on a fragment output", "centroid/sample/patch", "");
             if (qualifier.isInterpolation())
                 error(loc, "can't use interpolation qualifier on a fragment output", "flat/smooth/noperspective", "");
+            if (publicType.basicType == EbtDouble)
+                error(loc, "cannot contain a double", GetStorageQualifierString(qualifier.storage), "");
         break;
 
         case EShLangCompute:
@@ -2867,11 +2871,17 @@ void TParseContext::setDefaultPrecision(const TSourceLoc& loc, TPublicType& publ
 // correlates with the declaration of defaultSamplerPrecision[]
 int TParseContext::computeSamplerTypeIndex(TSampler& sampler)
 {
-    int arrayIndex   = sampler.arrayed   ? 1 : 0;
-    int shadowIndex   = sampler.shadow   ? 1 : 0;
-    int externalIndex = sampler.external ? 1 : 0;
+    int arrayIndex    = sampler.arrayed ? 1 : 0;
+    int shadowIndex   = sampler.shadow  ? 1 : 0;
+    int externalIndex = sampler.external? 1 : 0;
+    int imageIndex    = sampler.image   ? 1 : 0;
+    int msIndex       = sampler.ms      ? 1 : 0;
 
-    return EsdNumDims * (EbtNumTypes * (2 * (2 * arrayIndex + shadowIndex) + externalIndex) + sampler.type) + sampler.dim;
+    int flattened = EsdNumDims * (EbtNumTypes * (2 * (2 * (2 * (2 * arrayIndex + msIndex) + imageIndex) + shadowIndex) +
+                                                 externalIndex) + sampler.type) + sampler.dim;
+    assert(flattened < maxSamplerIndex);
+
+    return flattened;
 }
 
 TPrecisionQualifier TParseContext::getDefaultPrecision(TPublicType& publicType)
@@ -3880,14 +3890,14 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
         return;
     }
     if (id == TQualifier::getLayoutPackingString(ElpPacked)) {
-        if (vulkan > 0)
-            vulkanRemoved(loc, "packed");
+        if (spvVersion.spv != 0)
+            spvRemoved(loc, "packed");
         publicType.qualifier.layoutPacking = ElpPacked;
         return;
     }
     if (id == TQualifier::getLayoutPackingString(ElpShared)) {
-        if (vulkan > 0)
-            vulkanRemoved(loc, "shared");
+        if (spvVersion.spv != 0)
+            spvRemoved(loc, "shared");
         publicType.qualifier.layoutPacking = ElpShared;
         return;
     }
@@ -4225,6 +4235,13 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
             requireProfile(loc, ECompatibilityProfile | ECoreProfile, "index layout qualifier on fragment output");
             const char* exts[2] = { E_GL_ARB_separate_shader_objects, E_GL_ARB_explicit_attrib_location };
             profileRequires(loc, ECompatibilityProfile | ECoreProfile, 330, 2, exts, "index layout qualifier on fragment output");
+
+            // "It is also a compile-time error if a fragment shader sets a layout index to less than 0 or greater than 1."
+            if (value < 0 || value > 1) {
+                value = 0;
+                error(loc, "value must be 0 or 1", "index", "");
+            }
+
             publicType.qualifier.layoutIndex = value;
             return;
         }
@@ -4246,7 +4263,7 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
                 publicType.shaderQualifiers.localSize[2] = value;
                 return;
             }
-            if (spv > 0) {
+            if (spvVersion.spv != 0) {
                 if (id == "local_size_x_id") {
                     publicType.shaderQualifiers.localSizeSpecId[0] = value;
                     return;
@@ -5066,11 +5083,13 @@ TIntermNode* TParseContext::executeInitializer(const TSourceLoc& loc, TIntermTyp
         // "In declarations of global variables with no storage qualifier or with a const
         // qualifier any initializer must be a constant expression."
         if (symbolTable.atGlobalLevel() && ! initializer->getType().getQualifier().isConstant()) {
-            const char* initFeature = "non-constant global initializer";
-            if (relaxedErrors())
-                warn(loc, "not allowed in this version", initFeature, "");
-            else
-                requireProfile(loc, ~EEsProfile, initFeature);
+            const char* initFeature = "non-constant global initializer (needs GL_EXT_shader_non_constant_global_initializers)";
+            if (profile == EEsProfile) {
+                if (relaxedErrors() && ! extensionTurnedOn(E_GL_EXT_shader_non_constant_global_initializers))
+                    warn(loc, "not allowed in this version", initFeature, "");
+                else
+                    profileRequires(loc, EEsProfile, 0, E_GL_EXT_shader_non_constant_global_initializers, initFeature);
+            }
         }
     }
 
