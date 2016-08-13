@@ -46,9 +46,9 @@
 #include "../SPIRV/GLSL.std.450.h"
 #include "../SPIRV/doc.h"
 #include "../SPIRV/disassemble.h"
-#include <string.h>
-#include <stdlib.h>
-#include <math.h>
+#include <cstring>
+#include <cstdlib>
+#include <cmath>
 
 #include "../glslang/OSDependent/osinclude.h"
 
@@ -58,24 +58,26 @@ extern "C" {
 
 // Command-line options
 enum TOptions {
-    EOptionNone               = 0x0000,
-    EOptionIntermediate       = 0x0001,
-    EOptionSuppressInfolog    = 0x0002,
-    EOptionMemoryLeakMode     = 0x0004,
-    EOptionRelaxedErrors      = 0x0008,
-    EOptionGiveWarnings       = 0x0010,
-    EOptionLinkProgram        = 0x0020,
-    EOptionMultiThreaded      = 0x0040,
-    EOptionDumpConfig         = 0x0080,
-    EOptionDumpReflection     = 0x0100,
-    EOptionSuppressWarnings   = 0x0200,
-    EOptionDumpVersions       = 0x0400,
-    EOptionSpv                = 0x0800,
-    EOptionHumanReadableSpv   = 0x1000,
-    EOptionVulkanRules        = 0x2000,
-    EOptionDefaultDesktop     = 0x4000,
-    EOptionOutputPreprocessed = 0x8000,
-    EOptionReadHlsl          = 0x10000,
+    EOptionNone               = 0,
+    EOptionIntermediate       = (1 <<  0),
+    EOptionSuppressInfolog    = (1 <<  1),
+    EOptionMemoryLeakMode     = (1 <<  2),
+    EOptionRelaxedErrors      = (1 <<  3),
+    EOptionGiveWarnings       = (1 <<  4),
+    EOptionLinkProgram        = (1 <<  5),
+    EOptionMultiThreaded      = (1 <<  6),
+    EOptionDumpConfig         = (1 <<  7),
+    EOptionDumpReflection     = (1 <<  8),
+    EOptionSuppressWarnings   = (1 <<  9),
+    EOptionDumpVersions       = (1 << 10),
+    EOptionSpv                = (1 << 11),
+    EOptionHumanReadableSpv   = (1 << 12),
+    EOptionVulkanRules        = (1 << 13),
+    EOptionDefaultDesktop     = (1 << 14),
+    EOptionOutputPreprocessed = (1 << 15),
+    EOptionOutputHexadecimal  = (1 << 16),
+    EOptionReadHlsl           = (1 << 17),
+    EOptionCascadingErrors    = (1 << 18),
 };
 
 //
@@ -153,6 +155,7 @@ int Options = 0;
 const char* ExecutableName = nullptr;
 const char* binaryFileName = nullptr;
 const char* entryPointName = nullptr;
+const char* shaderStageName = nullptr;
 
 //
 // Create the default name for saving a binary if -o is not provided.
@@ -222,21 +225,41 @@ void ProcessArguments(int argc, char* argv[])
             switch (argv[0][1]) {
             case 'H':
                 Options |= EOptionHumanReadableSpv;
-                // fall through to -V
+                if ((Options & EOptionSpv) == 0) {
+                    // default to Vulkan
+                    Options |= EOptionSpv;
+                    Options |= EOptionVulkanRules;
+                    Options |= EOptionLinkProgram;
+                }
+                break;
             case 'V':
                 Options |= EOptionSpv;
                 Options |= EOptionVulkanRules;
                 Options |= EOptionLinkProgram;
                 break;
+            case 'S':
+                shaderStageName = argv[1];
+                if (argc > 0) {
+                    argc--;
+                    argv++;
+                }
+                else
+                    Error("no <stage> specified for -S");
+                break;
             case 'G':
                 Options |= EOptionSpv;
                 Options |= EOptionLinkProgram;
+                // undo a -H default to Vulkan
+                Options &= ~EOptionVulkanRules;
                 break;
             case 'E':
                 Options |= EOptionOutputPreprocessed;
                 break;
             case 'c':
                 Options |= EOptionDumpConfig;
+                break;
+            case 'C':
+                Options |= EOptionCascadingErrors;
                 break;
             case 'd':
                 Options |= EOptionDefaultDesktop;
@@ -294,6 +317,9 @@ void ProcessArguments(int argc, char* argv[])
             case 'w':
                 Options |= EOptionSuppressWarnings;
                 break;
+            case 'x':
+                Options |= EOptionOutputHexadecimal;
+                break;
             default:
                 usage();
                 break;
@@ -311,7 +337,7 @@ void ProcessArguments(int argc, char* argv[])
     if ((Options & EOptionOutputPreprocessed) && (Options & EOptionLinkProgram))
         Error("can't use -E when linking is selected");
 
-    // -o makes no sense if there is no target binary
+    // -o or -x makes no sense if there is no target binary
     if (binaryFileName && (Options & EOptionSpv) == 0)
         Error("no binary generation requested (e.g., -V)");
 }
@@ -335,6 +361,8 @@ void SetMessageOptions(EShMessages& messages)
         messages = (EShMessages)(messages | EShMsgOnlyPreprocessor);
     if (Options & EOptionReadHlsl)
         messages = (EShMessages)(messages | EShMsgReadHlsl);
+    if (Options & EOptionCascadingErrors)
+        messages = (EShMessages)(messages | EShMsgCascadingErrors);
 }
 
 //
@@ -480,8 +508,12 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
                     // Dump the spv to a file or stdout, etc., but only if not doing
                     // memory/perf testing, as it's not internal to programmatic use.
                     if (! (Options & EOptionMemoryLeakMode)) {
-                      printf("%s", logger.getAllMessages().c_str());
-                        glslang::OutputSpv(spirv, GetBinaryName((EShLanguage)stage));
+                        printf("%s", logger.getAllMessages().c_str());
+                        if (Options & EOptionOutputHexadecimal) {
+                            glslang::OutputSpvHex(spirv, GetBinaryName((EShLanguage)stage));
+                        } else {
+                            glslang::OutputSpvBin(spirv, GetBinaryName((EShLanguage)stage));
+                        }
                         if (Options & EOptionHumanReadableSpv) {
                             spv::Disassemble(std::cout, spirv);
                         }
@@ -574,6 +606,8 @@ int C_DECL main(int argc, char* argv[])
         printf("SPIR-V Version %s\n", spirvVersion.c_str());
         printf("GLSL.std.450 Version %d, Revision %d\n", GLSLstd450Version, GLSLstd450Revision);
         printf("Khronos Tool ID %d\n", glslang::GetKhronosToolId());
+        printf("GL_KHR_vulkan_glsl version %d\n", 100);
+        printf("ARB_GL_gl_spirv version %d\n", 100);
         if (Worklist.empty())
             return ESuccess;
     }
@@ -661,6 +695,9 @@ EShLanguage FindLanguage(const std::string& name)
     }
 
     std::string suffix = name.substr(ext + 1, std::string::npos);
+    if (shaderStageName)
+        suffix = shaderStageName;
+
     if (suffix == "vert")
         return EShLangVertex;
     else if (suffix == "tesc")
@@ -749,14 +786,16 @@ void usage()
            "Each option must be specified separately.\n"
            "  -V          create SPIR-V binary, under Vulkan semantics; turns on -l;\n"
            "              default file name is <stage>.spv (-o overrides this)\n"
-           "              (unless -o is specified, which overrides the default file name)\n"
            "  -G          create SPIR-V binary, under OpenGL semantics; turns on -l;\n"
            "              default file name is <stage>.spv (-o overrides this)\n"
            "  -H          print human readable form of SPIR-V; turns on -V\n"
            "  -E          print pre-processed GLSL; cannot be used with -l;\n"
            "              errors will appear on stderr.\n"
+           "  -S <stage>  uses explicit stage specified, rather then the file extension.\n"
+           "              valid choices are vert, tesc, tese, geom, frag, or comp\n"
            "  -c          configuration dump;\n"
            "              creates the default configuration file (redirect to a .conf file)\n"
+           "  -C          cascading errors; risks crashes from accumulation of error recoveries\n"
            "  -d          default to desktop (#version 110) when there is no shader #version\n"
            "              (default is ES version 100)\n"
            "  -D          input is HLSL\n"
@@ -765,13 +804,14 @@ void usage()
            "  -i          intermediate tree (glslang AST) is printed out\n"
            "  -l          link all input files together to form a single module\n"
            "  -m          memory leak mode\n"
-           "  -o  <file>  save binary into <file>, requires a binary option (e.g., -V)\n"
+           "  -o  <file>  save binary to <file>, requires a binary option (e.g., -V)\n"
            "  -q          dump reflection query database\n"
            "  -r          relaxed semantic error-checking mode\n"
            "  -s          silent mode\n"
            "  -t          multi-threaded mode\n"
            "  -v          print version strings\n"
            "  -w          suppress warnings (except as required by #extension : warn)\n"
+           "  -x          save 32-bit hexadecimal numbers as text, requires a binary option (e.g., -V)\n"
            );
 
     exit(EFailUsage);

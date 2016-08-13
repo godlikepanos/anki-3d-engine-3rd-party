@@ -78,6 +78,7 @@ INSTANTIATE_TEST_CASE_P(
         "cppSimple.vert",
         "cppIndent.vert",
         "cppNest.vert",
+        "cppBad.vert",
         "cppComplexExpr.vert",
         "badChars.frag",
         "pointCoord.frag",
@@ -185,7 +186,10 @@ INSTANTIATE_TEST_CASE_P(
         "voidFunction.frag",
         "whileLoop.frag",
         "nonVulkan.frag",
-        "spv.atomic.comp",
+        "negativeArraySize.comp",
+        "precise.tesc",
+        "precise_struct_block.vert",
+        "maxClipDistances.vert",
     })),
     FileNameAsCustomTestSuffix
 );

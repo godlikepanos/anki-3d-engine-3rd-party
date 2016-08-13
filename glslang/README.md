@@ -13,17 +13,20 @@ glslang
 
 An OpenGL and OpenGL ES shader front end and validator.
 
-There are two components:
+There are several components:
 
-1. A front-end library for programmatic parsing of GLSL/ESSL into an AST.
+1. A GLSL/ESSL front-end for reference validation and translation of GLSL/ESSL into an AST.
 
-2. A standalone wrapper, `glslangValidator`, that can be used as a shader
-   validation tool.
+2. An HLSL front-end for translation of a broad generic HLL into the AST.
+
+3. A SPIR-V back end for translating the AST to SPIR-V.
+
+4. A standalone wrapper, `glslangValidator`, that can be used as a command-line tool for the above.
 
 How to add a feature protected by a version/extension/stage/profile:  See the
 comment in `glslang/MachineIndependent/Versions.cpp`.
 
-Things left to do:  See `Todo.txt`
+Tasks waiting to be done are documented as GitHub issues.
 
 Execution of Standalone Wrapper
 -------------------------------
@@ -54,14 +57,21 @@ Building
 
 ### Build steps
 
-#### 1) Check-Out External Projects
+#### 1) Check-Out this project 
 
 ```bash
-cd <the directory glslang was cloned to, External will be a subdirectory>
+cd <parent of where you want glslang to be>
+git clone git@github.com:KhronosGroup/glslang.git
+```
+
+#### 2) Check-Out External Projects
+
+```bash
+cd <the directory glslang was cloned to, "External" will be a subdirectory>
 git clone https://github.com/google/googletest.git External/googletest
 ```
 
-#### 2) Configure
+#### 3) Configure
 
 Assume the source directory is `$SOURCE_DIR` and
 the build directory is `$BUILD_DIR`:
@@ -84,7 +94,7 @@ cmake $SOURCE_DIR -DCMAKE_INSTALL_PREFIX=`pwd`/install
 
 The CMake GUI also works for Windows (version 3.4.1 tested).
 
-#### 3) Build and Install
+#### 4) Build and Install
 
 ```bash
 # for Linux:
@@ -177,15 +187,11 @@ For more information, please check `gtests/` directory's
 
 For the `runtests` script, it will generate current results in the
 `localResults/` directory and `diff` them against the `baseResults/`.
-The integration tests to run via the `runtests` script is registered
-via various `Test/test-*` text files and `Test/testlist`.
 When you want to update the tracked test results, they need to be
 copied from `localResults/` to `baseResults/`.  This can be done by
 the `bump` shell script.
 
-The list of files tested comes from `testlist`, and lists input shaders
-in this directory, which must all be public for this to work.  However,
-you can add your own private list of tests, not tracked here, by using
+You can add your own private list of tests, not tracked publicly, by using
 `localtestlist` to list non-tracked tests.  This is automatically read
 by `runtests` and included in the `diff` and `bump` process.
 
