@@ -139,7 +139,6 @@ namespace spv {
         case spv::OpTypeInt:   // fall through...
         case spv::OpTypeFloat: return (spv[typeStart+2]+31)/32;
         default:
-            error("unimplemented type size request");
             return 0;
         }
     }
@@ -148,14 +147,11 @@ namespace spv {
     // returns its size in 32-bit words.
     unsigned spirvbin_t::idTypeSizeInWords(spv::Id id) const
     {
-        const unsigned idStart = idPos(id);
-        const spv::Op  opCode  = asOpCode(idStart);
+        const auto tid_it = idTypeSizeMap.find(id);
+        if (tid_it == idTypeSizeMap.end())
+            error("type size for ID not found");
 
-        if (spv::InstructionDesc[opCode].hasType())
-            return typeSizeInWords(asId(idStart+1));
-
-        error("asked for type of typeless ID");
-        return 0;
+        return tid_it->second;
     }
 
     // Is this an opcode we should remove when using --strip?
@@ -375,12 +371,23 @@ namespace spv {
                     stripInst(start);
 
                 unsigned word = start+1;
+                spv::Id  typeId = spv::NoResult;
 
                 if (spv::InstructionDesc[opCode].hasType())
-                    word++;
+                    typeId = asId(word++);
 
-                if (spv::InstructionDesc[opCode].hasResult())
-                    idPosR[asId(word++)] = start;
+                // If there's a result ID, remember the size of its type
+                if (spv::InstructionDesc[opCode].hasResult()) {
+                    const spv::Id resultId = asId(word++);
+                    idPosR[resultId] = start;
+                    
+                    if (typeId != spv::NoResult) {
+                        const unsigned idTypeSize = typeSizeInWords(typeId);
+
+                        if (idTypeSize != 0)
+                            idTypeSizeMap[resultId] = idTypeSize;
+                    }
+                }
 
                 if (opCode == spv::Op::OpName) {
                     const spv::Id    target = asId(start+1);
@@ -476,12 +483,19 @@ namespace spv {
             return nextInst;
         }
 
+        // Circular buffer so we can look back at previous unmapped values during the mapping pass.
+        static const unsigned idBufferSize = 4;
+        spv::Id idBuffer[idBufferSize];
+        unsigned idBufferPos = 0;
+
         // Store IDs from instruction in our map
         for (int op = 0; numOperands > 0; ++op, --numOperands) {
             switch (spv::InstructionDesc[opCode].operands.getClass(op)) {
             case spv::OperandId:
             case spv::OperandScope:
             case spv::OperandMemorySemantics:
+                idBuffer[idBufferPos] = asId(word);
+                idBufferPos = (idBufferPos + 1) % idBufferSize;
                 idFn(asId(word++));
                 break;
 
@@ -501,9 +515,12 @@ namespace spv {
 
             case spv::OperandVariableLiteralId: {
                 if (opCode == OpSwitch) {
-                    // word-2 is the position of the selector ID.  Literals match its type.
-                    const unsigned literalSize = idTypeSizeInWords(asId(word-2));
-                    unsigned numLiteralIdPairs = (nextInst-word) / (1+literalSize);
+                    // word-2 is the position of the selector ID.  OpSwitch Literals match its type.
+                    // In case the IDs are currently being remapped, we get the word[-2] ID from
+                    // the circular idBuffer.
+                    const unsigned literalSizePos = (idBufferPos+idBufferSize-2) % idBufferSize;
+                    const unsigned literalSize = idTypeSizeInWords(idBuffer[literalSizePos]);
+                    const unsigned numLiteralIdPairs = (nextInst-word) / (1+literalSize);
 
                     for (unsigned arg=0; arg<numLiteralIdPairs; ++arg) {
                         word += literalSize;  // literal

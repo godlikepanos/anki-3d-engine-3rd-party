@@ -159,6 +159,9 @@ private:
    typedef std::set<int>                    posmap_t;
    typedef std::unordered_map<spv::Id, int> posmap_rev_t;
 
+   // Maps and ID to the size of its base type, if known.
+   typedef std::unordered_map<spv::Id, unsigned> typesize_map_t;
+
    // handle error
    void error(const std::string& txt) const { errorHandler(txt); }
 
@@ -265,8 +268,9 @@ private:
    // Which functions are called, anywhere in the module, with a call count
    std::unordered_map<spv::Id, int> fnCalls;
    
-   posmap_t     typeConstPos;  // word positions that define types & consts (ordered)
-   posmap_rev_t idPosR;        // reverse map from IDs to positions
+   posmap_t       typeConstPos;  // word positions that define types & consts (ordered)
+   posmap_rev_t   idPosR;        // reverse map from IDs to positions
+   typesize_map_t idTypeSizeMap; // maps each ID to its type size, if known.
    
    std::vector<spv::Id>  idMapL;   // ID {M}ap from {L}ocal to {G}lobal IDs
 
