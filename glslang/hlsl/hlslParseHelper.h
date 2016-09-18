@@ -83,10 +83,18 @@ public:
     TIntermTyped* handleBinaryMath(const TSourceLoc&, const char* str, TOperator op, TIntermTyped* left, TIntermTyped* right);
     TIntermTyped* handleUnaryMath(const TSourceLoc&, const char* str, TOperator op, TIntermTyped* childNode);
     TIntermTyped* handleDotDereference(const TSourceLoc&, TIntermTyped* base, const TString& field);
-    TFunction* handleFunctionDeclarator(const TSourceLoc&, TFunction& function, bool prototype);
+    bool shouldFlatten(const TType&);
+    void flattenStruct(const TVariable& variable);
+    TIntermTyped* flattenAccess(TIntermTyped* base, int member);
+    void assignLocations(TVariable& variable);
+    TFunction& handleFunctionDeclarator(const TSourceLoc&, TFunction& function, bool prototype);
     TIntermAggregate* handleFunctionDefinition(const TSourceLoc&, TFunction&);
+    void handleFunctionBody(const TSourceLoc&, TFunction&, TIntermNode* functionBody, TIntermNode*& node);
+    void remapEntrypointIO(TFunction& function);
+    void remapNonEntrypointIO(TFunction& function);
     TIntermNode* handleReturnValue(const TSourceLoc&, TIntermTyped*);
     void handleFunctionArgument(TFunction*, TIntermTyped*& arguments, TIntermTyped* newArg);
+    TIntermTyped* handleAssign(const TSourceLoc&, TOperator, TIntermTyped* left, TIntermTyped* right);
     TIntermTyped* handleFunctionCall(const TSourceLoc&, TFunction*, TIntermNode*);
     void decomposeIntrinsic(const TSourceLoc&, TIntermTyped*& node, TIntermNode* arguments);
     void decomposeSampleMethods(const TSourceLoc&, TIntermTyped*& node, TIntermNode* arguments);
@@ -95,11 +103,11 @@ public:
     TIntermTyped* addOutputArgumentConversions(const TFunction&, TIntermAggregate&) const;
     void builtInOpCheck(const TSourceLoc&, const TFunction&, TIntermOperator&);
     TFunction* handleConstructorCall(const TSourceLoc&, const TType&);
-    void handleSemantic(TType& type, const TString& semantic);
-    void handlePackOffset(const TSourceLoc&, TType& type, const glslang::TString& location,
+    void handleSemantic(TSourceLoc, TQualifier&, const TString& semantic);
+    void handlePackOffset(const TSourceLoc&, TQualifier&, const glslang::TString& location,
                           const glslang::TString* component);
-    void handleRegister(const TSourceLoc&, TType& type, const glslang::TString* profile, const glslang::TString& desc,
-                        int subComponent);
+    void handleRegister(const TSourceLoc&, TQualifier&, const glslang::TString* profile, const glslang::TString& desc,
+                        int subComponent, const glslang::TString*);
 
     TIntermAggregate* handleSamplerTextureCombine(const TSourceLoc& loc, TIntermTyped* argTex, TIntermTyped* argSampler);
 
@@ -121,7 +129,7 @@ public:
     void boolCheck(const TSourceLoc&, const TIntermTyped*);
     void globalQualifierFix(const TSourceLoc&, TQualifier&);
     bool structQualifierErrorCheck(const TSourceLoc&, const TPublicType& pType);
-    void mergeQualifiers(const TSourceLoc&, TQualifier& dst, const TQualifier& src, bool force);
+    void mergeQualifiers(TQualifier& dst, const TQualifier& src);
     int computeSamplerTypeIndex(TSampler&);
     TSymbol* redeclareBuiltinVariable(const TSourceLoc&, const TString&, const TQualifier&, const TShaderQualifiers&, bool& newDeclaration);
     void redeclareBuiltinBlock(const TSourceLoc&, TTypeList& typeList, const TString& blockName, const TString* instanceName, TArraySizes* arraySizes);
@@ -188,7 +196,6 @@ protected:
     HlslParseContext& operator=(HlslParseContext&);
 
     static const int maxSamplerIndex = EsdNumDims * (EbtNumTypes * (2 * 2 * 2)); // see computeSamplerTypeIndex()
-    bool afterEOF;
     TQualifier globalBufferDefaults;
     TQualifier globalUniformDefaults;
     TQualifier globalInputDefaults;
@@ -196,6 +203,7 @@ protected:
     TString currentCaller;        // name of last function body entered (not valid when at global scope)
     TIdSetType inductiveLoopIds;
     TVector<TIntermTyped*> needsIndexLimitationChecking;
+    TVariable* entryPointOutput;
 
     //
     // Geometry shader input arrays:
@@ -230,6 +238,10 @@ protected:
     //    array-sizing declarations
     //
     TVector<TSymbol*> ioArraySymbolResizeList;
+
+    TMap<int, TVector<TVariable*>> flattenMap;
+    unsigned int nextInLocation;
+    unsigned int nextOutLocation;
 };
 
 } // end namespace glslang

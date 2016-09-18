@@ -77,10 +77,10 @@ public:
                       EProfile profile, const SpvVersion& spvVersion, EShLanguage language,
                       TInfoSink& infoSink, bool forwardCompatible, EShMessages messages)
           : TParseVersions(interm, version, profile, spvVersion, language, infoSink, forwardCompatible, messages),
-            symbolTable(symbolTable), tokensBeforeEOF(false),
+            symbolTable(symbolTable),
             linkage(nullptr), scanContext(nullptr), ppContext(nullptr) { }
     virtual ~TParseContextBase() { }
-    
+
     virtual void setLimits(const TBuiltInResource&) = 0;
     
     EShLanguage getLanguage() const { return language; }
@@ -125,7 +125,6 @@ public:
     }
 
     TSymbolTable& symbolTable;   // symbol table that goes with the current language, version, and profile
-    bool tokensBeforeEOF;
 
 protected:
     TParseContextBase(TParseContextBase&);
@@ -142,6 +141,46 @@ protected:
     std::function<void(int, int, const char*)> versionCallback;
     std::function<void(int, const char*, const char*)> extensionCallback;
     std::function<void(int, const char*)> errorCallback;
+
+    // see implementation for detail
+    const TFunction* selectFunction(const TVector<const TFunction*>, const TFunction&,
+        std::function<bool(const TType&, const TType&)>,
+        std::function<bool(const TType&, const TType&, const TType&)>,
+        /* output */ bool& tie);
+};
+
+//
+// Manage the state for when to respect precision qualifiers and when to warn about
+// the defaults being different than might be expected.
+//
+class TPrecisionManager {
+public:
+    TPrecisionManager() : obey(false), warn(false), explicitIntDefault(false), explicitFloatDefault(false){ }
+    virtual ~TPrecisionManager() {}
+
+    void respectPrecisionQualifiers() { obey = true; }
+    bool respectingPrecisionQualifiers() const { return obey; }
+    bool shouldWarnAboutDefaults() const { return warn; }
+    void defaultWarningGiven() { warn = false; }
+    void warnAboutDefaults() { warn = true; }
+    void explicitIntDefaultSeen()
+    {
+        explicitIntDefault = true;
+        if (explicitFloatDefault)
+            warn = false;
+    }
+    void explicitFloatDefaultSeen()
+    {
+        explicitFloatDefault = true;
+        if (explicitIntDefault)
+            warn = false;
+    }
+
+protected:
+    bool obey;                  // respect precision qualifiers
+    bool warn;                  // need to give a warning about the defaults
+    bool explicitIntDefault;    // user set the default for int/uint
+    bool explicitFloatDefault;  // user set the default for float
 };
 
 //
@@ -154,6 +193,9 @@ public:
     TParseContext(TSymbolTable&, TIntermediate&, bool parsingBuiltins, int version, EProfile, const SpvVersion& spvVersion, EShLanguage, TInfoSink&,
                   bool forwardCompatible = false, EShMessages messages = EShMsgDefault);
     virtual ~TParseContext();
+
+    bool obeyPrecisionQualifiers() const { return precisionManager.respectingPrecisionQualifiers(); };
+    void setPrecisionDefaults();
 
     void setLimits(const TBuiltInResource&);
     bool parseShaderStrings(TPpContext&, TInputScanner& input, bool versionWillBeError = false);
@@ -209,6 +251,8 @@ public:
     void userFunctionCallCheck(const TSourceLoc&, TIntermAggregate&);
     void samplerConstructorLocationCheck(const TSourceLoc&, const char* token, TIntermNode*);
     TFunction* handleConstructorCall(const TSourceLoc&, const TPublicType&);
+    void handlePrecisionQualifier(const TSourceLoc&, TQualifier&, TPrecisionQualifier);
+    void checkPrecisionQualifier(const TSourceLoc&, TPrecisionQualifier);
 
     bool parseVectorFields(const TSourceLoc&, const TString&, int vecSize, TVectorFields&);
     void assignError(const TSourceLoc&, const char* op, TString left, TString right);
@@ -341,7 +385,7 @@ protected:
     const bool parsingBuiltins;        // true if parsing built-in symbols/functions
     static const int maxSamplerIndex = EsdNumDims * (EbtNumTypes * (2 * 2 * 2 * 2 * 2)); // see computeSamplerTypeIndex()
     TPrecisionQualifier defaultSamplerPrecision[maxSamplerIndex];
-    bool afterEOF;
+    TPrecisionManager precisionManager;
     TQualifier globalBufferDefaults;
     TQualifier globalUniformDefaults;
     TQualifier globalInputDefaults;

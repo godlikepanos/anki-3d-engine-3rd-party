@@ -747,7 +747,12 @@ const char* TPpContext::tokenize(TPpToken* ppToken)
             tokenString = ppToken->name;
             break;
         case PpAtomConstString:
-            parseContext.ppError(ppToken->loc, "string literals not supported", "\"\"", "");
+            if (parseContext.intermediate.getSource() == EShSourceHlsl) {
+                // HLSL allows string literals.
+                tokenString = ppToken->name;
+            } else {
+                parseContext.ppError(ppToken->loc, "string literals not supported", "\"\"", "");
+            }
             break;
         case '\'':
             parseContext.ppError(ppToken->loc, "character literals not supported", "\'", "");
@@ -757,12 +762,8 @@ const char* TPpContext::tokenize(TPpToken* ppToken)
             break;
         }
 
-        if (tokenString) {
-            if (tokenString[0] != 0)
-                parseContext.tokensBeforeEOF = 1;
-
+        if (tokenString)
             return tokenString;
-        }
     }
 }
 

@@ -18,6 +18,8 @@ if (TARGET gmock)
     ${CMAKE_CURRENT_SOURCE_DIR}/Link.FromFile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Pp.FromFile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Spv.FromFile.cpp
+    # -- Remapper tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/Remap.FromFile.cpp
   )
 
   add_executable(glslangtests ${TEST_SOURCES})
@@ -34,7 +36,7 @@ if (TARGET gmock)
     ${gmock_SOURCE_DIR}/include
     ${gtest_SOURCE_DIR}/include)
   target_link_libraries(glslangtests PRIVATE
-    glslang OSDependent OGLCompiler HLSL glslang
+    SPVRemapper glslang OSDependent OGLCompiler HLSL glslang
     SPIRV glslang-default-resource-limits gmock)
   add_test(NAME glslang-gtests COMMAND glslangtests)
 endif()

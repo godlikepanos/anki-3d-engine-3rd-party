@@ -411,6 +411,11 @@ EHlslTokenClass HlslScanContext::tokenizeClass(HlslToken& token)
             return token;
         }
 
+        case PpAtomConstString: {
+            parserToken->string = NewPoolTString(ppToken.name);
+            return EHTokStringConstant;
+        }
+
         case EndOfInput:               return EHTokNone;
 
         default:
@@ -458,6 +463,7 @@ EHlslTokenClass HlslScanContext::tokenizeIdentifier()
     case EHTokIn:
     case EHTokOut:
     case EHTokInOut:
+    case EHTokPrecise:
     case EHTokLayout:
         return keyword;
 

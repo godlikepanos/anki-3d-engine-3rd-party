@@ -274,7 +274,8 @@ TIntermTyped* TIntermediate::addUnaryMath(TOperator op, TIntermTyped* child, TSo
     if (newType != EbtVoid) {
         child = addConversion(op, TType(newType, EvqTemporary, child->getVectorSize(),
                                                                child->getMatrixCols(),
-                                                               child->getMatrixRows()),
+                                                               child->getMatrixRows(),
+                                                               child->isVector()),
                               child);
         if (child == 0)
             return 0;
@@ -702,6 +703,9 @@ TIntermTyped* TIntermediate::addShapeConversion(TOperator op, const TType& type,
     case EOpGreaterThan:
     case EOpLessThanEqual:
     case EOpGreaterThanEqual:
+    case EOpEqual:
+    case EOpNotEqual:
+    case EOpFunctionCall:
         break;
     default:
         return node;
@@ -715,9 +719,11 @@ TIntermTyped* TIntermediate::addShapeConversion(TOperator op, const TType& type,
     // The new node that handles the conversion
     TOperator constructorOp = mapTypeToConstructorOp(type);
 
-    // scalar -> smeared -> vector
-    if (type.isVector() && node->getType().isScalar())
-        return setAggregateOperator(node, constructorOp, type, node->getLoc());
+    // scalar -> smeared -> vector, or
+    // bigger vector -> smaller vector or scalar
+    if ((type.isVector() && node->getType().isScalar()) ||
+        (node->getVectorSize() > type.getVectorSize() && type.isVector()))
+        return setAggregateOperator(makeAggregate(node), constructorOp, type, node->getLoc());
 
     return node;
 }
@@ -731,6 +737,7 @@ bool TIntermediate::canImplicitlyPromote(TBasicType from, TBasicType to, TOperat
     if (profile == EEsProfile || version == 110)
         return false;
 
+    // TODO: Move more policies into language-specific handlers.
     // Some languages allow more general (or potentially, more specific) conversions under some conditions.
     if (source == EShSourceHlsl) {
         const bool fromConvertable = (from == EbtFloat || from == EbtDouble || from == EbtInt || from == EbtUint || from == EbtBool);
@@ -750,6 +757,7 @@ bool TIntermediate::canImplicitlyPromote(TBasicType from, TBasicType to, TOperat
             case EOpDivAssign:               // ... 
             case EOpModAssign:               // ... 
             case EOpReturn:                  // function returns can also perform arbitrary conversions
+            case EOpFunctionCall:            // conversion of a calling parameter
                 return true;
             default:
                 break;
@@ -1436,6 +1444,8 @@ bool TIntermediate::isSpecializationOperation(const TIntermOperator& node) const
         case EOpIndexIndirect:
         case EOpIndexDirectStruct:
         case EOpVectorSwizzle:
+        case EOpConvFloatToDouble:
+        case EOpConvDoubleToFloat:
             return true;
         default:
             return false;
@@ -1466,6 +1476,20 @@ bool TIntermediate::isSpecializationOperation(const TIntermOperator& node) const
     case EOpConvBoolToInt:
     case EOpConvIntToUint:
     case EOpConvBoolToUint:
+    case EOpConvInt64ToBool:
+    case EOpConvBoolToInt64:
+    case EOpConvUint64ToBool:
+    case EOpConvBoolToUint64:
+    case EOpConvInt64ToInt:
+    case EOpConvIntToInt64:
+    case EOpConvUint64ToUint:
+    case EOpConvUintToUint64:
+    case EOpConvInt64ToUint64:
+    case EOpConvUint64ToInt64:
+    case EOpConvInt64ToUint:
+    case EOpConvUintToInt64:
+    case EOpConvUint64ToInt:
+    case EOpConvIntToUint64:
 
     // unary operations
     case EOpNegative:
