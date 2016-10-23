@@ -1678,14 +1678,44 @@ void ColladaParser::ReadGeometry( Collada::Mesh* pMesh)
 				pMesh->mProperties["collision_mesh"] = std::string(value);
 				mReader->read();
 			}
-			else if(IsElement("collision_mesh"))
+			else if(IsElement("decal_diffuse_atlas"))
 			{
 				// AnKi properties
 				const char* value = TestTextContent();
 				if(!value)
-					ThrowException( "Missing string in <collision_mesh> element.");
+					ThrowException( "Missing string in <decal_diffuse_atlas> element.");
 
-				pMesh->mProperties["collision_mesh"] = std::string(value);
+				pMesh->mProperties["decal_diffuse_atlas"] = std::string(value);
+				mReader->read();
+			}
+			else if(IsElement("decal_diffuse_sub_texture"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_diffuse_sub_texture> element.");
+
+				pMesh->mProperties["decal_diffuse_sub_texture"] = std::string(value);
+				mReader->read();
+			}
+			else if(IsElement("decal_normal_roughness_atlas"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_normal_roughness_atlas> element.");
+
+				pMesh->mProperties["decal_normal_roughness_atlas"] = std::string(value);
+				mReader->read();
+			}
+			else if(IsElement("decal_normal_roughness_sub_texture"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_normal_roughness_sub_texture> element.");
+
+				pMesh->mProperties["decal_normal_roughness_sub_texture"] = std::string(value);
 				mReader->read();
 			}
 			else
@@ -1793,6 +1823,48 @@ void ColladaParser::ReadMesh( Mesh* pMesh)
 				if(!value)
 					ThrowException( "Missing string in <collision_mesh> element.");
 				pMesh->mProperties["collision_mesh"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("decal_diffuse_atlas")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_diffuse_atlas> element.");
+				pMesh->mProperties["decal_diffuse_atlas"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("decal_diffuse_sub_texture")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_diffuse_sub_texture> element.");
+				pMesh->mProperties["decal_diffuse_sub_texture"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("decal_diffuse_factor")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_diffuse_factor> element.");
+				pMesh->mProperties["decal_diffuse_factor"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("decal_normal_roughness_atlas")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_normal_roughness_atlas> element.");
+				pMesh->mProperties["decal_normal_roughness_atlas"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("decal_normal_roughness_sub_texture")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_normal_roughness_sub_texture> element.");
+				pMesh->mProperties["decal_normal_roughness_sub_texture"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("decal_normal_roughness_factor")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <decal_normal_roughness_factor> element.");
+				pMesh->mProperties["decal_normal_roughness_factor"] = std::string(value);
 				mReader->read();
 			}
 			else {
