@@ -17,7 +17,7 @@
 #ifndef SPIRV_CROSS_HPP
 #define SPIRV_CROSS_HPP
 
-#include "spirv.hpp"
+#include <SPIRV/spirv.hpp>
 #include <memory>
 #include <stack>
 #include <stdexcept>
