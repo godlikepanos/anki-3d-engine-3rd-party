@@ -1281,6 +1281,11 @@ void ColladaParser::ReadEffectProfileCommon( Collada::Effect& pEffect)
 				pEffect.mParameters["material_override"] = txt;
 				TestClosing( "material_override");
 			}
+			else if( IsElement( "subsurface"))	{
+				const char* txt = GetTextContent();
+				pEffect.mParameters["subsurface"] = txt;
+				TestClosing( "subsurface");
+			}
 			else if( IsElement( "height"))	{
 				aiColor4D dummy;
 				ReadEffectColor( dummy,pEffect.mTexHeight);
