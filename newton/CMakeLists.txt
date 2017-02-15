@@ -1,3 +1,5 @@
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 ")
+
 file(GLOB_RECURSE NT_CORE_SOURCES coreLibrary_300/source/core/*.cpp 
 	coreLibrary_300/source/newton/*.cpp
 	coreLibrary_300/source/physics/*.cpp
