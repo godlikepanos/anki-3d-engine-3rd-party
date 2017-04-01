@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 2.8.11)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-option(ENABLE_AMD_EXTENSIONS "Enables support of AMD-specific extensions" OFF)
+option(ENABLE_AMD_EXTENSIONS "Enables support of AMD-specific extensions" ON)
+option(ENABLE_GLSLANG_BINARIES "Builds glslangValidator and spirv-remap" ON)
+
+option(ENABLE_NV_EXTENSIONS "Enables support of Nvidia-specific extensions" ON)
+
+option(ENABLE_HLSL "Enables HLSL input support" ON)
 
 enable_testing()
 
@@ -13,9 +18,19 @@ if(ENABLE_AMD_EXTENSIONS)
     add_definitions(-DAMD_EXTENSIONS)
 endif(ENABLE_AMD_EXTENSIONS)
 
+if(ENABLE_NV_EXTENSIONS)
+    add_definitions(-DNV_EXTENSIONS)
+endif(ENABLE_NV_EXTENSIONS)
+
+if(ENABLE_HLSL)
+    add_definitions(-DENABLE_HLSL)
+endif(ENABLE_HLSL)
+
 if(WIN32)
     set(CMAKE_DEBUG_POSTFIX "d")
-    include(ChooseMSVCCRT.cmake)
+    if(MSVC)
+        include(ChooseMSVCCRT.cmake)
+    endif(MSVC)
     add_definitions(-DGLSLANG_OSINCLUDE_WIN32)
 elseif(UNIX)
     add_definitions(-fPIC)
@@ -52,7 +67,11 @@ add_subdirectory(External)
 
 add_subdirectory(glslang)
 add_subdirectory(OGLCompilersDLL)
-add_subdirectory(StandAlone)
+if(ENABLE_GLSLANG_BINARIES)
+	add_subdirectory(StandAlone)
+endif()
 add_subdirectory(SPIRV)
-add_subdirectory(hlsl)
+if(ENABLE_HLSL)
+    add_subdirectory(hlsl)
+endif(ENABLE_HLSL)
 add_subdirectory(gtests)

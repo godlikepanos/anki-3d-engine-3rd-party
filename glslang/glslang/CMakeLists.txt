@@ -10,6 +10,7 @@ set(SOURCES
     MachineIndependent/glslang.y
     MachineIndependent/glslang_tab.cpp
     MachineIndependent/Constant.cpp
+    MachineIndependent/iomapper.cpp
     MachineIndependent/InfoSink.cpp
     MachineIndependent/Initialize.cpp
     MachineIndependent/IntermTraverse.cpp
@@ -55,6 +56,8 @@ set(HEADERS
     MachineIndependent/glslang_tab.cpp.h
     MachineIndependent/gl_types.h
     MachineIndependent/Initialize.h
+    MachineIndependent/iomapper.h
+    MachineIndependent/LiveTraverser.h
     MachineIndependent/localintermediate.h
     MachineIndependent/ParseHelper.h
     MachineIndependent/reflection.h
@@ -79,6 +82,10 @@ set(HEADERS
 
 add_library(glslang STATIC ${BISON_GLSLParser_OUTPUT_SOURCE} ${SOURCES} ${HEADERS})
 set_property(TARGET glslang PROPERTY FOLDER glslang)
+target_link_libraries(glslang OGLCompiler OSDependent)
+if(ENABLE_HLSL)
+	target_link_libraries(glslang HLSL)
+endif()
 
 if(WIN32)
     source_group("Public" REGULAR_EXPRESSION "Public/*")
@@ -90,3 +97,8 @@ endif(WIN32)
 
 install(TARGETS glslang 
         ARCHIVE DESTINATION lib)
+
+foreach(file ${HEADERS})
+    get_filename_component(dir ${file} DIRECTORY)
+    install(FILES ${file} DESTINATION include/glslang/${dir})
+endforeach()
