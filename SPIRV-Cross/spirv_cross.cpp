@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 ARM Limited
+ * Copyright 2015-2017 ARM Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,26 @@ using namespace spirv_cross;
 
 #define log(...) fprintf(stderr, __VA_ARGS__)
 
+static string ensure_valid_identifier(const string &name)
+{
+	// Functions in glslangValidator are mangled with name(<mangled> stuff.
+	// Normally, we would never see '(' in any legal identifiers, so just strip them out.
+	auto str = name.substr(0, name.find('('));
+
+	for (uint32_t i = 0; i < str.size(); i++)
+	{
+		auto &c = str[i];
+
+		// _<num> variables are reserved by the internal implementation,
+		// otherwise, make sure the name is a valid identifier.
+		if (i == 0 || (str[0] == '_' && i == 1))
+			c = isalpha(c) ? c : '_';
+		else
+			c = isalnum(c) ? c : '_';
+	}
+	return str;
+}
+
 Instruction::Instruction(const vector<uint32_t> &spirv, uint32_t &index)
 {
 	op = spirv[index] & 0xffff;
@@ -50,8 +70,16 @@ Compiler::Compiler(vector<uint32_t> ir)
 	parse();
 }
 
+Compiler::Compiler(const uint32_t *ir, size_t word_count)
+    : spirv(ir, ir + word_count)
+{
+	parse();
+}
+
 string Compiler::compile()
 {
+	// Force a classic "C" locale, reverts when function returns
+	ClassicLocale classic_locale;
 	return "";
 }
 
@@ -134,7 +162,7 @@ bool Compiler::block_is_pure(const SPIRBlock &block)
 	return true;
 }
 
-string Compiler::to_name(uint32_t id, bool allow_alias)
+string Compiler::to_name(uint32_t id, bool allow_alias) const
 {
 	if (allow_alias && ids.at(id).get_type() == TypeType)
 	{
@@ -489,7 +517,7 @@ bool Compiler::InterfaceVariableAccessHandler::handle(Op opcode, const uint32_t 
 
 	case OpCopyMemory:
 	{
-		if (length < 3)
+		if (length < 2)
 			return false;
 
 		auto *var = compiler.maybe_get<SPIRVariable>(args[0]);
@@ -793,26 +821,17 @@ void Compiler::set_name(uint32_t id, const std::string &name)
 	if (name[0] == '_' && name.size() >= 2 && isdigit(name[1]))
 		return;
 
-	// Functions in glslangValidator are mangled with name(<mangled> stuff.
-	// Normally, we would never see '(' in any legal indentifiers, so just strip them out.
-	str = name.substr(0, name.find('('));
-
-	for (uint32_t i = 0; i < str.size(); i++)
-	{
-		auto &c = str[i];
-
-		// _<num> variables are reserved by the internal implementation,
-		// otherwise, make sure the name is a valid identifier.
-		if (i == 0 || (str[0] == '_' && i == 1))
-			c = isalpha(c) ? c : '_';
-		else
-			c = isalnum(c) ? c : '_';
-	}
+	str = ensure_valid_identifier(name);
 }
 
 const SPIRType &Compiler::get_type(uint32_t id) const
 {
 	return get<SPIRType>(id);
+}
+
+const SPIRType &Compiler::get_type_from_variable(uint32_t id) const
+{
+	return get<SPIRType>(get<SPIRVariable>(id).basetype);
 }
 
 void Compiler::set_member_decoration(uint32_t id, uint32_t index, Decoration decoration, uint32_t argument)
@@ -832,12 +851,20 @@ void Compiler::set_member_decoration(uint32_t id, uint32_t index, Decoration dec
 		dec.location = argument;
 		break;
 
+	case DecorationBinding:
+		dec.binding = argument;
+		break;
+
 	case DecorationOffset:
 		dec.offset = argument;
 		break;
 
 	case DecorationSpecId:
 		dec.spec_id = argument;
+		break;
+
+	case DecorationMatrixStride:
+		dec.matrix_stride = argument;
 		break;
 
 	default:
@@ -848,7 +875,17 @@ void Compiler::set_member_decoration(uint32_t id, uint32_t index, Decoration dec
 void Compiler::set_member_name(uint32_t id, uint32_t index, const std::string &name)
 {
 	meta.at(id).members.resize(max(meta[id].members.size(), size_t(index) + 1));
-	meta.at(id).members[index].alias = name;
+
+	auto &str = meta.at(id).members[index].alias;
+	str.clear();
+	if (name.empty())
+		return;
+
+	// Reserved for unnamed members.
+	if (name[0] == '_' && name.size() >= 2 && isdigit(name[1]))
+		return;
+
+	str = ensure_valid_identifier(name);
 }
 
 const std::string &Compiler::get_member_name(uint32_t id, uint32_t index) const
@@ -885,12 +922,14 @@ uint32_t Compiler::get_member_decoration(uint32_t id, uint32_t index, Decoration
 		return dec.builtin_type;
 	case DecorationLocation:
 		return dec.location;
+	case DecorationBinding:
+		return dec.binding;
 	case DecorationOffset:
 		return dec.offset;
 	case DecorationSpecId:
 		return dec.spec_id;
 	default:
-		return 0;
+		return 1;
 	}
 }
 
@@ -901,6 +940,11 @@ uint64_t Compiler::get_member_decoration_mask(uint32_t id, uint32_t index) const
 		return 0;
 
 	return m.members[index].decoration_flags;
+}
+
+bool Compiler::has_member_decoration(uint32_t id, uint32_t index, Decoration decoration) const
+{
+	return get_member_decoration_mask(id, index) & (1ull << decoration);
 }
 
 void Compiler::unset_member_decoration(uint32_t id, uint32_t index, Decoration decoration)
@@ -959,6 +1003,10 @@ void Compiler::set_decoration(uint32_t id, Decoration decoration, uint32_t argum
 		dec.array_stride = argument;
 		break;
 
+	case DecorationMatrixStride:
+		dec.matrix_stride = argument;
+		break;
+
 	case DecorationBinding:
 		dec.binding = argument;
 		break;
@@ -996,6 +1044,11 @@ uint64_t Compiler::get_decoration_mask(uint32_t id) const
 	return dec.decoration_flags;
 }
 
+bool Compiler::has_decoration(uint32_t id, Decoration decoration) const
+{
+	return get_decoration_mask(id) & (1ull << decoration);
+}
+
 uint32_t Compiler::get_decoration(uint32_t id, Decoration decoration) const
 {
 	auto &dec = meta.at(id).decoration;
@@ -1018,8 +1071,12 @@ uint32_t Compiler::get_decoration(uint32_t id, Decoration decoration) const
 		return dec.input_attachment;
 	case DecorationSpecId:
 		return dec.spec_id;
+	case DecorationArrayStride:
+		return dec.array_stride;
+	case DecorationMatrixStride:
+		return dec.matrix_stride;
 	default:
-		return 0;
+		return 1;
 	}
 }
 
@@ -1116,6 +1173,10 @@ void Compiler::parse(const Instruction &instruction)
 		break;
 	}
 
+	case OpExtension:
+		// Ignore extensions
+		break;
+
 	case OpExtInstImport:
 	{
 		uint32_t id = ops[0];
@@ -1123,7 +1184,9 @@ void Compiler::parse(const Instruction &instruction)
 		if (ext == "GLSL.std.450")
 			set<SPIRExtension>(id, SPIRExtension::GLSL);
 		else
-			SPIRV_CROSS_THROW("Only GLSL.std.450 extension interface supported.");
+			set<SPIRExtension>(id, SPIRExtension::Unsupported);
+
+		// Other SPIR-V extensions currently not supported.
 
 		break;
 	}
@@ -1269,6 +1332,7 @@ void Compiler::parse(const Instruction &instruction)
 		vecbase = base;
 		vecbase.vecsize = vecsize;
 		vecbase.self = id;
+		vecbase.parent_type = ops[1];
 		break;
 	}
 
@@ -1283,6 +1347,7 @@ void Compiler::parse(const Instruction &instruction)
 		matrixbase = base;
 		matrixbase.columns = colcount;
 		matrixbase.self = id;
+		matrixbase.parent_type = ops[1];
 		break;
 	}
 
@@ -1300,6 +1365,7 @@ void Compiler::parse(const Instruction &instruction)
 
 		arraybase.array_size_literal.push_back(literal);
 		arraybase.array.push_back(literal ? c->scalar() : ops[2]);
+		arraybase.parent_type = ops[1];
 		// Do NOT set arraybase.self!
 		break;
 	}
@@ -1314,6 +1380,7 @@ void Compiler::parse(const Instruction &instruction)
 		arraybase = base;
 		arraybase.array.push_back(0);
 		arraybase.array_size_literal.push_back(true);
+		arraybase.parent_type = ops[1];
 		// Do NOT set arraybase.self!
 		break;
 	}
@@ -1344,7 +1411,6 @@ void Compiler::parse(const Instruction &instruction)
 		break;
 	}
 
-	// Not really used.
 	case OpTypeSampler:
 	{
 		uint32_t id = ops[0];
@@ -1368,6 +1434,8 @@ void Compiler::parse(const Instruction &instruction)
 
 		if (ptrbase.storage == StorageClassAtomicCounter)
 			ptrbase.basetype = SPIRType::AtomicCounter;
+
+		ptrbase.parent_type = ops[2];
 
 		// Do NOT set ptrbase.self!
 		break;
@@ -1437,17 +1505,6 @@ void Compiler::parse(const Instruction &instruction)
 
 		if (variable_storage_is_aliased(var))
 			aliased_variables.push_back(var.self);
-
-		// glslangValidator does not emit required qualifiers here.
-		// Solve this by making the image access as restricted as possible
-		// and loosen up if we need to.
-		auto &vartype = expression_type(id);
-		if (vartype.basetype == SPIRType::Image)
-		{
-			auto &flags = meta.at(id).decoration.decoration_flags;
-			flags |= 1ull << DecorationNonWritable;
-			flags |= 1ull << DecorationNonReadable;
-		}
 
 		break;
 	}
@@ -2054,6 +2111,17 @@ uint32_t Compiler::type_struct_member_array_stride(const SPIRType &type, uint32_
 		SPIRV_CROSS_THROW("Struct member does not have ArrayStride set.");
 }
 
+uint32_t Compiler::type_struct_member_matrix_stride(const SPIRType &type, uint32_t index) const
+{
+	// Decoration must be set in valid SPIR-V, otherwise throw.
+	// MatrixStride is part of OpMemberDecorate.
+	auto &dec = meta[type.self].members[index];
+	if (dec.decoration_flags & (1ull << DecorationMatrixStride))
+		return dec.matrix_stride;
+	else
+		SPIRV_CROSS_THROW("Struct member does not have MatrixStride set.");
+}
+
 size_t Compiler::get_declared_struct_size(const SPIRType &type) const
 {
 	uint32_t last = uint32_t(type.member_types.size() - 1);
@@ -2067,63 +2135,53 @@ size_t Compiler::get_declared_struct_member_size(const SPIRType &struct_type, ui
 	auto flags = get_member_decoration_mask(struct_type.self, index);
 	auto &type = get<SPIRType>(struct_type.member_types[index]);
 
-	if (type.basetype != SPIRType::Struct)
+	switch (type.basetype)
 	{
-		switch (type.basetype)
-		{
-		case SPIRType::Unknown:
-		case SPIRType::Void:
-		case SPIRType::Boolean: // Bools are purely logical, and cannot be used for externally visible types.
-		case SPIRType::AtomicCounter:
-		case SPIRType::Image:
-		case SPIRType::SampledImage:
-		case SPIRType::Sampler:
-			SPIRV_CROSS_THROW("Querying size for object with opaque size.\n");
+	case SPIRType::Unknown:
+	case SPIRType::Void:
+	case SPIRType::Boolean: // Bools are purely logical, and cannot be used for externally visible types.
+	case SPIRType::AtomicCounter:
+	case SPIRType::Image:
+	case SPIRType::SampledImage:
+	case SPIRType::Sampler:
+		SPIRV_CROSS_THROW("Querying size for object with opaque size.");
 
-		default:
-			break;
-		}
+	default:
+		break;
+	}
 
-		size_t component_size = type.width / 8;
-		unsigned vecsize = type.vecsize;
-		unsigned columns = type.columns;
-
-		if (type.array.empty())
-		{
-			// Vectors.
-			if (columns == 1)
-				return vecsize * component_size;
-			else
-			{
-				// Per SPIR-V spec, matrices must be tightly packed and aligned up for vec3 accesses.
-				if ((flags & (1ull << DecorationRowMajor)) && columns == 3)
-					columns = 4;
-				else if ((flags & (1ull << DecorationColMajor)) && vecsize == 3)
-					vecsize = 4;
-
-				return vecsize * columns * component_size;
-			}
-		}
-		else
-		{
-			// For arrays, we can use ArrayStride to get an easy check.
-			return type_struct_member_array_stride(struct_type, index) * type.array.back();
-		}
+	if (!type.array.empty())
+	{
+		// For arrays, we can use ArrayStride to get an easy check.
+		return type_struct_member_array_stride(struct_type, index) * type.array.back();
+	}
+	else if (type.basetype == SPIRType::Struct)
+	{
+		return get_declared_struct_size(type);
 	}
 	else
 	{
-		// Recurse.
-		uint32_t last = uint32_t(struct_type.member_types.size() - 1);
-		uint32_t offset = type_struct_member_offset(struct_type, last);
-		size_t size;
+		unsigned vecsize = type.vecsize;
+		unsigned columns = type.columns;
 
-		// If we have an array of structs inside our struct, handle that with array strides instead.
-		auto &last_type = get<SPIRType>(struct_type.member_types.back());
-		if (last_type.array.empty())
-			size = get_declared_struct_size(last_type);
+		// Vectors.
+		if (columns == 1)
+		{
+			size_t component_size = type.width / 8;
+			return vecsize * component_size;
+		}
 		else
-			size = type_struct_member_array_stride(struct_type, last) * last_type.array.back();
-		return offset + size;
+		{
+			uint32_t matrix_stride = type_struct_member_matrix_stride(struct_type, index);
+
+			// Per SPIR-V spec, matrices must be tightly packed and aligned up for vec3 accesses.
+			if (flags & (1ull << DecorationRowMajor))
+				return matrix_stride * vecsize;
+			else if (flags & (1ull << DecorationColMajor))
+				return matrix_stride * columns;
+			else
+				SPIRV_CROSS_THROW("Either row-major or column-major must be declared for matrices.");
+		}
 	}
 }
 
@@ -2320,6 +2378,14 @@ uint32_t Compiler::get_subpass_input_remapped_components(uint32_t id) const
 
 void Compiler::inherit_expression_dependencies(uint32_t dst, uint32_t source_expression)
 {
+	// Don't inherit any expression dependencies if the expression in dst
+	// is not a forwarded temporary.
+	if (forwarded_temporaries.find(dst) == end(forwarded_temporaries) ||
+	    forced_temporaries.find(dst) != end(forced_temporaries))
+	{
+		return;
+	}
+
 	auto &e = get<SPIRExpression>(dst);
 	auto *s = maybe_get<SPIRExpression>(source_expression);
 	if (!s)
@@ -2387,8 +2453,9 @@ SPIREntryPoint &Compiler::get_entry_point()
 bool Compiler::interface_variable_exists_in_entry_point(uint32_t id) const
 {
 	auto &var = get<SPIRVariable>(id);
-	if (var.storage != StorageClassInput && var.storage != StorageClassOutput)
-		SPIRV_CROSS_THROW("Only Input and Output variables are part of a shader linking interface.");
+	if (var.storage != StorageClassInput && var.storage != StorageClassOutput &&
+	    var.storage != StorageClassUniformConstant)
+		SPIRV_CROSS_THROW("Only Input, Output variables and Uniform constants are part of a shader linking interface.");
 
 	// This is to avoid potential problems with very old glslang versions which did
 	// not emit input/output interfaces properly.
@@ -2566,7 +2633,7 @@ void Compiler::CombinedImageSamplerHandler::register_combined_image_sampler(SPIR
 		                  join("SPIRV_Cross_Combined", compiler.to_name(image_id), compiler.to_name(sampler_id)));
 
 		caller.combined_parameters.push_back(param);
-		caller.shadow_arguments.push_back({ ptr_type_id, combined_id, 0u, 0u });
+		caller.shadow_arguments.push_back({ ptr_type_id, combined_id, 0u, 0u, true });
 	}
 }
 
@@ -2740,6 +2807,71 @@ const SPIRConstant &Compiler::get_constant(uint32_t id) const
 	return get<SPIRConstant>(id);
 }
 
+static bool exists_unaccessed_path_to_return(const CFG &cfg, uint32_t block, const unordered_set<uint32_t> &blocks)
+{
+	// This block accesses the variable.
+	if (blocks.find(block) != end(blocks))
+		return false;
+
+	// We are at the end of the CFG.
+	if (cfg.get_succeeding_edges(block).empty())
+		return true;
+
+	// If any of our successors have a path to the end, there exists a path from block.
+	for (auto &succ : cfg.get_succeeding_edges(block))
+		if (exists_unaccessed_path_to_return(cfg, succ, blocks))
+			return true;
+
+	return false;
+}
+
+void Compiler::analyze_parameter_preservation(
+    SPIRFunction &entry, const CFG &cfg, const unordered_map<uint32_t, unordered_set<uint32_t>> &variable_to_blocks)
+{
+	for (auto &arg : entry.arguments)
+	{
+		// Non-pointers are always inputs.
+		auto &type = get<SPIRType>(arg.type);
+		if (!type.pointer)
+			continue;
+
+		// Opaque argument types are always in
+		bool potential_preserve;
+		switch (type.basetype)
+		{
+		case SPIRType::Sampler:
+		case SPIRType::Image:
+		case SPIRType::SampledImage:
+		case SPIRType::AtomicCounter:
+			potential_preserve = false;
+			break;
+
+		default:
+			potential_preserve = true;
+			break;
+		}
+
+		if (!potential_preserve)
+			continue;
+
+		auto itr = variable_to_blocks.find(arg.id);
+		if (itr == end(variable_to_blocks))
+		{
+			// Variable is never accessed.
+			continue;
+		}
+
+		// If there is a path through the CFG where no block writes to the variable, the variable will be in an undefined state
+		// when the function returns. We therefore need to implicitly preserve the variable in case there are writers in the function.
+		// Major case here is if a function is
+		// void foo(int &var) { if (cond) var = 10; }
+		// Using read/write counts, we will think it's just an out variable, but it really needs to be inout,
+		// because if we don't write anything whatever we put into the function must return back to the caller.
+		if (exists_unaccessed_path_to_return(cfg, entry.entry_block, itr->second))
+			arg.read_count++;
+	}
+}
+
 void Compiler::analyze_variable_scope(SPIRFunction &entry)
 {
 	struct AccessHandler : OpcodeHandler
@@ -2825,7 +2957,7 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 
 			case OpCopyMemory:
 			{
-				if (length < 3)
+				if (length < 2)
 					return false;
 
 				uint32_t lhs = args[0];
@@ -2909,6 +3041,9 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 	// Compute the control flow graph for this function.
 	CFG cfg(*this, entry);
 
+	// Analyze if there are parameters which need to be implicitly preserved with an "in" qualifier.
+	analyze_parameter_preservation(entry, cfg, handler.accessed_variables_to_block);
+
 	unordered_map<uint32_t, uint32_t> potential_loop_variables;
 
 	// For each variable which is statically accessed.
@@ -2916,14 +3051,14 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 	{
 		DominatorBuilder builder(cfg);
 		auto &blocks = var.second;
-		auto &type = expression_type(var.first);
+		auto &type = this->expression_type(var.first);
 
 		// Figure out which block is dominating all accesses of those variables.
 		for (auto &block : blocks)
 		{
 			// If we're accessing a variable inside a continue block, this variable might be a loop variable.
 			// We can only use loop variables with scalars, as we cannot track static expressions for vectors.
-			if (is_continue(block) && type.vecsize == 1 && type.columns == 1)
+			if (this->is_continue(block) && type.vecsize == 1 && type.columns == 1)
 			{
 				// The variable is used in multiple continue blocks, this is not a loop
 				// candidate, signal that by setting block to -1u.
@@ -2932,7 +3067,7 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 				if (potential == 0)
 					potential = block;
 				else
-					potential = -1u;
+					potential = ~(0u);
 			}
 			builder.add_block(block);
 		}
@@ -2947,19 +3082,19 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 		{
 			auto &block = this->get<SPIRBlock>(dominating_block);
 			block.dominated_variables.push_back(var.first);
-			get<SPIRVariable>(var.first).dominator = dominating_block;
+			this->get<SPIRVariable>(var.first).dominator = dominating_block;
 		}
 	}
 
 	// Now, try to analyze whether or not these variables are actually loop variables.
 	for (auto &loop_variable : potential_loop_variables)
 	{
-		auto &var = get<SPIRVariable>(loop_variable.first);
+		auto &var = this->get<SPIRVariable>(loop_variable.first);
 		auto dominator = var.dominator;
 		auto block = loop_variable.second;
 
 		// The variable was accessed in multiple continue blocks, ignore.
-		if (block == -1u || block == 0)
+		if (block == ~(0u) || block == 0)
 			continue;
 
 		// Dead code.
@@ -2969,9 +3104,9 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 		uint32_t header = 0;
 
 		// Find the loop header for this block.
-		for (auto b : loop_blocks)
+		for (auto b : this->loop_blocks)
 		{
-			auto &potential_header = get<SPIRBlock>(b);
+			auto &potential_header = this->get<SPIRBlock>(b);
 			if (potential_header.continue_block == block)
 			{
 				header = b;
@@ -2980,7 +3115,7 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 		}
 
 		assert(header);
-		auto &header_block = get<SPIRBlock>(header);
+		auto &header_block = this->get<SPIRBlock>(header);
 
 		// Now, there are two conditions we need to meet for the variable to be a loop variable.
 		// 1. The dominating block must have a branch-free path to the loop header,
@@ -3028,6 +3163,174 @@ void Compiler::analyze_variable_scope(SPIRFunction &entry)
 		// Need to sort here as variables come from an unordered container, and pushing stuff in wrong order
 		// will break reproducability in regression runs.
 		sort(begin(header_block.loop_variables), end(header_block.loop_variables));
-		get<SPIRVariable>(loop_variable.first).loop_variable = true;
+		this->get<SPIRVariable>(loop_variable.first).loop_variable = true;
 	}
+}
+
+uint64_t Compiler::get_buffer_block_flags(const SPIRVariable &var)
+{
+	auto &type = get<SPIRType>(var.basetype);
+	assert(type.basetype == SPIRType::Struct);
+
+	// Some flags like non-writable, non-readable are actually found
+	// as member decorations. If all members have a decoration set, propagate
+	// the decoration up as a regular variable decoration.
+	uint64_t base_flags = meta[var.self].decoration.decoration_flags;
+
+	if (type.member_types.empty())
+		return base_flags;
+
+	uint64_t all_members_flag_mask = ~(0ull);
+	for (uint32_t i = 0; i < uint32_t(type.member_types.size()); i++)
+		all_members_flag_mask &= get_member_decoration_mask(type.self, i);
+
+	return base_flags | all_members_flag_mask;
+}
+
+bool Compiler::get_common_basic_type(const SPIRType &type, SPIRType::BaseType &base_type)
+{
+	if (type.basetype == SPIRType::Struct)
+	{
+		base_type = SPIRType::Unknown;
+		for (auto &member_type : type.member_types)
+		{
+			SPIRType::BaseType member_base;
+			if (!get_common_basic_type(get<SPIRType>(member_type), member_base))
+				return false;
+
+			if (base_type == SPIRType::Unknown)
+				base_type = member_base;
+			else if (base_type != member_base)
+				return false;
+		}
+		return true;
+	}
+	else
+	{
+		base_type = type.basetype;
+		return true;
+	}
+}
+
+bool Compiler::ActiveBuiltinHandler::handle(spv::Op opcode, const uint32_t *args, uint32_t length)
+{
+	const auto add_if_builtin = [&](uint32_t id) {
+		// Only handles variables here.
+		// Builtins which are part of a block are handled in AccessChain.
+		auto *var = compiler.maybe_get<SPIRVariable>(id);
+		if (var && compiler.meta[id].decoration.builtin)
+		{
+			auto &type = compiler.get<SPIRType>(var->basetype);
+			auto &flags =
+			    type.storage == StorageClassInput ? compiler.active_input_builtins : compiler.active_output_builtins;
+			flags |= 1ull << compiler.meta[id].decoration.builtin_type;
+		}
+	};
+
+	switch (opcode)
+	{
+	case OpStore:
+		if (length < 1)
+			return false;
+
+		add_if_builtin(args[0]);
+		break;
+
+	case OpCopyMemory:
+		if (length < 2)
+			return false;
+
+		add_if_builtin(args[0]);
+		add_if_builtin(args[1]);
+		break;
+
+	case OpCopyObject:
+	case OpLoad:
+		if (length < 3)
+			return false;
+
+		add_if_builtin(args[2]);
+		break;
+
+	case OpFunctionCall:
+	{
+		if (length < 3)
+			return false;
+
+		uint32_t count = length - 3;
+		args += 3;
+		for (uint32_t i = 0; i < count; i++)
+			add_if_builtin(args[i]);
+		break;
+	}
+
+	case OpAccessChain:
+	case OpInBoundsAccessChain:
+	{
+		if (length < 4)
+			return false;
+
+		// Only consider global variables, cannot consider variables in functions yet, or other
+		// access chains as they have not been created yet.
+		auto *var = compiler.maybe_get<SPIRVariable>(args[2]);
+		if (!var)
+			break;
+
+		auto *type = &compiler.get<SPIRType>(var->basetype);
+
+		// Start traversing type hierarchy at the proper non-pointer types.
+		while (type->pointer)
+		{
+			assert(type->parent_type);
+			type = &compiler.get<SPIRType>(type->parent_type);
+		}
+
+		auto &flags =
+		    type->storage == StorageClassInput ? compiler.active_input_builtins : compiler.active_output_builtins;
+
+		uint32_t count = length - 3;
+		args += 3;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			// Arrays
+			if (!type->array.empty())
+			{
+				type = &compiler.get<SPIRType>(type->parent_type);
+			}
+			// Structs
+			else if (type->basetype == SPIRType::Struct)
+			{
+				uint32_t index = compiler.get<SPIRConstant>(args[i]).scalar();
+
+				if (index < uint32_t(compiler.meta[type->self].members.size()))
+				{
+					auto &decorations = compiler.meta[type->self].members[index];
+					if (decorations.builtin)
+						flags |= 1ull << decorations.builtin_type;
+				}
+
+				type = &compiler.get<SPIRType>(type->member_types[index]);
+			}
+			else
+			{
+				// No point in traversing further. We won't find any extra builtins.
+				break;
+			}
+		}
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	return true;
+}
+
+void Compiler::update_active_builtins()
+{
+	active_input_builtins = 0;
+	active_output_builtins = 0;
+	ActiveBuiltinHandler handler(*this);
+	traverse_all_reachable_opcodes(get<SPIRFunction>(entry_point), handler);
 }
