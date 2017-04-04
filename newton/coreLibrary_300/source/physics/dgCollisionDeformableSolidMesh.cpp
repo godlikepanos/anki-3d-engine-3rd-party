@@ -34,6 +34,7 @@ dgCollisionDeformableSolidMesh::dgCollisionDeformableSolidMesh(dgWorld* const wo
 	,m_finiteElementsCount(0)
 {
 	m_rtti |= dgCollisionDeformableSolidMesh_RTTI;
+
 	dgAssert (0);
 /*
 	dgInt32 count = mesh->GetVertexCount();

@@ -24,8 +24,8 @@
 #include "DemoEntityListener.h"
 #include "DemoCameraListener.h"
 //#include "DemoVisualDebugerListener.h"
-#include "CustomPlayerControllerManager.h"
-#include "CustomVehicleControllerManager.h"
+#include "dCustomPlayerControllerManager.h"
+#include "dCustomVehicleControllerManager.h"
 
 
 #ifdef _MACOSX_VER
@@ -108,6 +108,38 @@ DemoEntityManager::DemoEntityManager(NewtonDemos* const parent)
 
 	dTimeTrackerSetThreadName ("mainThread");
 	m_context = new wxGLContext(this);
+
+/*
+	dFloat A[2][2];
+	dFloat x[2];
+	dFloat b[2];
+	dFloat l[2];
+	dFloat h[2];
+
+	A[0][0] = 2.0f;
+	A[0][1] = 1.0f;
+	A[1][0] = 1.0f;
+	A[1][1] = 2.0f;
+	b[0] = 1.0f;
+	b[1] = 1.0f;
+	x[0] = 1;
+	x[1] = 2;
+	
+	l[0] = 0.0f;
+	l[1] = 0.0f;
+	h[0] = 0.25f;
+	h[1] = 1.0f;
+	
+	dMatrixTimeVector(2, &A[0][0], x, b);
+	dSolveDantzigLCP(2, &A[0][0], x, b, l, h);
+*/
+
+/*
+for (int ii = 0; ii < 10000; ii++) {
+	NewtonDestroy(NewtonCreate());
+}
+*/
+
 }
 
 
@@ -166,7 +198,7 @@ void DemoEntityManager::Cleanup ()
 	NewtonWorldSetUserData(m_world, this);
 
 	// set joint serialization call back
-	CustomJoint::Initalize(m_world);
+	dCustomJoint::Initalize(m_world);
 
 	// add all physics pre and post listeners
 	//	m_preListenerManager.Append(new DemoVisualDebugerListener("visualDebuger", m_world));
@@ -894,13 +926,13 @@ void DemoEntityManager::RenderFrame ()
 		// see if there is a vehicle controller and 
 		void* const vehListerNode = NewtonWorldGetPreListener(GetNewton(), VEHICLE_PLUGIN_NAME);
 		if (vehListerNode) {
-			CustomVehicleControllerManager* const manager = (CustomVehicleControllerManager*)NewtonWorldGetListenerUserData(GetNewton(), vehListerNode);
+			dCustomVehicleControllerManager* const manager = (dCustomVehicleControllerManager*)NewtonWorldGetListenerUserData(GetNewton(), vehListerNode);
 			manager->Debug();
 		}
 
 		void* const characterListerNode = NewtonWorldGetPreListener(GetNewton(), PLAYER_PLUGIN_NAME);
 		if (characterListerNode) {
-			CustomPlayerControllerManager* const manager = (CustomPlayerControllerManager*)NewtonWorldGetListenerUserData(GetNewton(), characterListerNode);
+			dCustomPlayerControllerManager* const manager = (dCustomPlayerControllerManager*)NewtonWorldGetListenerUserData(GetNewton(), characterListerNode);
 			manager->Debug();
 		}
 	}
@@ -936,8 +968,8 @@ void DemoEntityManager::RenderFrame ()
 		Print (color, 10, 130, "auto sleep: %s", m_mainWindow->m_autoSleepState ? "on" : "off");
 	}
 
-	int lineNumber = 130 + 22;
-
+	//int lineNumber = 130 + 22;
+	int lineNumber = 30;
 	if (m_renderHood) {
 
 		// set display for 2d render mode

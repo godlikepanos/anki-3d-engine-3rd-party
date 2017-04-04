@@ -43,7 +43,7 @@ class dgCollisionLumpedMassParticles: public dgCollisionConvex
 	const dgVector* GetAcceleration() const;
 
 	dgDynamicBody* GetOwner () const;
-	void SetOwnerAndUnitMass (dgDynamicBody* const body);
+	void SetOwnerAndMassPraperties (dgDynamicBody* const body);
 	virtual void IntegrateForces (dgFloat32 timestep) = 0;
 
 	protected:
@@ -60,7 +60,7 @@ class dgCollisionLumpedMassParticles: public dgCollisionConvex
 
 	//dgFloat32 CalculaleContactPenetration(const dgVector& point, const dgVector& normal) const;
 	dgVector CalculateContactNormalAndPenetration(const dgVector& worldPosition) const;
-	virtual void HandleCollision (dgFloat32 timestep, dgVector* const normalDir, dgVector* const normalAccel, dgFloat32* const frictionCoefficient) const;
+	virtual void HandleCollision (dgFloat32 timestep, dgVector* const normalDir, dgVector* const normalAccel, dgFloat32* const frictionCoefficient);
 
 	virtual dgInt32 GetMemoryBufferSizeInBytes() const = 0;
 
@@ -68,10 +68,10 @@ class dgCollisionLumpedMassParticles: public dgCollisionConvex
 	dgArray<dgVector> m_veloc;
 	dgArray<dgVector> m_accel;
 	dgArray<dgVector> m_externalAccel;
+	dgArray<dgFloat32> m_mass;
 	dgArray<dgFloat32> m_invMass;
 	dgDynamicBody* m_body;
-//	dgFloat32 m_unitMass;
-//	dgFloat32 m_unitInertia;
+	dgFloat32 m_totalMass;
 	dgFloat32 m_particleRadius;
 	dgInt32 m_particlesCount;
 

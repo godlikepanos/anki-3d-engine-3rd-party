@@ -2308,10 +2308,10 @@ void dgMeshEffect::BuildFromIndexList(const dgMeshVertexFormat* const format)
 							dgTriplex normal;
 							for (int i = 0; i < indexCount; i++) {
 								dgInt32 k = attributeCount + i;
-								dgInt32 index = format->m_normal.m_indexList[k] * normalStride;
-								normal.m_x = format->m_normal.m_data[index + 0];
-								normal.m_y = format->m_normal.m_data[index + 1];
-								normal.m_z = format->m_normal.m_data[index + 2];
+								dgInt32 m = format->m_normal.m_indexList[k] * normalStride;
+								normal.m_x = format->m_normal.m_data[m + 0];
+								normal.m_y = format->m_normal.m_data[m + 1];
+								normal.m_z = format->m_normal.m_data[m + 2];
 								m_attrib.m_normalChannel.PushBack(normal);
 							}
 						}
@@ -2320,10 +2320,10 @@ void dgMeshEffect::BuildFromIndexList(const dgMeshVertexFormat* const format)
 							dgTriplex normal;
 							for (int i = 0; i < indexCount; i++) {
 								dgInt32 k = attributeCount + i;
-								dgInt32 index = format->m_binormal.m_indexList[k] * binormalStride;
-								normal.m_x = format->m_binormal.m_data[index + 0];
-								normal.m_y = format->m_binormal.m_data[index + 1];
-								normal.m_z = format->m_binormal.m_data[index + 2];
+								dgInt32 m = format->m_binormal.m_indexList[k] * binormalStride;
+								normal.m_x = format->m_binormal.m_data[m + 0];
+								normal.m_y = format->m_binormal.m_data[m + 1];
+								normal.m_z = format->m_binormal.m_data[m + 2];
 								m_attrib.m_binormalChannel.PushBack(normal);
 							}
 						}
@@ -2331,8 +2331,8 @@ void dgMeshEffect::BuildFromIndexList(const dgMeshVertexFormat* const format)
 						if (format->m_vertexColor.m_data) {
 							for (int i = 0; i < indexCount; i++) {
 								dgInt32 k = attributeCount + i;
-								dgInt32 index = format->m_vertexColor.m_indexList[k] * vertexColorStride;
-								dgVector color(format->m_vertexColor.m_data[index + 0], format->m_vertexColor.m_data[index + 1], format->m_vertexColor.m_data[index + 2], format->m_vertexColor.m_data[index + 3]);
+								dgInt32 m = format->m_vertexColor.m_indexList[k] * vertexColorStride;
+								dgVector color(format->m_vertexColor.m_data[m + 0], format->m_vertexColor.m_data[m + 1], format->m_vertexColor.m_data[m + 2], format->m_vertexColor.m_data[m + 3]);
 								m_attrib.m_colorChannel.PushBack(color);
 							}
 						}
@@ -2341,9 +2341,9 @@ void dgMeshEffect::BuildFromIndexList(const dgMeshVertexFormat* const format)
 							dgAttibutFormat::dgUV uv;
 							for (int i = 0; i < indexCount; i++) {
 								dgInt32 k = attributeCount + i;
-								dgInt32 index = format->m_uv0.m_indexList[k] * uv0Stride;
-								uv.m_u = format->m_uv0.m_data[index + 0];
-								uv.m_v = format->m_uv0.m_data[index + 1];
+								dgInt32 m = format->m_uv0.m_indexList[k] * uv0Stride;
+								uv.m_u = format->m_uv0.m_data[m + 0];
+								uv.m_v = format->m_uv0.m_data[m + 1];
 								m_attrib.m_uv0Channel.PushBack(uv);
 							}
 						}
@@ -2352,9 +2352,9 @@ void dgMeshEffect::BuildFromIndexList(const dgMeshVertexFormat* const format)
 							dgAttibutFormat::dgUV uv;
 							for (int i = 0; i < indexCount; i++) {
 								dgInt32 k = attributeCount + i;
-								dgInt32 index = format->m_uv1.m_indexList[k] * uv1Stride;
-								uv.m_u = format->m_uv1.m_data[index + 0];
-								uv.m_v = format->m_uv1.m_data[index + 1];
+								dgInt32 m = format->m_uv1.m_indexList[k] * uv1Stride;
+								uv.m_u = format->m_uv1.m_data[m + 0];
+								uv.m_v = format->m_uv1.m_data[m + 1];
 								m_attrib.m_uv1Channel.PushBack(uv);
 							}
 						}
@@ -2487,11 +2487,11 @@ void* dgMeshEffect::GetFirstVertex () const
 
 void* dgMeshEffect::GetNextVertex (const void* const vertex) const
 {
-	dgTreeNode* node = (dgTreeNode*) vertex;
-	dgInt32 mark = node->GetInfo().m_mark;
+	dgTreeNode* const node0 = (dgTreeNode*) vertex;
+	dgInt32 mark = node0->GetInfo().m_mark;
 
 	Iterator iter (*this);
-	iter.Set (node);
+	iter.Set (node0);
 	for (iter ++; iter; iter ++) {
 		dgTreeNode* node = iter.GetNode();
 		if (node->GetInfo().m_mark != mark) {
@@ -2604,11 +2604,11 @@ void* dgMeshEffect::GetFirstEdge () const
 
 void* dgMeshEffect::GetNextEdge (const void* const edge) const
 {
-	dgTreeNode* node = (dgTreeNode*) edge;
-	dgInt32 mark = node->GetInfo().m_mark;
+	dgTreeNode* const node0 = (dgTreeNode*) edge;
+	dgInt32 mark = node0->GetInfo().m_mark;
 
 	Iterator iter (*this);
-	iter.Set (node);
+	iter.Set (node0);
 	for (iter ++; iter; iter ++) {
 		dgTreeNode* const node = iter.GetNode();
 		if (node->GetInfo().m_mark != mark) {
@@ -2664,11 +2664,11 @@ void* dgMeshEffect::GetFirstFace () const
 
 void* dgMeshEffect::GetNextFace (const void* const face) const
 {
-	dgTreeNode* node = (dgTreeNode*) face;
-	dgInt32 mark = node->GetInfo().m_mark;
+	dgTreeNode* const node0 = (dgTreeNode*) face;
+	dgInt32 mark = node0->GetInfo().m_mark;
 
 	Iterator iter (*this);
-	iter.Set (node);
+	iter.Set (node0);
 	for (iter ++; iter; iter ++) {
 		dgTreeNode* node = iter.GetNode();
 		if (node->GetInfo().m_mark != mark) {
@@ -3136,8 +3136,57 @@ void dgMeshEffect::TransformMesh (const dgMatrix& matrix)
 */
 }
 
+dgInt32 dgMeshEffect::AddInterpolatedHalfAttribute(dgEdge* const edge, dgInt32 midPoint)
+{
+	dgBigVector p0(m_points.m_vertex[edge->m_incidentVertex]);
+	dgBigVector p2(m_points.m_vertex[edge->m_next->m_incidentVertex]);
+	dgBigVector p1(m_points.m_vertex[midPoint]);
+	dgBigVector p2p0(p2 - p0);
+	dgFloat64 den = p2p0.DotProduct3(p2p0);
+	dgFloat64 param = p2p0.DotProduct3(p1 - p0) / den;
+	dgFloat64 t1 = param;
+	dgFloat64 t0 = dgFloat64(1.0f) - t1;
+	dgAssert(t1 >= dgFloat64(0.0f));
+	dgAssert(t1 <= dgFloat64(1.0f));
 
-void dgMeshEffect::AddInterpolateEdgeAttibute (dgEdge* const edge, dgFloat64 param)
+	m_attrib.m_pointChannel.PushBack(midPoint);
+
+	if (m_attrib.m_materialChannel.m_count) {
+		m_attrib.m_materialChannel.PushBack(m_attrib.m_materialChannel[dgInt32(edge->m_userData)]);
+	}
+	if (m_attrib.m_normalChannel.m_count) {
+		dgTriplex edgeNormal;
+		dgTriplex edgeNormal0(m_attrib.m_normalChannel[dgInt32(edge->m_userData)]);
+		dgTriplex edgeNormal1(m_attrib.m_normalChannel[dgInt32(edge->m_next->m_userData)]);
+		edgeNormal.m_x = edgeNormal0.m_x * dgFloat32(t0) + edgeNormal1.m_x * dgFloat32(t1);
+		edgeNormal.m_y = edgeNormal0.m_y * dgFloat32(t0) + edgeNormal1.m_y * dgFloat32(t1);
+		edgeNormal.m_z = edgeNormal0.m_z * dgFloat32(t0) + edgeNormal1.m_z * dgFloat32(t1);
+		m_attrib.m_normalChannel.PushBack(edgeNormal);
+	}
+	if (m_attrib.m_binormalChannel.m_count) {
+		dgAssert(0);
+	}
+
+	if (m_attrib.m_uv0Channel.m_count) {
+		dgAttibutFormat::dgUV edgeUV;
+		dgAttibutFormat::dgUV edgeUV0(m_attrib.m_uv0Channel[dgInt32(edge->m_userData)]);
+		dgAttibutFormat::dgUV edgeUV1(m_attrib.m_uv0Channel[dgInt32(edge->m_next->m_userData)]);
+		edgeUV.m_u = edgeUV0.m_u * dgFloat32(t0) + edgeUV1.m_u * dgFloat32(t1);
+		edgeUV.m_v = edgeUV0.m_v * dgFloat32(t0) + edgeUV1.m_v * dgFloat32(t1);
+		m_attrib.m_uv0Channel.PushBack(edgeUV);
+	}
+
+	if (m_attrib.m_uv1Channel.m_count) {
+		dgAssert(0);
+	}
+
+	if (m_attrib.m_colorChannel.m_count) {
+		dgAssert(0);
+	}
+	return m_attrib.m_pointChannel.m_count - 1;
+}
+
+void dgMeshEffect::AddInterpolatedEdgeAttribute (dgEdge* const edge, dgFloat64 param)
 {
 	dgFloat64 t1 = param;
 	dgFloat64 t0 = dgFloat64 (1.0f) - t1;
@@ -3212,6 +3261,9 @@ bool dgMeshEffect::Sanity () const
 		dgMeshEffect::Iterator iter (*this);
 		for (iter.Begin(); iter; iter ++) {
 			dgEdge* const edge = &iter.GetNode()->GetInfo();
+			dgAssert(edge->m_twin);
+			dgAssert(edge->m_next);
+			dgAssert(edge->m_prev);
 			dgAssert (edge->m_twin->m_twin == edge);
 			dgAssert (edge->m_next->m_incidentVertex == edge->m_twin->m_incidentVertex);
 			dgAssert (edge->m_incidentVertex == edge->m_twin->m_next->m_incidentVertex);
@@ -3224,7 +3276,7 @@ bool dgMeshEffect::Sanity () const
 dgEdge* dgMeshEffect::InsertEdgeVertex (dgEdge* const edge, dgFloat64 param)
 {
 	dgEdge* const twin = edge->m_twin;
-	AddInterpolateEdgeAttibute(edge, param);
+	AddInterpolatedEdgeAttribute(edge, param);
 
 	dgInt32 edgeAttrV0 = dgInt32 (edge->m_userData);
 	dgInt32 twinAttrV0 = dgInt32 (twin->m_userData);
@@ -3436,11 +3488,11 @@ dgMeshEffect* dgMeshEffect::GetNextLayer (dgInt32 mark)
 
 	polyhedra.BeginFace ();
 	for (iter.Begin (); iter; iter ++) {
-		dgEdge* const edge = &(*iter);
-		if ((edge->m_mark < mark) && (edge->m_incidentFace > 0)) {
-			const dgInt32 thislayer = m_points.m_layers.m_count  ? m_points.m_layers[edge->m_incidentVertex] : 0;
+		dgEdge* const edge1 = &(*iter);
+		if ((edge1->m_mark < mark) && (edge1->m_incidentFace > 0)) {
+			const dgInt32 thislayer = m_points.m_layers.m_count  ? m_points.m_layers[edge1->m_incidentVertex] : 0;
 			if (thislayer == layer) {
-				dgEdge* ptr = edge;
+				dgEdge* ptr = edge1;
 				dgInt32 count = 0;
 				dgInt32 faceIndex[256];
 				dgInt64 faceDataIndex[256];
@@ -3451,7 +3503,7 @@ dgMeshEffect* dgMeshEffect::GetNextLayer (dgInt32 mark)
 					count ++;
 					dgAssert (count < dgInt32 (sizeof (faceIndex)/ sizeof(faceIndex[0])));
 					ptr = ptr->m_next;
-				} while (ptr != edge);
+				} while (ptr != edge1);
 				polyhedra.AddFace (count, &faceIndex[0], &faceDataIndex[0]);
 			}
 		}
@@ -3620,6 +3672,7 @@ void dgMeshEffect::RepairTJoints ()
 	DeleteDegenerateFaces(&m_points.m_vertex[0].m_x, sizeof (dgBigVector), dgFloat64 (1.0e-7f));
 	dgAssert (Sanity ());
 
+
 	// delete straight line edges
 	dirty = true;
 	while (dirty) {
@@ -3629,10 +3682,10 @@ void dgMeshEffect::RepairTJoints ()
 		dirty = false;
 		dgAssert (Sanity ());
 
-		dgPolyhedra::Iterator iter (*this);
-		for (iter.Begin(); iter; ) {
-			dgEdge* const edge = &(*iter);
-			iter ++;
+		dgPolyhedra::Iterator iter1 (*this);
+		for (iter1.Begin(); iter1; ) {
+			dgEdge* const edge = &(*iter1);
+			iter1 ++;
 
 			const dgBigVector& p0 = m_points.m_vertex[edge->m_incidentVertex];
 			const dgBigVector& p1 = m_points.m_vertex[edge->m_next->m_incidentVertex];
@@ -3680,8 +3733,8 @@ void dgMeshEffect::RepairTJoints ()
 								edge->m_prev->m_next = newEdge;
 								newEdge->m_prev = edge->m_prev;
 
-								while ((&(*iter) == edge->m_twin) || (&(*iter) == nextEdge) || (&(*iter) == nextEdge->m_twin)) {
-									iter ++;
+								while ((&(*iter1) == edge->m_twin) || (&(*iter1) == nextEdge) || (&(*iter1) == nextEdge->m_twin)) {
+									iter1 ++;
 								}
 
 								nextEdge->m_twin->m_prev = nextEdge;
@@ -3737,30 +3790,23 @@ void dgMeshEffect::RepairTJoints ()
 							}
 						}
 					} else if (FindEdge(edge->m_incidentVertex, edge->m_next->m_next->m_incidentVertex)) {
-						dgAssert (0);
-/*
 						dgEdge* const openEdge = edge;
 						dgAssert (openEdge->m_incidentFace <= 0);
 						dgEdge* const nextEdge = openEdge->m_next;
 						dgEdge* const deletedEdge = openEdge->m_prev;
 						if (deletedEdge == openEdge->m_next->m_next) {
 							dirty = true;
-							while ((&(*iter) == deletedEdge) || (&(*iter) == deletedEdge->m_twin)) {
-								iter ++;
+							while ((&(*iter1) == deletedEdge) || (&(*iter1) == deletedEdge->m_twin)) {
+								iter1 ++;
 							}
 
 							dgAssert (deletedEdge->m_twin->m_incidentFace > 0);
 							openEdge->m_incidentFace = deletedEdge->m_twin->m_incidentFace;
 							openEdge->m_next->m_incidentFace = deletedEdge->m_twin->m_incidentFace;
 
+							dgInt32 attibuteIndex = AddInterpolatedHalfAttribute(deletedEdge->m_twin, nextEdge->m_incidentVertex);
+							openEdge->m_next->m_userData = attibuteIndex;
 							openEdge->m_userData = deletedEdge->m_twin->m_userData;
-							dgBigVector p2p0 (p2 - p0);
-							dgFloat64 den = p2p0.DotProduct3(p2p0);
-							dgFloat64 param1 = p2p0.DotProduct3(p1 - p0) / den;
-							dgVertexAtribute attib1 = AddInterpolateEdgeAttibute (deletedEdge->m_twin, param1);
-							attib1.m_vertex = m_points[openEdge->m_next->m_incidentVertex];
-							AddAtribute(attib1);
-							openEdge->m_next->m_userData = m_atribCount  - 1;
 							
 							deletedEdge->m_twin->m_prev->m_next = openEdge;
 							openEdge->m_prev = deletedEdge->m_twin->m_prev;
@@ -3773,34 +3819,34 @@ void dgMeshEffect::RepairTJoints ()
 							deletedEdge->m_next = deletedEdge->m_twin;
 							deletedEdge->m_prev = deletedEdge->m_twin;
 							DeleteEdge(deletedEdge);
-							//dgAssert (Sanity ());
+							dgAssert (Sanity ());
 						}
-*/
+
 					} else {
 						dgEdge* const openEdge = (edge->m_incidentFace <= 0) ? edge : edge->m_twin;
 						dgAssert (openEdge->m_incidentFace <= 0);
 
 						const dgBigVector& p3 = m_points.m_vertex[openEdge->m_next->m_next->m_next->m_incidentVertex];
 
-						dgBigVector A (p3 - p2);
-						dgBigVector B (p2 - p1);
-						dgFloat64 ab = A.DotProduct3(B);
-						if (ab >= 0.0) {
-							dgFloat64 aa = A.DotProduct3(A);
-							dgFloat64 bb = B.DotProduct3(B);
+						dgBigVector A0 (p3 - p2);
+						dgBigVector B0 (p2 - p1);
+						dgFloat64 ab0 = A0.DotProduct3(B0);
+						if (ab0 >= 0.0) {
+							dgFloat64 aa0 = A0.DotProduct3(A0);
+							dgFloat64 bb0 = B0.DotProduct3(B0);
 
-							dgFloat64 magab2 = ab * ab;
-							dgFloat64 magaabb = aa * bb * tol2;
-							if (magab2 >= magaabb) {
+							dgFloat64 ab0ab0 = ab0 * ab0;
+							dgFloat64 aa0bb0 = aa0 * bb0 * tol2;
+							if (ab0ab0 >= aa0bb0) {
 								if (openEdge->m_next->m_next->m_next->m_next != openEdge) {
 									const dgBigVector& p4 = m_points.m_vertex[openEdge->m_prev->m_incidentVertex];
-									dgBigVector A (p1 - p0);
-									dgBigVector B (p1 - p4);
-									dgFloat64 ab = A.DotProduct3(B);
-									if (ab < 0.0f) {
-										dgFloat64 magab2 = ab * ab;
-										dgFloat64 magaabb = aa * bb * tol2;
-										if (magab2 >= magaabb) {
+									dgBigVector A1 (p1 - p0);
+									dgBigVector B1 (p1 - p4);
+									dgFloat64 ab1 = A1.DotProduct3(B1);
+									if (ab1 < 0.0f) {
+										dgFloat64 ab1ab1 = ab1 * ab1;
+										dgFloat64 aa1bb1 = aa0 * bb0 * tol2;
+										if (ab1ab1 >= aa1bb1) {
 											dgEdge* const newFace = ConnectVertex (openEdge->m_prev, openEdge->m_next);
 											dirty |= newFace ? true : false;
 										}
@@ -3808,41 +3854,29 @@ void dgMeshEffect::RepairTJoints ()
 									//dgAssert (Sanity ());
 								} else if (openEdge->m_prev->m_twin->m_incidentFace > 0) {
 									dirty = true;
-									dgAssert (0);
-/*
-									dgEdge* const nextEdge = openEdge->m_next->m_next;
+									
 									dgEdge* const deletedEdge = openEdge->m_prev;
-									while ((&(*iter) == deletedEdge) || (&(*iter) == deletedEdge->m_twin)) {
-										iter ++;
+									while ((&(*iter1) == deletedEdge) || (&(*iter1) == deletedEdge->m_twin)) {
+										iter1 ++;
 									}
 
 									openEdge->m_incidentFace = deletedEdge->m_twin->m_incidentFace;
 									openEdge->m_next->m_incidentFace = deletedEdge->m_twin->m_incidentFace;
 									openEdge->m_next->m_next->m_incidentFace = deletedEdge->m_twin->m_incidentFace;
 
+									dgInt32 attibuteIndex0 = AddInterpolatedHalfAttribute(deletedEdge->m_twin, openEdge->m_next->m_incidentVertex);
+									dgInt32 attibuteIndex1 = AddInterpolatedHalfAttribute(deletedEdge->m_twin, openEdge->m_next->m_next->m_incidentVertex);
+									
 									openEdge->m_userData = deletedEdge->m_twin->m_userData;
+									openEdge->m_next->m_userData = attibuteIndex0;
+									openEdge->m_next->m_next->m_userData = attibuteIndex1;
 
-									dgBigVector p3p0 (p3 - p0);
-									dgFloat64 den = p3p0.DotProduct3(p3p0);
-									dgFloat64 param1 = p3p0.DotProduct3(p1 - p0) / den;
-									dgVertexAtribute attib1 = AddInterpolateEdgeAttibute (deletedEdge->m_twin, param1);
-									attib1.m_vertex = m_points[openEdge->m_next->m_incidentVertex];
-									dgAssert(0);
-									//AddAtribute(attib1);
-									//openEdge->m_next->m_userData = m_atribCount  - 1;
-
-									dgFloat64 param2 = p3p0.DotProduct3(p2 - p0) / den;
-									dgVertexAtribute attib2 = AddInterpolateEdgeAttibute (deletedEdge->m_twin, param2);
-									attib2.m_vertex = m_points[openEdge->m_next->m_next->m_incidentVertex];
-									dgAssert(0);
-									//AddAtribute(attib2);
-									//openEdge->m_next->m_next->m_userData = m_atribCount  - 1;
 
 									deletedEdge->m_twin->m_prev->m_next = openEdge;
 									openEdge->m_prev = deletedEdge->m_twin->m_prev;
 
-									deletedEdge->m_twin->m_next->m_prev = nextEdge;
-									nextEdge->m_next = deletedEdge->m_twin->m_next;
+									deletedEdge->m_twin->m_next->m_prev = deletedEdge->m_prev;
+									deletedEdge->m_prev->m_next = deletedEdge->m_twin->m_next;
 									
 									deletedEdge->m_twin->m_next = deletedEdge;
 									deletedEdge->m_twin->m_prev = deletedEdge;
@@ -3850,7 +3884,6 @@ void dgMeshEffect::RepairTJoints ()
 									deletedEdge->m_prev = deletedEdge->m_twin;
 									DeleteEdge(deletedEdge);
 									//dgAssert (Sanity ());
-*/
 								}
 							}
 						}

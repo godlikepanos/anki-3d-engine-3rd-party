@@ -286,7 +286,8 @@ void BasicBoxStacks (DemoEntityManager* const scene)
 		}
 	}
 
-	high = 15;
+	high = 20;
+high = 10;
 	for (int i = 0; i < 1; i ++) {
 		for (int j = 0; j < 1; j ++) {
 			SphereStack(scene, 1.0f, dVector(-5.0f + j * 8, 0.0f, -6.0f + i * 8, 0.0f), dVector (0.5f, 0.5f, 0.5f, 0.0f), high);
@@ -295,25 +296,10 @@ void BasicBoxStacks (DemoEntityManager* const scene)
 		}
 	}
 
-/*
-	dVector boxSize(0.5f, 0.5f, 0.5f, 0.0f);
-	dMatrix matrix(dGetIdentityMatrix());
-	matrix.m_posit = dVector(0.0f, 150.0f, 0.0f, 1.0f);
-	NewtonCollision* const boxCollision = CreateConvexCollision(scene->GetNewton(), matrix, boxSize, _BOX_PRIMITIVE, 0);
-	DemoMesh* const boxMesh = new DemoMesh("box", boxCollision, "smilli.tga", "smilli.tga", "smilli.tga");
-	CreateSimpleSolid(scene, boxMesh, 1.0f, matrix, boxCollision, 0);
-	boxMesh->Release();
-	NewtonDestroyCollision(boxCollision);
-*/
-
 	// place camera into position
 	dQuaternion rot;
 	dVector origin (-40.0f, 10.0f, 0.0f, 0.0f);
-//	dVector origin (-20.0f, 4.0f, 0.0f, 0.0f);
 	scene->SetCameraMatrix(rot, origin);
-
-
-	//	ExportScene (scene->GetNewton(), "../../../media/test1.ngd");
 }
 
 

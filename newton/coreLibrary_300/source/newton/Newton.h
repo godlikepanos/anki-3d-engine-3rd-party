@@ -98,7 +98,6 @@ extern "C" {
 	class NewtonJoint;
 	class NewtonMaterial;
 	class NewtonCollision;
-	class NewtonSkeletonContainer;
 	class NewtonDeformableMeshSegment;
 	class NewtonFracturedCompoundMeshPart;
 #else
@@ -108,7 +107,6 @@ extern "C" {
 	typedef struct NewtonJoint{} NewtonJoint;
 	typedef struct NewtonMaterial{} NewtonMaterial;
 	typedef struct NewtonCollision{} NewtonCollision;
-	typedef struct NewtonSkeletonContainer{} NewtonSkeletonContainer;
 	typedef struct NewtonDeformableMeshSegment{} NewtonDeformableMeshSegment;
 	typedef struct NewtonFracturedCompoundMeshPart{} NewtonFracturedCompoundMeshPart;
 #endif
@@ -187,9 +185,11 @@ extern "C" {
 		int m_height;
 		int m_gridsDiagonals;
 		int m_elevationDataType;	// 0 = 32 bit floats, 1 = unsigned 16 bit integers
-		dFloat m_horizonalScale;
 		dFloat m_verticalScale;
-		dFloat m_horizonalDisplacementScale;
+		dFloat m_horizonalScale_x;
+		dFloat m_horizonalScale_z;
+		dFloat m_horizonalDisplacementScale_x;
+		dFloat m_horizonalDisplacementScale_z;
 		void* m_vertialElevation;
 		short* m_horizotalDisplacement;
 		char* m_atributes;
@@ -292,19 +292,6 @@ extern "C" {
 		dFloat m_maxFriction;
 		dFloat m_timestep;
 	} NewtonHingeSliderUpdateDesc;
-
-
-	typedef struct NewtonSkeletonBoneJacobian
-	{
-		dFloat m_linear[4];
-		dFloat m_angular[4];
-	} NewtonSkeletonBoneJacobian;
-
-	typedef struct NewtonSkeletonBoneJacobianPair
-	{
-		NewtonSkeletonBoneJacobian m_j01;
-		NewtonSkeletonBoneJacobian m_j10;
-	} NewtonSkeletonBoneJacobianPair;
 
 	typedef struct NewtonUserContactPoint
 	{
@@ -421,7 +408,6 @@ extern "C" {
 	typedef void (*NewtonUserBilateralGetInfoCallback) (const NewtonJoint* const userJoint, NewtonJointRecord* const info);
 
 	typedef void (*NewtonConstraintDestructor) (const NewtonJoint* const me);
-	typedef void (*NewtonSkeletontDestructor) (const NewtonSkeletonContainer* const me);
 
 	typedef void (*NewtonJobTask) (NewtonWorld* const world, void* const userData, int threadIndex);
 	typedef int (*NewtonReportProgress) (dFloat normalizedProgressPercent, void* const userData);
@@ -463,8 +449,11 @@ extern "C" {
 	NEWTON_API void NewtonSetContactMergeTolerance (const NewtonWorld* const newtonWorld, dFloat tolerance);
 
 	NEWTON_API void NewtonInvalidateCache (const NewtonWorld* const newtonWorld);
+
 	NEWTON_API void NewtonSetSolverModel (const NewtonWorld* const newtonWorld, int model);
+	NEWTON_API int NewtonGetSolverModel(const NewtonWorld* const newtonWorld);
 	NEWTON_API void NewtonSetSolverConvergenceQuality (const NewtonWorld* const newtonWorld, int lowOrHigh);
+	NEWTON_API int NewtonGetSolverConvergenceQuality(const NewtonWorld* const newtonWorld);
 
 	NEWTON_API void NewtonSetMultiThreadSolverOnSingleIsland (const NewtonWorld* const newtonWorld, int mode);
 	NEWTON_API int NewtonGetMultiThreadSolverOnSingleIsland (const NewtonWorld* const newtonWorld);
@@ -486,6 +475,8 @@ extern "C" {
 
 	NEWTON_API void NewtonSerializeToFile (const NewtonWorld* const newtonWorld, const char* const filename, NewtonOnBodySerializationCallback bodyCallback, void* const bodyUserData);
 	NEWTON_API void NewtonDeserializeFromFile (const NewtonWorld* const newtonWorld, const char* const filename, NewtonOnBodyDeserializationCallback bodyCallback, void* const bodyUserData);
+
+	NEWTON_API NewtonBody* NewtonFindSerializedBody(const NewtonWorld* const newtonWorld, int bodySerializedID);
 
 	NEWTON_API void NewtonSetJointSerializationCallbacks (const NewtonWorld* const newtonWorld, NewtonOnJointSerializationCallback serializeJoint, NewtonOnJointDeserializationCallback deserializeJoint);
 	NEWTON_API void NewtonGetJointSerializationCallbacks (const NewtonWorld* const newtonWorld, NewtonOnJointSerializationCallback* const serializeJoint, NewtonOnJointDeserializationCallback* const deserializeJoint);
@@ -744,7 +735,7 @@ extern "C" {
 	//
 	// **********************************************************************************************
 	NEWTON_API NewtonCollision* NewtonCreateHeightFieldCollision (const NewtonWorld* const newtonWorld, int width, int height, int gridsDiagonals, int elevationdatType,
-																  const void* const elevationMap, const char* const attributeMap, dFloat verticalScale, dFloat horizontalScale, int shapeID);
+																  const void* const elevationMap, const char* const attributeMap, dFloat verticalScale, dFloat horizontalScale_x, dFloat horizontalScale_z, int shapeID);
 	NEWTON_API void NewtonHeightFieldSetUserRayCastCallback (const NewtonCollision* const heightfieldCollision, NewtonHeightFieldRayCastCallback rayHitCallback);
 	NEWTON_API void NewtonHeightFieldSetHorizontalDisplacement (const NewtonCollision* const heightfieldCollision, const unsigned short* const horizontalMap, dFloat scale);
 
@@ -926,33 +917,32 @@ extern "C" {
 
 	NEWTON_API NewtonWorld* NewtonBodyGetWorld (const NewtonBody* const body);
 	NEWTON_API NewtonCollision* NewtonBodyGetCollision (const NewtonBody* const body);
-	NEWTON_API int   NewtonBodyGetMaterialGroupID (const NewtonBody* const body);
+	NEWTON_API int NewtonBodyGetMaterialGroupID (const NewtonBody* const body);
 
-	NEWTON_API int   NewtonBodyGetContinuousCollisionMode (const NewtonBody* const body);
-	NEWTON_API int   NewtonBodyGetJointRecursiveCollision (const NewtonBody* const body);
+	NEWTON_API int NewtonBodyGetSerializedID(const NewtonBody* const body);
+	NEWTON_API int NewtonBodyGetContinuousCollisionMode (const NewtonBody* const body);
+	NEWTON_API int NewtonBodyGetJointRecursiveCollision (const NewtonBody* const body);
 
 	NEWTON_API void NewtonBodyGetPosition(const NewtonBody* const body, dFloat* const pos);
-	NEWTON_API void  NewtonBodyGetMatrix(const NewtonBody* const body, dFloat* const matrix);
-	NEWTON_API void  NewtonBodyGetRotation(const NewtonBody* const body, dFloat* const rotation);
-	NEWTON_API void  NewtonBodyGetMass (const NewtonBody* const body, dFloat* mass, dFloat* const Ixx, dFloat* const Iyy, dFloat* const Izz);
-	NEWTON_API void  NewtonBodyGetInvMass(const NewtonBody* const body, dFloat* const invMass, dFloat* const invIxx, dFloat* const invIyy, dFloat* const invIzz);
-	NEWTON_API void  NewtonBodyGetInertiaMatrix(const NewtonBody* const body, dFloat* const inertiaMatrix);
-	NEWTON_API void  NewtonBodyGetInvInertiaMatrix(const NewtonBody* const body, dFloat* const invInertiaMatrix);
-	NEWTON_API void  NewtonBodyGetOmega(const NewtonBody* const body, dFloat* const vector);
-	NEWTON_API void  NewtonBodyGetVelocity(const NewtonBody* const body, dFloat* const vector);
-	NEWTON_API void  NewtonBodyGetForce(const NewtonBody* const body, dFloat* const vector);
-	NEWTON_API void  NewtonBodyGetTorque(const NewtonBody* const body, dFloat* const vector);
-//	NEWTON_API void  NewtonBodyGetForceAcc(const NewtonBody* const body, dFloat* const vector);
-//	NEWTON_API void  NewtonBodyGetTorqueAcc(const NewtonBody* const body, dFloat* const vector);
-	NEWTON_API void  NewtonBodyGetCentreOfMass (const NewtonBody* const body, dFloat* const com);
+	NEWTON_API void NewtonBodyGetMatrix(const NewtonBody* const body, dFloat* const matrix);
+	NEWTON_API void NewtonBodyGetRotation(const NewtonBody* const body, dFloat* const rotation);
+	NEWTON_API void NewtonBodyGetMass (const NewtonBody* const body, dFloat* mass, dFloat* const Ixx, dFloat* const Iyy, dFloat* const Izz);
+	NEWTON_API void NewtonBodyGetInvMass(const NewtonBody* const body, dFloat* const invMass, dFloat* const invIxx, dFloat* const invIyy, dFloat* const invIzz);
+	NEWTON_API void NewtonBodyGetInertiaMatrix(const NewtonBody* const body, dFloat* const inertiaMatrix);
+	NEWTON_API void NewtonBodyGetInvInertiaMatrix(const NewtonBody* const body, dFloat* const invInertiaMatrix);
+	NEWTON_API void NewtonBodyGetOmega(const NewtonBody* const body, dFloat* const vector);
+	NEWTON_API void NewtonBodyGetVelocity(const NewtonBody* const body, dFloat* const vector);
+	NEWTON_API void NewtonBodyGetForce(const NewtonBody* const body, dFloat* const vector);
+	NEWTON_API void NewtonBodyGetTorque(const NewtonBody* const body, dFloat* const vector);
+//	NEWTON_API void NewtonBodyGetForceAcc(const NewtonBody* const body, dFloat* const vector);
+//	NEWTON_API void NewtonBodyGetTorqueAcc(const NewtonBody* const body, dFloat* const vector);
+	NEWTON_API void NewtonBodyGetCentreOfMass (const NewtonBody* const body, dFloat* const com);
 	
 	NEWTON_API void NewtonBodyGetPointVelocity (const NewtonBody* const body, const dFloat* const point, dFloat* const velocOut);
 
-	NEWTON_API void NewtonBodyApplyGyroscopicTorque (const NewtonBody* const body);
-	NEWTON_API void NewtonBodyAddImpulse (const NewtonBody* const body, const dFloat* const pointDeltaVeloc, const dFloat* const pointPosit);
-	NEWTON_API void NewtonBodyApplyImpulseArray (const NewtonBody* const body, int impuleCount, int strideInByte, const dFloat* const impulseArray, const dFloat* const pointArray);
-
-	NEWTON_API void NewtonBodyApplyImpulsePair (const NewtonBody* const body, dFloat* const linearImpulse, dFloat* const angularImpulse);
+	NEWTON_API void NewtonBodyApplyImpulsePair (const NewtonBody* const body, dFloat* const linearImpulse, dFloat* const angularImpulse, dFloat timestep);
+	NEWTON_API void NewtonBodyAddImpulse (const NewtonBody* const body, const dFloat* const pointDeltaVeloc, const dFloat* const pointPosit, dFloat timestep);
+	NEWTON_API void NewtonBodyApplyImpulseArray (const NewtonBody* const body, int impuleCount, int strideInByte, const dFloat* const impulseArray, const dFloat* const pointArray, dFloat timestep);
 
 	NEWTON_API void NewtonBodyIntegrateVelocity (const NewtonBody* const body, dFloat timestep);
 
@@ -964,9 +954,7 @@ extern "C" {
 	NEWTON_API NewtonJoint* NewtonBodyGetNextJoint (const NewtonBody* const body, const NewtonJoint* const joint);
 	NEWTON_API NewtonJoint* NewtonBodyGetFirstContactJoint (const NewtonBody* const body);
 	NEWTON_API NewtonJoint* NewtonBodyGetNextContactJoint (const NewtonBody* const body, const NewtonJoint* const contactJoint);
-
-	NEWTON_API NewtonSkeletonContainer* NewtonBodyGetSkeleton(const NewtonBody* const body);
-
+	
 	// **********************************************************************************************
 	//
 	// contact joints interface
@@ -1019,7 +1007,6 @@ extern "C" {
 	// particle system interface (soft bodies, individual, pressure bodies and cloth)   
 	//
 	// **********************************************************************************************
-//	NEWTON_API NewtonCollision* NewtonCreateSpringMassDamperSystem (const NewtonWorld* const newtonWorld, NewtonMesh* const mesh, int shapeID);
 	NEWTON_API NewtonCollision* NewtonCreateMassSpringDamperSystem (const NewtonWorld* const newtonWorld, int shapeID,
 																	const dFloat* const points, int pointCount, int strideInBytes, const dFloat* const pointMass, 
 																	const int* const links, int linksCount, const dFloat* const linksSpring, const dFloat* const linksDamper);
@@ -1029,7 +1016,7 @@ extern "C" {
 	NEWTON_API int NewtonDeformableMeshGetParticleCount (const NewtonCollision* const deformableMesh); 
 	NEWTON_API int NewtonDeformableMeshGetParticleStrideInBytes (const NewtonCollision* const deformableMesh); 
 	NEWTON_API const dFloat* NewtonDeformableMeshGetParticleArray (const NewtonCollision* const deformableMesh); 
-		
+
 /*
 	NEWTON_API NewtonCollision* NewtonCreateClothPatch (const NewtonWorld* const newtonWorld, NewtonMesh* const mesh, int shapeID, NewtonClothPatchMaterial* const structuralMaterial, NewtonClothPatchMaterial* const bendMaterial);
 	NEWTON_API void NewtonDeformableMeshCreateClusters (NewtonCollision* const deformableMesh, int clusterCount, dFloat overlapingWidth);
@@ -1142,6 +1129,8 @@ extern "C" {
 	//
 	// **********************************************************************************************
 	NEWTON_API NewtonJoint* NewtonConstraintCreateUserJoint (const NewtonWorld* const newtonWorld, int maxDOF, NewtonUserBilateralCallback callback, NewtonUserBilateralGetInfoCallback getInfo, const NewtonBody* const childBody, const NewtonBody* const parentBody) ; 
+	NEWTON_API int NewtonUserJointGetSolverModel(const NewtonJoint* const joint);
+	NEWTON_API void NewtonUserJointSetSolverModel(const NewtonJoint* const joint, int model);
 	NEWTON_API void NewtonUserJointSetFeedbackCollectorCallback (const NewtonJoint* const joint, NewtonUserBilateralCallback getFeedback);
 	NEWTON_API void NewtonUserJointAddLinearRow (const NewtonJoint* const joint, const dFloat* const pivot0, const dFloat* const pivot1, const dFloat* const dir);
 	NEWTON_API void NewtonUserJointAddAngularRow (const NewtonJoint* const joint, dFloat relativeAngle, const dFloat* const dir);
@@ -1149,41 +1138,14 @@ extern "C" {
 	NEWTON_API void NewtonUserJointSetRowMinimumFriction (const NewtonJoint* const joint, dFloat friction);
 	NEWTON_API void NewtonUserJointSetRowMaximumFriction (const NewtonJoint* const joint, dFloat friction);
 	NEWTON_API dFloat NewtonUserCalculateRowZeroAccelaration (const NewtonJoint* const joint);
+	NEWTON_API dFloat NewtonUserJointGetRowAcceleration (const NewtonJoint* const joint);
 	NEWTON_API void NewtonUserJointSetRowAcceleration (const NewtonJoint* const joint, dFloat acceleration);
-	NEWTON_API void NewtonUserJointSetRowSpringDamperAcceleration (const NewtonJoint* const joint, dFloat spring, dFloat damper);
+	NEWTON_API void NewtonUserJointSetRowSpringDamperAcceleration (const NewtonJoint* const joint, dFloat rowStiffness, dFloat spring, dFloat damper);
 	NEWTON_API void NewtonUserJointSetRowStiffness (const NewtonJoint* const joint, dFloat stiffness);
 	NEWTON_API int NewtonUserJoinRowsCount (const NewtonJoint* const joint);
 	NEWTON_API void NewtonUserJointGetGeneralRow (const NewtonJoint* const joint, int index, dFloat* const jacobian0, dFloat* const jacobian1);
 	
 	NEWTON_API dFloat NewtonUserJointGetRowForce (const NewtonJoint* const joint, int row);
-
-	// ************************************************************************************************************************
-	// 
-	//	Skeleton offer the same level of accuracy that Feather stone reduced coordinate link chains algorithm  
-	//	these are good to make near perfect Rag dolls, physically based and inversed dynamics animated bodies, 
-	//	simple robotic contractions with not internal loops, Vehicles, Ropes, etc. That will all interact seamlessly and naturally with the physics world.
-	//	
-	// ************************************************************************************************************************
-	NEWTON_API NewtonSkeletonContainer* NewtonSkeletonContainerCreate (NewtonWorld* const world, NewtonBody* const rootBone, NewtonSkeletontDestructor onDestroyCallback);
-	NEWTON_API void NewtonSkeletonContainerDelete (NewtonSkeletonContainer* const skeleton);
-
-	NEWTON_API void NewtonSkeletonContainerAttachJointArray (NewtonSkeletonContainer* const skeleton, int jointCount, NewtonJoint** const jointArray);
-	NEWTON_API void* NewtonSkeletonContainerAttachBone (NewtonSkeletonContainer* const skeleton, NewtonBody* const childBone, NewtonBody* const parentBone);
-//	NEWTON_API void NewtonSkeletonContainerDetachBone (NewtonSkeletonContainer* const skeleton, void* const bone);
-	NEWTON_API void NewtonSkeletonContainerFinalize (NewtonSkeletonContainer* const skeleton);
-
-	NEWTON_API int NewtonSkeletonContainerAttachCyclingJoint (NewtonSkeletonContainer* const skeleton, NewtonJoint* const joint);
-	NEWTON_API void NewtonSkeletonContainerRemoveCyclingJoint (NewtonSkeletonContainer* const skeleton, NewtonJoint* const joint);
-
-	NEWTON_API void* NewtonSkeletonContainerGetRoot (const NewtonSkeletonContainer* const skeleton);
-	NEWTON_API void* NewtonSkeletonContainerGetParent (const NewtonSkeletonContainer* const skeleton, void* const node);
-	NEWTON_API void* NewtonSkeletonContainerFirstChild (const NewtonSkeletonContainer* const skeleton, void* const parent);
-	NEWTON_API void* NewtonSkeletonContainerNextSibling (const NewtonSkeletonContainer* const skeleton, void* const sibling);
-	NEWTON_API NewtonBody* NewtonSkeletonContainerGetBodyFromNode (const NewtonSkeletonContainer* const skeleton, void* const node);
-	NEWTON_API NewtonJoint* NewtonSkeletonContainerGetParentJointFromNode (const NewtonSkeletonContainer* const skeleton, void* const node);
-	NEWTON_API NewtonSkeletonContainer* NewtonSkeletonGetSkeletonFromBody (NewtonBody* const body);
-
-
 
 	// **********************************************************************************************
 	//

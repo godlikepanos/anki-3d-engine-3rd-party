@@ -233,7 +233,6 @@ void dgContact::JacobianContactDerivative (dgContraintDescritor& params, const d
 		relVelocErr = velocError.DotProduct3(contact.m_dir0);
 		params.m_forceBounds[jacobIndex].m_normalIndex = (contact.m_flags & dgContactMaterial::m_override0Friction) ? DG_BILATERAL_FRICTION_CONSTRAINT : normalIndex;
 		params.m_jointStiffness[jacobIndex] = dgFloat32 (0.5f);
-
 		
 		params.m_penetration[jacobIndex] = dgFloat32 (0.0f);
 		params.m_penetrationStiffness[jacobIndex] = dgFloat32 (0.0f);
@@ -311,6 +310,8 @@ void dgContact::JointAccelerations(dgJointAccelerationDecriptor* const params)
 			dgFloat32 aRel = row->m_deltaAccel;
 
 			if (row->m_normalForceIndex < 0) {
+				dgAssert (row->m_restitution >= 0.0f);
+				dgAssert (row->m_restitution <= 2.0f);
 				dgFloat32 restitution = (vRel <= dgFloat32 (0.0f)) ? (dgFloat32 (1.0f) + row->m_restitution) : dgFloat32 (1.0f);
 
 				dgFloat32 penetrationVeloc = dgFloat32 (0.0f);

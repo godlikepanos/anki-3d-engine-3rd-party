@@ -269,7 +269,6 @@ dgCollisionInstance* dgWorld::CreateFracturedCompound (dgMeshEffect* const solid
 }
 
 
-
 dgCollisionInstance* dgWorld::CreateMassSpringDamperSystem (dgInt32 shapeID, dgInt32 pointCount, const dgFloat32* const points, dgInt32 strideInBytes, const dgFloat32* const pointsMass, dgInt32 linksCount, const dgInt32* const links, const dgFloat32* const linksSpring, const dgFloat32* const LinksDamper)
 {
 	dgCollision* const collision = new (m_allocator)dgCollisionMassSpringDamperSystem(this, shapeID, pointCount, points, strideInBytes, pointsMass, linksCount, links, linksSpring, LinksDamper);
@@ -307,11 +306,12 @@ dgCollisionInstance* dgWorld::CreateStaticUserMesh (const dgVector& boxP0, const
 
 dgCollisionInstance* dgWorld::CreateHeightField(
 	dgInt32 width, dgInt32 height, dgInt32 contructionMode, dgInt32 elevationDataType, 
-	const void* const elevationMap, const dgInt8* const atributeMap, dgFloat32 verticalScale, dgFloat32 horizontalScale)
+	const void* const elevationMap, const dgInt8* const atributeMap, 
+	dgFloat32 verticalScale, dgFloat32 horizontalScale_x, dgFloat32 horizontalScale_z)
 {
 	dgCollision* const collision = new  (m_allocator) dgCollisionHeightField (this, width, height, contructionMode, elevationMap, 
 																			  elevationDataType	? dgCollisionHeightField::m_unsigned16Bit : dgCollisionHeightField::m_float32Bit,	
-																			  verticalScale, atributeMap, horizontalScale);
+																			  verticalScale, atributeMap, horizontalScale_x, horizontalScale_z);
 	dgCollisionInstance* const instance = CreateInstance (collision, 0, dgGetIdentityMatrix()); 
 	collision->Release();
 	return instance;
@@ -865,32 +865,29 @@ void dgWorld::PopulateContacts (dgBroadPhase::dgPair* const pair, dgInt32 thread
 				dgAssert (dgAbsf(contactMaterial->m_normal.DotProduct3(contactMaterial->m_dir0.CrossProduct3(contactMaterial->m_dir1)) - dgFloat32 (1.0f)) < dgFloat32 (1.0e-3f));
 			}
 		} else {
+			dgVector veloc0 (v0 + w0.CrossProduct3(contactMaterial->m_point - com0));
+			dgVector veloc1 (v1 + w1.CrossProduct3(contactMaterial->m_point - com1));
+			dgVector relReloc (veloc1 - veloc0);
 
-			//dgVector vel0 (v0 + w0 * (contactMaterial->m_point - matrix0.m_posit));
-			//dgVector vel1 (v1 + w1 * (contactMaterial->m_point - matrix1.m_posit));
-			dgVector vel0 (v0 + w0.CrossProduct3(contactMaterial->m_point - com0));
-			dgVector vel1 (v1 + w1.CrossProduct3(contactMaterial->m_point - com1));
-			dgVector vRel (vel1 - vel0);
-
-			dgFloat32 impulse = vRel.DotProduct3(contactMaterial->m_normal);
+			dgFloat32 impulse = relReloc.DotProduct3(contactMaterial->m_normal);
 			if (dgAbsf (impulse) > maxImpulse) {
 				maxImpulse = dgAbsf (impulse); 
 //				breakImpulse0 = contactMaterial->m_collision0->GetBreakImpulse();
 //				breakImpulse1 = contactMaterial->m_collision1->GetBreakImpulse();
 			}
 
-			dgVector tangDir (vRel - contactMaterial->m_normal.Scale3 (impulse));
-			diff = tangDir.DotProduct3(tangDir);
+			dgVector tangentDir (relReloc - contactMaterial->m_normal.Scale3 (impulse));
+			diff = tangentDir.DotProduct3(tangentDir);
 
 			if (diff > dgFloat32 (1.0e-2f)) {
-				contactMaterial->m_dir0 = tangDir.Scale3 (dgRsqrt (diff));
+				contactMaterial->m_dir0 = tangentDir.Scale3 (dgRsqrt (diff));
 			} else {
 				if (dgAbsf (contactMaterial->m_normal.m_z) > dgFloat32 (0.577f)) {
-					tangDir = dgVector (-contactMaterial->m_normal.m_y, contactMaterial->m_normal.m_z, dgFloat32 (0.0f), dgFloat32 (0.0f));
+					tangentDir = dgVector (-contactMaterial->m_normal.m_y, contactMaterial->m_normal.m_z, dgFloat32 (0.0f), dgFloat32 (0.0f));
 				} else {
-					tangDir = dgVector (-contactMaterial->m_normal.m_y, contactMaterial->m_normal.m_x, dgFloat32 (0.0f), dgFloat32 (0.0f));
+					tangentDir = dgVector (-contactMaterial->m_normal.m_y, contactMaterial->m_normal.m_x, dgFloat32 (0.0f), dgFloat32 (0.0f));
 				}
-				contactMaterial->m_dir0 = contactMaterial->m_normal.CrossProduct3(tangDir);
+				contactMaterial->m_dir0 = contactMaterial->m_normal.CrossProduct3(tangentDir);
 				dgAssert (contactMaterial->m_dir0.DotProduct3(contactMaterial->m_dir0) > dgFloat32 (1.0e-8f));
 				contactMaterial->m_dir0 = contactMaterial->m_dir0.Scale3 (dgRsqrt (contactMaterial->m_dir0.DotProduct3(contactMaterial->m_dir0)));
 			}
@@ -1389,7 +1386,8 @@ dgInt32 dgWorld::CalculateConvexToConvexContacts(dgCollisionParamProxy& proxy) c
 	contactJoint->m_closestDistance = dgFloat32(1.0e10f);
 	contactJoint->m_separationDistance = dgFloat32(0.0f);
 
-	if (!(collision0->GetConvexVertexCount() && collision1->GetConvexVertexCount() && proxy.m_instance0->GetCollisionMode() && proxy.m_instance1->GetCollisionMode())) {
+//	if (!(collision0->GetConvexVertexCount() && collision1->GetConvexVertexCount() && proxy.m_instance0->GetCollisionMode() && proxy.m_instance1->GetCollisionMode())) {
+	if (!(collision0->GetConvexVertexCount() && collision1->GetConvexVertexCount())) {
 		return count;
 	}
 
@@ -1481,7 +1479,8 @@ dgInt32 dgWorld::CalculateConvexToNonConvexContacts(dgCollisionParamProxy& proxy
 	dgAssert(collision1->IsType(dgCollision::dgCollisionMesh_RTTI));
 	dgAssert(collision0->IsType(dgCollision::dgCollisionConvexShape_RTTI));
 	contactJoint->m_closestDistance = dgFloat32(1.0e10f);
-	if (!(collision0->GetConvexVertexCount() && proxy.m_instance0->GetCollisionMode() && proxy.m_instance1->GetCollisionMode())) {
+	//if (!(collision0->GetConvexVertexCount() && proxy.m_instance0->GetCollisionMode() && proxy.m_instance1->GetCollisionMode())) {
+	if (!collision0->GetConvexVertexCount()) {
 		return count;
 	}
 
@@ -1822,8 +1821,8 @@ dgInt32 dgWorld::CalculateConvexToNonConvexContactsContinue(dgCollisionParamProx
 			if (error < epsilon) {
 				count = 0;
 				countleft = maxContacts;
-				for (dgInt32 i = 0; i < count1; i++) {
-					contactOut[i] = proxy.m_contacts[i];
+				for (dgInt32 j = 0; j < count1; j++) {
+					contactOut[j] = proxy.m_contacts[j];
 				}
 			}
 			count += count1;

@@ -31,16 +31,13 @@ class SimpleSoftBodyEntity: public DemoEntity
 			,m_body(body)
 		{
 			ResetOptimization();
-			NewtonCollision* const deformableCollision = NewtonBodyGetCollision(m_body);
+			//NewtonCollision* const deformableCollision = NewtonBodyGetCollision(m_body);
 
 			int pointCount = NewtonMeshGetPointCount(clothPatchMesh);
 			const int* const indexMap = NewtonMeshGetIndexToVertexMap(clothPatchMesh);
-			//const int* const solidIndexList = NewtonDeformableMeshGetIndexToVertexMap(deformableCollision);
-
 			m_indexMap = new int[pointCount];
 			for (int i = 0; i < pointCount; i++) {
 				int j = indexMap[i];
-				//m_indexMap[i] = solidIndexList[j];
 				m_indexMap[i] = j;
 			}
 		}
@@ -130,9 +127,10 @@ class SimpleSoftBodyEntity: public DemoEntity
 			,m_body (body)
 		{
 			ResetOptimization();
-			NewtonCollision* const deformableCollision = NewtonBodyGetCollision(m_body);
+			
 dAssert (0);
 /*
+			NewtonCollision* const deformableCollision = NewtonBodyGetCollision(m_body);
 			int pointCount = NewtonMeshGetPointCount(tetrahedraMesh);
 			const int* const indexMap = NewtonMeshGetIndexToVertexMap(tetrahedraMesh);
 			const int* const solidIndexList = NewtonDeformableMeshGetIndexToVertexMap(deformableCollision);
@@ -647,7 +645,7 @@ points[index] -= dVector(width * 0.5f, height * 0.5f, depth * 0.5f, 0.0f);
 			points[i].m_z = meshPoints[i * stride + 2];
 			points[i].m_w = 0.0f;
 		}
-		
+
 		dFloat mass = 8.0f;
 		// set the particle masses 
 		dFloat unitMass = mass / vertexCount;
@@ -660,8 +658,8 @@ points[index] -= dVector(width * 0.5f, height * 0.5f, depth * 0.5f, 0.0f);
 		const int maxLinkCount = size_x * size_z * 16;
 
 		// create the structual constation array;
-		dFloat structuralDamper = 1000.0f;
-		dFloat structuralSpring = 100000.0f;
+		dFloat structuralSpring = dAbs(mass * DEMO_GRAVITY) / 0.01f;
+		dFloat structuralDamper = 30.0f;
 
 		int* const links = new int[2 * maxLinkCount];
 		dFloat* const spring = new dFloat[maxLinkCount];
@@ -680,8 +678,8 @@ points[index] -= dVector(width * 0.5f, height * 0.5f, depth * 0.5f, 0.0f);
 		
 
 		// add shear constraints
-		dFloat shearDamper = 1000.0f;
-		dFloat shearSpring = 100000.0f;
+		dFloat shearSpring = structuralSpring;
+		dFloat shearDamper = structuralDamper;
 		for (void* faceNode = NewtonMeshGetFirstFace (clothPatch); faceNode; faceNode = NewtonMeshGetNextFace (clothPatch, faceNode)) {
 			if (!NewtonMeshIsFaceOpen(clothPatch, faceNode)) {
 				int face[8];
@@ -707,6 +705,7 @@ points[index] -= dVector(width * 0.5f, height * 0.5f, depth * 0.5f, 0.0f);
 			}
 		}
 
+//linksCount = 0;
 		NewtonCollision* const deformableCollision = NewtonCreateMassSpringDamperSystem(world, 0, 
 													 &points[0].m_x, vertexCount, sizeof (dVector), clothMass,
 													 links, linksCount, spring, damper);

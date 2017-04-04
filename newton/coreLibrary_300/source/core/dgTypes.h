@@ -50,11 +50,10 @@
 	#pragma warning (disable: 4201) //nonstandard extension used : nameless struct/union
 	#pragma warning (disable: 4324) //structure was padded due to __declspec(align())
 	#pragma warning (disable: 4530) // C++ exception handler used, but unwind semantics are not enabled. Specify /EHsc
-        #if _MSC_VER >= 1400
+    #if _MSC_VER >= 1400
+	  #pragma warning (disable: 4005) //'__useHeader': macro redefinition
  	  #pragma warning (disable: 4577) // 'noexcept' used with no exception handling mode specified; termination on exception is not guaranteed. Specify /EHsc
-	  #pragma warning (disable: 4456) // declaration of 'key' hides previous local declaration
-	  #pragma warning (disable: 4457) // declaration of 'body' hides function parameter
-        #endif
+    #endif
 	#include <io.h> 
 	#include <direct.h> 
 	#include <malloc.h>
@@ -107,6 +106,13 @@
 #endif
 
 #if (defined (_POSIX_VER) || defined (_POSIX_VER_64) || defined (_MINGW_32_VER) || defined (_MINGW_64_VER))
+  /* CMake defines NDEBUG for _not_ debug builds. Therefore, set
+     Newton's _DEBUG flag only when NDEBUG is not defined.
+  */
+  #ifndef NDEBUG
+    #define _DEBUG 1
+  #endif
+
 	#include <unistd.h>
 	#include <assert.h>
 	#ifndef __ARMCC_VERSION
@@ -157,10 +163,13 @@
 
 
 
-// by default newton run on a separate thread, optionally concurrent with the calling thread, it also uses a thread job pool for multi core systems.
-// define DG_USE_THREAD_EMULATION on the command line for platform that do not support hardware multi threading or if multi threading is not stable 
-// #define DG_USE_THREAD_EMULATION
-
+// by default newton run on a separate thread and 
+// optionally concurrent with the calling thread,
+// it also uses a thread job pool for multi core systems.
+// define DG_USE_THREAD_EMULATION on the command line for 
+// platform that do not support hardware multi threading or 
+// if the and application want to control threading at the application level 
+//#define DG_USE_THREAD_EMULATION
 
 #if (defined (_WIN_32_VER) || defined (_WIN_64_VER))
 	#if _MSC_VER < 1700
@@ -389,6 +398,10 @@ DG_INLINE T dgSign(T A)
 template <class T> 
 DG_INLINE bool dgAreEqual(T A, T B, T tol)
 {
+	if ((dgAbsf(A) < tol) && (dgAbsf(B) < tol)) {
+		return true;
+	}
+/*
 	dgInt32 exp0;
 	dgFloat64 mantissa0 = frexp(dgFloat64 (A), &exp0);
 
@@ -402,7 +415,12 @@ DG_INLINE bool dgAreEqual(T A, T B, T tol)
 	if (exp0 != exp1) {
 		return false;
 	}
-	return dgAbsf(mantissa0 - mantissa1) < dgAbsf (tol);
+	return dgAbsf(mantissa0 - mantissa1) < tol;
+*/	
+	T den = dgMax(dgAbsf(A), dgAbsf(B)) + tol;
+	A /= den;
+	B /= den;
+	return dgAbsf(A - B) < tol;
 }
 
 template <class T> 
@@ -766,7 +784,6 @@ class dgSetPrecisionDouble
 
 DG_INLINE dgInt32 dgAtomicExchangeAndAdd (dgInt32* const addend, dgInt32 amount)
 {
-	// it is a pity that pthread does not supports cross platform atomics, it would be nice if it did
 	#if (defined (_WIN_32_VER) || defined (_WIN_64_VER))
 		return _InterlockedExchangeAdd((long*) addend, long (amount));
 	#endif
@@ -783,7 +800,6 @@ DG_INLINE dgInt32 dgAtomicExchangeAndAdd (dgInt32* const addend, dgInt32 amount)
 
 DG_INLINE dgInt32 dgInterlockedExchange(dgInt32* const ptr, dgInt32 value)
 {
-	// it is a pity that pthread does not supports cross platform atomics, it would be nice if it did
 	#if (defined (_WIN_32_VER) || defined (_WIN_64_VER))
 		return _InterlockedExchange((long*) ptr, value);
 	#endif

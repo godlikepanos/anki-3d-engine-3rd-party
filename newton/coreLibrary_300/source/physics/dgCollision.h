@@ -158,9 +158,11 @@ class dgCollisionInfo
 		dgInt32 m_height;
 		dgInt32 m_gridsDiagonals;
 		dgInt32 m_elevationDataType;		// 0 = 32 bit floats, 1 = unsigned 16 bit intergers
-		dgFloat32 m_horizonalScale;
 		dgFloat32 m_verticalScale;
-		dgFloat32 m_horizonalDisplacementScale;
+		dgFloat32 m_horizonalScale_x;
+		dgFloat32 m_horizonalScale_z;
+		dgFloat32 m_horizonalDisplacementScale_x;
+		dgFloat32 m_horizonalDisplacementScale_z;
 		void* m_elevation;
 		dgUnsigned16* m_horizotalDisplacement;
 		dgInt8* m_atributes;
@@ -220,7 +222,7 @@ class dgCollision
 		dgCollisionLumpedMass_RTTI					= 1<<13,
 		dgCollisionDeformableMesh_RTTI				= 1<<14,
 		dgCollisionDeformableSolidMesh_RTTI			= 1<<15,
-		dgCollisionDeformableClothPatch_RTTI		= 1<<16,
+		dgCollisionMassSpringDamperSystem_RTTI		= 1<<16,
 		dgCollisionIncompressibleParticles_RTTI		= 1<<17,
 		dgCollisionUserMesh_RTTI					= 1<<18,
 		dgCollisionHeightField_RTTI					= 1<<19,

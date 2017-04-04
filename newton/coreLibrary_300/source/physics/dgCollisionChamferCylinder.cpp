@@ -97,17 +97,17 @@ void dgCollisionChamferCylinder::Init (dgFloat32 radius, dgFloat32 height)
 		}
 
 
-		dgInt32 index = 0;
+		dgInt32 index0 = 0;
 		for (dgInt32 j = 0; j < DG_CHAMFERCYLINDER_SLICES; j ++) {
-			dgInt32 index0 = index + DG_CHAMFERCYLINDER_BRAKES - 1;
+			dgInt32 index1 = index0 + DG_CHAMFERCYLINDER_BRAKES - 1;
 			for (dgInt32 i = 0; i < DG_CHAMFERCYLINDER_BRAKES; i ++) {
-				wireframe[0] = index;
-				wireframe[1] = index0;
-				wireframe[2] = index0 + DG_CHAMFERCYLINDER_BRAKES;
-				wireframe[3] = index + DG_CHAMFERCYLINDER_BRAKES;
+				wireframe[0] = index0;
+				wireframe[1] = index1;
+				wireframe[2] = index1 + DG_CHAMFERCYLINDER_BRAKES;
+				wireframe[3] = index0 + DG_CHAMFERCYLINDER_BRAKES;
 
-				index0 = index;
-				index ++;
+				index1 = index0;
+				index0 ++;
 				polyhedra.AddFace (4, wireframe);
 			}
 		}
@@ -370,7 +370,8 @@ dgVector dgCollisionChamferCylinder::SupportVertexSpecialProjectPoint (const dgV
 dgInt32 dgCollisionChamferCylinder::CalculatePlaneIntersection (const dgVector& normal, const dgVector& origin, dgVector* const contactsOut) const
 {
 	dgInt32 count = 0;
-	if (normal.m_x < dgFloat32 (-0.997f)) {
+	const dgFloat32 inclination = dgFloat32 (0.9999f);
+	if (normal.m_x < -inclination) {
 		dgMatrix matrix(normal);
 		dgFloat32 x = dgSqrt (dgMax (m_height * m_height - origin.m_x * origin.m_x, dgFloat32 (0.0f)));
 		matrix.m_posit.m_x = origin.m_x;
@@ -380,7 +381,7 @@ dgInt32 dgCollisionChamferCylinder::CalculatePlaneIntersection (const dgVector& 
 			contactsOut[i] = matrix.TransformVector(m_unitCircle[i].CompProduct4(scale)) & dgVector::m_triplexMask;
 		}
 		count = RectifyConvexSlice(n, normal, contactsOut);
-	} else if (normal.m_x > dgFloat32 (0.997f)) {
+	} else if (normal.m_x > inclination) {
 		dgMatrix matrix(normal);
 		dgFloat32 x = dgSqrt (dgMax (m_height * m_height - origin.m_x * origin.m_x, dgFloat32 (0.0f)));
 		matrix.m_posit.m_x = origin.m_x;

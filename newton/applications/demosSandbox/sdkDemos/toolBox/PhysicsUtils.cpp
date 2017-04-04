@@ -23,7 +23,7 @@ static const char* D_MESH_HEADER = "Newton Mesh";
 
 dVector ForceBetweenBody (NewtonBody* const body0, NewtonBody* const body1)
 {
-	dVector reactionforce (0.0f, 0.0f, 0.0f, 0.0f);
+	dVector reactionforce (0.0f);
 	for (NewtonJoint* joint = NewtonBodyGetFirstContactJoint(body0); joint; joint = NewtonBodyGetNextContactJoint(body0, joint)) {
 		if ((NewtonJointGetBody0(joint) == body0) || (NewtonJointGetBody0(joint) == body1)) {
 			for (void* contact = NewtonContactJointGetFirstContact (joint); contact; contact = NewtonContactJointGetNextContact (joint, contact)) {
@@ -45,7 +45,7 @@ dVector ForceBetweenBody (NewtonBody* const body0, NewtonBody* const body1)
 void GetConnectedBodiesByJoints (NewtonBody* const body) 
 {
 	for (NewtonJoint* joint = NewtonBodyGetFirstJoint(body); joint; joint = NewtonBodyGetNextJoint(body, joint)) {
-		CustomJoint* const customJoint = (CustomJoint*) NewtonJointGetUserData(joint);
+		dCustomJoint* const customJoint = (dCustomJoint*) NewtonJointGetUserData(joint);
 		NewtonBody* const body0 = customJoint->GetBody0();
 		NewtonBody* const body1 = customJoint->GetBody1();
 		NewtonBody* const otherBody = (body0 == body) ? body1 : body0;
@@ -549,15 +549,6 @@ void  PhysicsApplyGravityForce (const NewtonBody* body, dFloat timestep, int thr
 
 	dVector force (dVector (0.0f, 1.0f, 0.0f).Scale (mass * DEMO_GRAVITY));
 	NewtonBodySetForce (body, &force.m_x);
-/*
-// check that angular momentum is conserved
-dMatrix I;
-dVector omega(0.0f);
-NewtonBodyGetInertiaMatrix(body, &I[0][0]);
-NewtonBodyGetOmega(body, &omega[0]);
-dVector L (I.RotateVector(omega));
-dTrace (("(%f %f %f) (%f %f %f)\n", omega[0], omega[1], omega[2], L[0], L[1], L[2]));
-*/
 }
 
 
@@ -688,10 +679,6 @@ NewtonCollision* CreateConvexCollision (NewtonWorld* world, const dMatrix& srcMa
 		{
 			// create the collision 
 			collision = NewtonCreateCylinder (world, size.m_x * 0.5f, size.m_z * 0.5f, size.m_y, 0, NULL); 
-
-			NewtonCollisionInfoRecord collisionInfo;
-			NewtonCollisionGetInfo(collision, &collisionInfo);
-
 			break;
 		}
 
@@ -772,20 +759,15 @@ NewtonCollision* CreateConvexCollision (NewtonWorld* world, const dMatrix& srcMa
 		{
 			//dMatrix matrix (GetIdentityMatrix());
 			dMatrix matrix (dPitchMatrix(15.0f * 3.1416f / 180.0f) * dYawMatrix(15.0f * 3.1416f / 180.0f) * dRollMatrix(15.0f * 3.1416f / 180.0f));
-//			NewtonCollision* const collisionA = NewtonCreateBox (world, size.m_x, size.m_x * 0.25f, size.m_x * 0.25f, 0, &matrix[0][0]); 
-//			NewtonCollision* const collisionB = NewtonCreateBox (world, size.m_x * 0.25f, size.m_x, size.m_x * 0.25f, 0, &matrix[0][0]); 
-//			NewtonCollision* const collisionC = NewtonCreateBox (world, size.m_x * 0.25f, size.m_x * 0.25f, size.m_x, 0, &matrix[0][0]); 
 
-matrix.m_posit = dVector (size.m_x * 0.5f, 0.0f, 0.0f, 1.0f);
-NewtonCollision* const collisionA = NewtonCreateBox (world, size.m_x, size.m_x * 0.25f, size.m_x * 0.25f, 0, &matrix[0][0]); 
-matrix.m_posit = dVector (0.0f, size.m_x * 0.5f, 0.0f, 1.0f);
-NewtonCollision* const collisionB = NewtonCreateBox (world, size.m_x * 0.25f, size.m_x, size.m_x * 0.25f, 0, &matrix[0][0]); 
-matrix.m_posit = dVector (0.0f, 0.0f, size.m_x * 0.5f, 1.0f);
-NewtonCollision* const collisionC = NewtonCreateBox (world, size.m_x * 0.25f, size.m_x * 0.25f, size.m_x, 0, &matrix[0][0]); 
-
+			matrix.m_posit = dVector (size.m_x * 0.5f, 0.0f, 0.0f, 1.0f);
+			NewtonCollision* const collisionA = NewtonCreateBox (world, size.m_x, size.m_x * 0.25f, size.m_x * 0.25f, 0, &matrix[0][0]); 
+			matrix.m_posit = dVector (0.0f, size.m_x * 0.5f, 0.0f, 1.0f);
+			NewtonCollision* const collisionB = NewtonCreateBox (world, size.m_x * 0.25f, size.m_x, size.m_x * 0.25f, 0, &matrix[0][0]); 
+			matrix.m_posit = dVector (0.0f, 0.0f, size.m_x * 0.5f, 1.0f);
+			NewtonCollision* const collisionC = NewtonCreateBox (world, size.m_x * 0.25f, size.m_x * 0.25f, size.m_x, 0, &matrix[0][0]); 
 
 			collision = NewtonCreateCompoundCollision (world, 0);
-
 			NewtonCompoundCollisionBeginAddRemove(collision);
 
 			NewtonCompoundCollisionAddSubCollision (collision, collisionA);
@@ -1208,63 +1190,36 @@ void SaveNewtonMesh (NewtonMesh* const mesh, const char* const name)
 
 void CalculatePickForceAndTorque (const NewtonBody* const body, const dVector& pointOnBodyInGlobalSpace, const dVector& targetPositionInGlobalSpace, dFloat timestep)
 {
-	dMatrix matrix; 
-	dVector com(0.0f); 
-	dVector omega0(0.0f);
-	dVector veloc0(0.0f);
-	dVector omega1(0.0f);
-	dVector veloc1(0.0f);
-	dVector pointVeloc(0.0f);
-
-	const dFloat stiffness = 0.3f;
-	const dFloat angularDamp = 0.95f;
-
-	dFloat invTimeStep = 1.0f / timestep;
-	NewtonWorld* const world = NewtonBodyGetWorld (body);
-	NewtonWorldCriticalSectionLock (world, 0);
-
-	// calculate the desired impulse
-	NewtonBodyGetMatrix(body, &matrix[0][0]);
-	NewtonBodyGetOmega (body, &omega0[0]);
-	NewtonBodyGetVelocity (body, &veloc0[0]);
-
-	NewtonBodyGetPointVelocity (body, &pointOnBodyInGlobalSpace[0], &pointVeloc[0]);
-
-	dVector deltaVeloc (targetPositionInGlobalSpace - pointOnBodyInGlobalSpace);
-	deltaVeloc = deltaVeloc.Scale (stiffness * invTimeStep) - pointVeloc;
-	for (int i = 0; i < 3; i ++) {
-		dVector veloc (0.0f);
-		veloc[i] = deltaVeloc[i];
-		NewtonBodyAddImpulse (body, &veloc[0], &pointOnBodyInGlobalSpace[0]);
-	}
-
-	// damp angular velocity
-	NewtonBodyGetOmega (body, &omega1[0]);
-	NewtonBodyGetVelocity (body, &veloc1[0]);
-	omega1 = omega1.Scale (angularDamp);
-
-	// restore body velocity and angular velocity
-	NewtonBodySetOmega (body, &omega0[0]);
-	NewtonBodySetVelocity(body, &veloc0[0]);
-
-	// convert the delta velocity change to a external force and torque
+	dFloat mass;
 	dFloat Ixx;
 	dFloat Iyy;
 	dFloat Izz;
-	dFloat mass;
-	NewtonBodyGetMass (body, &mass, &Ixx, &Iyy, &Izz);
+	const dFloat stiffness = 0.33f;
+	const dFloat damping = -0.05f;
 
-	dVector angularMomentum (Ixx, Iyy, Izz);
-	angularMomentum = matrix.RotateVector (angularMomentum.CompProduct(matrix.UnrotateVector(omega1 - omega0)));
+	NewtonBodyGetMass(body, &mass, &Ixx, &Iyy, &Izz);
 
-	dVector force ((veloc1 - veloc0).Scale (mass * invTimeStep));
-	dVector torque (angularMomentum.Scale(invTimeStep));
+	// calculate the desired impulse
+	dVector posit(targetPositionInGlobalSpace - pointOnBodyInGlobalSpace);
+	dVector impulse(posit.Scale(stiffness * mass));
 
-	NewtonBodyAddForce(body, &force[0]);
-	NewtonBodyAddTorque(body, &torque[0]);
+	// apply linear impulse
+	NewtonBodyApplyImpulseArray(body, 1, sizeof (dVector), &impulse[0], &pointOnBodyInGlobalSpace[0], timestep);
 
-	// make sure the body is unfrozen, if it is picked
-	NewtonBodySetSleepState (body, 0);
+	// apply linear and angular damping
+	dMatrix inertia;
+	dVector linearMomentum;
+	dVector angularMomentum;
 
-	NewtonWorldCriticalSectionUnlock (world);
+	NewtonBodyGetOmega(body, &angularMomentum[0]);
+	NewtonBodyGetVelocity(body, &linearMomentum[0]);
+
+
+	NewtonBodyGetInertiaMatrix(body, &inertia[0][0]);
+
+	angularMomentum = inertia.RotateVector(angularMomentum);
+	angularMomentum = angularMomentum.Scale(damping);
+	linearMomentum = linearMomentum.Scale(mass * damping);
+
+	NewtonBodyApplyImpulsePair(body, &linearMomentum[0], &angularMomentum[0], timestep);
 }

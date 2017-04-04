@@ -52,11 +52,11 @@
 //#define DEFAULT_SCENE	26			// structured convex fracturing 
 //#define DEFAULT_SCENE	27			// multi ray casting using the threading Job scheduler
 //#define DEFAULT_SCENE	28          // standard joints
-#define DEFAULT_SCENE	29			// articulated joints
+//#define DEFAULT_SCENE	29			// articulated joints
 //#define DEFAULT_SCENE	30			// basic rag doll
 //#define DEFAULT_SCENE	31			// dynamics rag doll
 //#define DEFAULT_SCENE	32			// basic Car
-//#define DEFAULT_SCENE	33			// super Car
+#define DEFAULT_SCENE	33			// super Car
 //#define DEFAULT_SCENE	34			// heavy vehicles
 //#define DEFAULT_SCENE	35			// basic player controller
 //#define DEFAULT_SCENE	36			// advanced player controller
@@ -127,9 +127,9 @@ NewtonDemos::SDKDemos NewtonDemos::m_demosSelection[] =
 	{wxT("Uniform scaled collision shape"), wxT("demonstrate scaling shape"), UniformScaledCollision},
 	{wxT("Non uniform scaled collision shape"), wxT("demonstrate scaling shape"), NonUniformScaledCollision},
 	{wxT("Scaled mesh collision"), wxT("demonstrate scaling mesh scaling collision"), ScaledMeshCollision},
-	{ wxT("Continuous collision"), wxT("show continuous collision"), ContinuousCollision },
-	{ wxT("Paper wall continuous collision"), wxT("show fast continuous collision"), ContinuousCollision1 },
-	{ wxT("Puck slide"), wxT("show continuous collision"), PuckSlide },
+	{wxT("Continuous collision"), wxT("show continuous collision"), ContinuousCollision },
+	{wxT("Paper wall continuous collision"), wxT("show fast continuous collision"), ContinuousCollision1 },
+	{wxT("Puck slide"), wxT("show continuous collision"), PuckSlide },
 	{wxT("Simple convex decomposition"), wxT("demonstrate convex decomposition and compound collision"), SimpleConvexApproximation},
 	{wxT("Multi geometry collision"), wxT("show static mesh with the ability of moving internal parts"), SceneCollision},
 	{wxT("Simple boolean operations"), wxT("demonstrate simple boolean operations "), SimpleBooleanOperations},
@@ -201,9 +201,7 @@ class NewtonDemosApp: public wxApp
 			frame = new NewtonDemos(title, location, wxSize(DEMO_WIDTH, DEMO_HEIGHT));
 	}
 
-	frame->Show(TRUE);
-
-		frame->Show(true);
+	        frame->Show(TRUE);
 		SetTopWindow(frame);
 
 		// initialize opengl graphics
@@ -332,7 +330,7 @@ NewtonDemos::NewtonDemos(const wxString& title, const wxPoint& pos, const wxSize
 	,m_timestepAcc(0)
 	,m_fps(0.0f)
 {
-/*
+
 //m_broadPhaseType = 1;
 //m_autoSleepState = false;
 //m_microthreadIndex = 1;
@@ -343,8 +341,9 @@ NewtonDemos::NewtonDemos(const wxString& title, const wxPoint& pos, const wxSize
 //m_hideVisualMeshes = true;
 //m_hardwareDevice = 2;
 //m_showStatistics = true;
-//*/
 
+
+//m_solverModeQuality = 1;
 //m_showCenterOfMass = true;
 //m_physicsUpdateMode = 1;
 //m_hideVisualMeshes = true;
@@ -591,6 +590,7 @@ void NewtonDemos::LoadDemo (int index)
 	m_scene->Cleanup();
     
 	m_demosSelection[index].m_launchDemoCallback (m_scene);
+//	m_scene->DeserializedPhysicScene ("C:/Users/julio/Downloads/tree_vs_convex.bin");
 	m_scene->SwapBuffers(); 
 
 	RestoreSettings ();
@@ -947,46 +947,3 @@ void NewtonDemos::OnSelectBroadPhase(wxCommandEvent& event)
 	END_MENU_OPTION();
 }
 
-#if 0
-long NewtonDemos::onLoad(FXObject* sender, FXSelector id, void* eventPtr)
-{
-	BEGIN_MENU_OPTION();
-
-	const FXchar patterns[]="Newton Dynamics Files (*.ngd)";
-	FXFileDialog open(this,"Load Newton Dynamics scene");
-	open.setPatternList(patterns);
-	open.setDirectory ("../../../media");
-	if(open.execute()){
-
-		m_scene->Cleanup();
-
-		// load the scene from a ngd file format
-		m_scene->makeCurrent();
-		m_scene->LoadScene (open.getFilename().text());
-		m_scene->makeNonCurrent();
-
-		// add a sky box to the scene, make the first object
-		m_scene->Addtop (new SkyBox());
-
-		// place camera into position
-		dMatrix camMatrix (GetIdentityMatrix());
-		//		camMatrix.m_posit = dVector (-40.0f, 10.0f, 0.0f, 0.0f);
-		camMatrix = dYawMatrix(-0.0f * 3.1416f / 180.0f);
-		camMatrix.m_posit = dVector (-5.0f, 1.0f, -0.0f, 0.0f);
-		m_scene->SetCameraMatrix(camMatrix, camMatrix.m_posit);
-
-		RestoreSettings ();
-	}
-
-
-	m_scene->ResetTimer();
-	END_MENU_OPTION();
-	return 1;
-}
-
-long NewtonDemos::onSave(FXObject* sender, FXSelector id, void* eventPtr)
-{
-	return 1;
-}
-
-#endif

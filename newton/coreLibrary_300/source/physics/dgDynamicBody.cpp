@@ -34,8 +34,6 @@ dgVector dgDynamicBody::m_eulerTaylorCorrection(dgFloat32(1.0f / 12.0f));
 
 dgDynamicBody::dgDynamicBody()
 	:dgBody()
-	,m_accel(dgFloat32 (0.0f))
-	,m_alpha(dgFloat32 (0.0f))
 	,m_externalForce(dgFloat32 (0.0f))
 	,m_externalTorque(dgFloat32 (0.0f))
 	,m_savedExternalForce(dgFloat32 (0.0f))
@@ -58,8 +56,6 @@ dgDynamicBody::dgDynamicBody()
 
 dgDynamicBody::dgDynamicBody (dgWorld* const world, const dgTree<const dgCollision*, dgInt32>* const collisionCashe, dgDeserialize serializeCallback, void* const userData, dgInt32 revisionNumber)
 	:dgBody(world, collisionCashe, serializeCallback, userData, revisionNumber)
-	,m_accel(dgFloat32 (0.0f))
-	,m_alpha(dgFloat32 (0.0f))
 	,m_externalForce(dgFloat32 (0.0f))
 	,m_externalTorque(dgFloat32 (0.0f))
 	,m_savedExternalForce(dgFloat32 (0.0f))
@@ -208,11 +204,15 @@ bool dgDynamicBody::IsInEquilibrium() const
 
 void dgDynamicBody::ApplyExtenalForces (dgFloat32 timestep, dgInt32 threadIndex)
 {
-	m_externalForce = dgVector (dgFloat32 (0.0f));
-	m_externalTorque = dgVector (dgFloat32 (0.0f));
+	m_externalForce = dgVector::m_zero;
+	m_externalTorque = dgVector::m_zero;
 	if (m_applyExtForces) {
 		m_applyExtForces(*this, timestep, threadIndex);
 	}
+	m_externalForce += m_impulseForce;
+	m_externalTorque += m_impulseTorque;
+	m_impulseForce = dgVector::m_zero;
+	m_impulseTorque = dgVector::m_zero;
 }
 
 void dgDynamicBody::InvalidateCache ()
@@ -238,8 +238,48 @@ void dgDynamicBody::IntegrateOpenLoopExternalForce(dgFloat32 timestep)
 
 			dgVector timeStepVect(timestep);
 			m_veloc += accel.CompProduct4(timeStepVect);
+
+#if 0
+			// Using forward half step Euler integration 
+			// (not enough to cope with high angular velocities)
 			dgVector correction(alpha.CrossProduct3(m_omega));
 			m_omega += alpha.CompProduct4(timeStepVect.CompProduct4(dgVector::m_half)) + correction.CompProduct4(timeStepVect.CompProduct4(timeStepVect.CompProduct4(m_eulerTaylorCorrection)));
+#else
+			// Using forward and backward Euler integration
+			// (good to resolve high angular velocity precession) 
+			// alpha = (T * R^1 - (wl cross (wl * Il)) Il^1 * R
+			dgVector omega(m_omega);
+			dgVector halfStep(dgVector::m_half.Scale4(timestep));
+			dgMatrix matrix (m_matrix);
+
+			for (dgInt32 i = 0; i < 2; i++) {
+				// get forward derivative
+				dgVector localOmega(matrix.UnrotateVector(m_omega));
+				dgVector localTorque(matrix.UnrotateVector(m_externalTorque));
+				dgVector predictDerivative(matrix.RotateVector(m_invMass.CompProduct4(localTorque - (localOmega.CrossProduct3(localOmega.CompProduct4(m_mass))))));
+				dgVector predictOmega(omega + predictDerivative.CompProduct4(timeStepVect));
+
+				// calculate new rotation matrix at time (dw, dt) 
+				dgFloat32 omegaMag2 = predictOmega.DotProduct3(predictOmega);
+				dgFloat32 invOmegaMag = dgRsqrt(omegaMag2 + dgFloat32(1.0e-14f));
+				dgVector omegaAxis(predictOmega.Scale4(invOmegaMag));
+				dgFloat32 omegaAngle = invOmegaMag * omegaMag2 * timestep;
+				dgQuaternion rotation(m_rotation * dgQuaternion(omegaAxis, omegaAngle));
+				matrix = dgMatrix(rotation, dgVector::m_wOne);
+
+				// get backward derivative
+				localOmega = matrix.UnrotateVector(predictOmega);
+				localTorque = matrix.UnrotateVector(m_externalTorque);
+				dgVector correctionDerivative(matrix.RotateVector(m_invMass.CompProduct4(localTorque - (localOmega.CrossProduct3(localOmega.CompProduct4(m_mass))))));
+
+				// calculate omega as the average of forward and backward derivatives.
+				// In theory since alpha is a quadratic function of omega, this should converge to an eact value
+				// in one at most two steps.
+				omega = m_omega + halfStep.CompProduct4(correctionDerivative + predictDerivative);
+			}
+			m_omega = omega;
+#endif
+
 		} else {
 			dgCollisionLumpedMassParticles* const lumpedMassShape = (dgCollisionLumpedMassParticles*)m_collision->m_childShape;
 			lumpedMassShape->IntegrateForces(timestep);

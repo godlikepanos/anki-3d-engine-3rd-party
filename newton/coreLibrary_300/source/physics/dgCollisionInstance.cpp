@@ -118,7 +118,7 @@ dgCollisionInstance::dgCollisionInstance(const dgCollisionInstance& instance)
 			dgCollisionCompound *const compound = (dgCollisionCompound*) m_childShape;
 			m_childShape = new (m_world->GetAllocator()) dgCollisionCompound (*compound, this);
 		}
-	} else if (m_childShape->IsType (dgCollision::dgCollisionDeformableClothPatch_RTTI)) {
+	} else if (m_childShape->IsType (dgCollision::dgCollisionMassSpringDamperSystem_RTTI)) {
 		dgCollisionMassSpringDamperSystem* const deformable = (dgCollisionMassSpringDamperSystem*) m_childShape;
 		m_childShape = new (m_world->GetAllocator()) dgCollisionMassSpringDamperSystem (*deformable);
 	} else if (m_childShape->IsType (dgCollision::dgCollisionDeformableSolidMesh_RTTI)) {
@@ -430,24 +430,12 @@ void dgCollisionInstance::SetLocalMatrix (const dgMatrix& matrix)
 	m_localMatrix[1][3] = dgFloat32 (0.0f);
 	m_localMatrix[2][3] = dgFloat32 (0.0f);
 	m_localMatrix[3][3] = dgFloat32 (1.0f);
-
-#ifdef _DEBUG
-	dgFloat32 det = m_localMatrix.m_right.DotProduct3(m_localMatrix.m_front.CrossProduct3(m_localMatrix.m_up));
-	dgAssert (det > dgFloat32 (0.999f));
-	dgAssert (det < dgFloat32 (1.001f));
-#endif
+	dgAssert(m_localMatrix.TestOrthogonal());
 }
 
 
 void dgCollisionInstance::DebugCollision (const dgMatrix& matrix, dgCollision::OnDebugCollisionMeshCallback callback, void* const userData) const
 {
-/*
-	dgMatrix scaledMatrix (m_localMatrix * matrix);
-	scaledMatrix[0] = scaledMatrix[0].Scale3 (m_scale[0]);
-	scaledMatrix[1] = scaledMatrix[1].Scale3 (m_scale[1]);
-	scaledMatrix[2] = scaledMatrix[2].Scale3 (m_scale[2]);
-	m_childShape->DebugCollision (m_aligmentMatrix * scaledMatrix, callback, userData);
-*/
 	m_childShape->DebugCollision (GetScaledTransform(matrix), callback, userData);
 }
 
@@ -641,12 +629,12 @@ dgFloat32 dgCollisionInstance::RayCast (const dgVector& localP0, const dgVector&
 }
 
 
-void dgCollisionInstance::CalculateBuoyancyAcceleration (const dgMatrix& matrix, const dgVector& origin, const dgVector& gravity, const dgVector& fluidPlane, dgFloat32 fluidDensity, dgFloat32 fluidViscosity, dgVector& accel, dgVector& alpha)
+void dgCollisionInstance::CalculateBuoyancyAcceleration (const dgMatrix& matrix, const dgVector& origin, const dgVector& gravity, const dgVector& fluidPlane, dgFloat32 fluidDensity, dgFloat32 fluidViscosity, dgVector& unitForce, dgVector& unitTorque)
 {
 	dgMatrix globalMatrix (m_localMatrix * matrix);
 
-	accel = dgVector (dgFloat32 (0.0f));
-	alpha = dgVector (dgFloat32 (0.0f));
+	unitForce = dgVector (dgFloat32 (0.0f));
+	unitTorque = dgVector (dgFloat32 (0.0f));
 	dgVector volumeIntegral (m_childShape->CalculateVolumeIntegral (globalMatrix, fluidPlane, *this));
 	if (volumeIntegral.m_w > dgFloat32 (0.0f)) {
 		dgVector buoyanceCenter (volumeIntegral - origin);
@@ -654,7 +642,7 @@ void dgCollisionInstance::CalculateBuoyancyAcceleration (const dgMatrix& matrix,
 		dgVector force (gravity.Scale3 (-fluidDensity * volumeIntegral.m_w));
 		dgVector torque (buoyanceCenter.CrossProduct3(force));
 
-		accel += force;
-		alpha += torque;
+		unitForce += force;
+		unitTorque += torque;
 	}
 }

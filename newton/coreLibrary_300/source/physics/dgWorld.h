@@ -80,8 +80,10 @@ class dgSkeletonList: public dgTree<dgSkeletonContainer*, dgInt32>
 	public:
 	dgSkeletonList(dgMemoryAllocator* const allocator)
 		:dgTree<dgSkeletonContainer*, dgInt32>(allocator)
+		,m_skelListIsDirty(true)
 	{
 	}
+	bool m_skelListIsDirty;
 };
 
 
@@ -225,7 +227,10 @@ class dgWorld
 	dgFloat32 GetUpdateTime() const;
 	dgBroadPhase* GetBroadPhase() const;
 
+	dgInt32 GetSolverMode() const;
 	void SetSolverMode (dgInt32 mode);
+
+	dgInt32 GetSolverConvergenceQuality() const;
 	void SetSolverConvergenceQuality (dgInt32 mode);
 
 	dgInt32 EnumerateHardwareModes() const;
@@ -317,7 +322,7 @@ class dgWorld
 
 	dgCollisionInstance* CreateBVH ();	
 	dgCollisionInstance* CreateStaticUserMesh (const dgVector& boxP0, const dgVector& boxP1, const dgUserMeshCreation& data);
-	dgCollisionInstance* CreateHeightField (dgInt32 width, dgInt32 height, dgInt32 contructionMode, dgInt32 elevationDataType, const void* const elevationMap, const dgInt8* const atributeMap, dgFloat32 verticalScale, dgFloat32 horizontalScale);
+	dgCollisionInstance* CreateHeightField (dgInt32 width, dgInt32 height, dgInt32 contructionMode, dgInt32 elevationDataType, const void* const elevationMap, const dgInt8* const atributeMap, dgFloat32 verticalScale, dgFloat32 horizontalScale_x, dgFloat32 horizontalScale_z);
 	dgCollisionInstance* CreateScene ();	
 
 	dgBroadPhaseAggregate* CreateAggreGate() const; 
@@ -326,6 +331,7 @@ class dgWorld
 	void SetGetTimeInMicrosenconds (OnGetTimeInMicrosenconds callback);
 	void SetCollisionInstanceConstructorDestructor (OnCollisionInstanceDuplicate constructor, OnCollisionInstanceDestroy destructor);
 
+	static dgInt32 SerializeToFileSort (const dgBody* const body0, const dgBody* const body1, void* const context);
 	static void OnSerializeToFile (void* const userData, const void* const buffer, size_t size);
 	static void OnDeserializeFromFile (void* const userData, void* const buffer, size_t size);
 
@@ -335,11 +341,13 @@ class dgWorld
 	void SerializeToFile (const char* const fileName, OnBodySerialize bodyCallback, void* const userData) const;
 	void DeserializeFromFile (const char* const fileName, OnBodyDeserialize bodyCallback, void* const userData);
 
-	void SerializeJointArray (dgBody** const array, dgInt32 count, dgSerialize serializeCallback, void* const serializeHandle) const;
+	void SerializeJointArray (dgInt32 count, dgSerialize serializeCallback, void* const serializeHandle) const;
 	void DeserializeJointArray (const dgTree<dgBody*, dgInt32>&bodyMap, dgDeserialize serializeCallback, void* const serializeHandle);
 
 	void SerializeBodyArray (dgBody** const array, dgInt32 count, OnBodySerialize bodyCallback, void* const userData, dgSerialize serializeCallback, void* const serializeHandle) const;
 	void DeserializeBodyArray (dgTree<dgBody*, dgInt32>&bodyMap, OnBodyDeserialize bodyCallback, void* const userData, dgDeserialize deserializeCallback, void* const serializeHandle);
+
+	dgBody* FindBodyFromSerializedID(dgInt32 serializedID) const;
 
 	void SetJointSerializationCallbacks (OnJointSerializationCallback serializeJoint, OnJointDeserializationCallback deserializeJoint);
 	void GetJointSerializationCallbacks (OnJointSerializationCallback* const serializeJoint, OnJointDeserializationCallback* const deserializeJoint) const;
@@ -518,7 +526,6 @@ class dgWorld
 	friend class dgParallelSolverInitInternalForces;
 	friend class dgParallelSolverBuildJacobianMatrix;
 	
-
 	friend class dgBroadPhaseMaterialCallbackWorkerThread;
 	friend class dgBroadPhaseCalculateContactsWorkerThread;
 } DG_GCC_VECTOR_ALIGMENT ;

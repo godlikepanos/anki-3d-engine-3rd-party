@@ -201,6 +201,10 @@ void *dgMemoryAllocator::MallocLow (dgInt32 workingSize, dgInt32 alignment)
 	dgInt32 size = workingSize + alignment * 2;
 	void* const ptr = m_malloc(dgUnsigned32 (size));
 	dgAssert (ptr);
+#ifdef _DEBUG
+	memset(ptr, 99, size);
+#endif
+
 	dgUnsigned64 val = dgUnsigned64 (PointerToInt(ptr));
 	val = (val & dgUnsigned64(-alignment)) + alignment * 2;
 	void* const retPtr = IntToPointer (val);
@@ -342,19 +346,19 @@ void dgMemoryAllocator::Free (void* const retPtr)
 			dgInt32 sizeInBytes = bin->m_info.m_stepInBites;
 			char* charPtr = bin->m_pool;
 			for (dgInt32 i = 0; i < count; i ++) {
-				dgMemoryCacheEntry* const tmpCashe = (dgMemoryCacheEntry*)charPtr;
+				dgMemoryCacheEntry* const tmpCashe1 = (dgMemoryCacheEntry*)charPtr;
 				charPtr += sizeInBytes;
 
-				if (tmpCashe == m_memoryDirectory[entry].m_cache) {
-					m_memoryDirectory[entry].m_cache = tmpCashe->m_next;
+				if (tmpCashe1 == m_memoryDirectory[entry].m_cache) {
+					m_memoryDirectory[entry].m_cache = tmpCashe1->m_next;
 				}
 
-				if (tmpCashe->m_prev) {
-					tmpCashe->m_prev->m_next = tmpCashe->m_next;
+				if (tmpCashe1->m_prev) {
+					tmpCashe1->m_prev->m_next = tmpCashe1->m_next;
 				}
 
-				if (tmpCashe->m_next) {
-					tmpCashe->m_next->m_prev = tmpCashe->m_prev;
+				if (tmpCashe1->m_next) {
+					tmpCashe1->m_next->m_prev = tmpCashe1->m_prev;
 				}
 			}
 

@@ -142,7 +142,7 @@ void dgCollisionScene::CollidePair (dgBroadPhase::dgPair* const pair, dgCollisio
 						proxy.m_timestep = maxParam;
 						m_world->SceneChildContacts (pair, proxy);
 						// remember to update sperating distance
-						dgAssert (0);
+						//dgAssert (0);
 						//data.m_separatingDistance = dgMin(proxy.m_contactJoint->m_separationDistance, data.m_separatingDistance);
 						dgFloat32 param = proxy.m_timestep;
 						dgAssert(param >= dgFloat32(0.0f));
