@@ -12325,6 +12325,7 @@ nk_font_atlas_cleanup(struct nk_font_atlas *atlas)
             atlas->permanent.free(atlas->permanent.userdata, iter->ttf_blob);
             atlas->permanent.free(atlas->permanent.userdata, iter);
         }
+        atlas->config = 0;
     }
 }
 
