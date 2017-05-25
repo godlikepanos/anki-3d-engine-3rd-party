@@ -2064,7 +2064,7 @@ NK_API int nk_style_set_cursor(struct nk_context*, enum nk_style_cursor);
 NK_API void nk_style_show_cursor(struct nk_context*);
 NK_API void nk_style_hide_cursor(struct nk_context*);
 
-NK_API int nk_style_push_font(struct nk_context*, struct nk_user_font*);
+NK_API int nk_style_push_font(struct nk_context*, const struct nk_user_font*);
 NK_API int nk_style_push_float(struct nk_context*, float*, float);
 NK_API int nk_style_push_vec2(struct nk_context*, struct nk_vec2*, struct nk_vec2);
 NK_API int nk_style_push_style_item(struct nk_context*, struct nk_style_item*, struct nk_style_item);
@@ -4107,7 +4107,7 @@ template<typename T, int size_diff> struct nk_helper{enum {value = size_diff};};
 template<typename T> struct nk_helper<T,0>{enum {value = nk_alignof<T>::value};};
 template<typename T> struct nk_alignof{struct Big {T x; char c;}; enum {
     diff = sizeof(Big) - sizeof(T), value = nk_helper<Big, diff>::value};};
-#define NK_ALIGNOF(t) (nk_alignof<t>::value);
+#define NK_ALIGNOF(t) (nk_alignof<t>::value)
 #elif defined(_MSC_VER)
 #define NK_ALIGNOF(t) (__alignof(t))
 #else
@@ -16839,7 +16839,7 @@ nk_style_set_font(struct nk_context *ctx, const struct nk_user_font *font)
 }
 
 NK_API int
-nk_style_push_font(struct nk_context *ctx, struct nk_user_font *font)
+nk_style_push_font(struct nk_context *ctx, const struct nk_user_font *font)
 {
     struct nk_config_stack_user_font *font_stack;
     struct nk_config_stack_user_font_element *element;
