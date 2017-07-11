@@ -1,7 +1,9 @@
 /*
     SDL_android_main.c, placed in the public domain by Sam Lantinga  3/13/14
 */
-#include "../../SDL_internal.h"
+
+#include "SDL_config.h"
+#include "SDL.h"
 
 #ifdef __ANDROID__
 
@@ -15,6 +17,9 @@
 
 /* Called before SDL_main() to initialize JNI bindings in SDL library */
 extern void SDL_Android_Init(JNIEnv* env, jclass cls);
+
+/* This prototype is needed to prevent a warning about the missing prototype for global function below */
+JNIEXPORT int JNICALL Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject array);
 
 /* Start up the SDL app */
 JNIEXPORT int JNICALL Java_org_libsdl_app_SDLActivity_nativeInit(JNIEnv* env, jclass cls, jobject array)

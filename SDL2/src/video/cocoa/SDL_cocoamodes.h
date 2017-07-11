@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -30,7 +30,7 @@ typedef struct
 
 typedef struct
 {
-    const void *moderef;
+    CGDisplayModeRef moderef;
 } SDL_DisplayModeData;
 
 extern void Cocoa_InitModes(_THIS);

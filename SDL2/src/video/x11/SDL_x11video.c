@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -216,6 +216,7 @@ X11_CreateDevice(int devindex)
     /* Set the function pointers */
     device->VideoInit = X11_VideoInit;
     device->VideoQuit = X11_VideoQuit;
+    device->ResetTouch = X11_ResetTouch;
     device->GetDisplayModes = X11_GetDisplayModes;
     device->GetDisplayBounds = X11_GetDisplayBounds;
     device->GetDisplayUsableBounds = X11_GetDisplayUsableBounds;
@@ -243,6 +244,7 @@ X11_CreateDevice(int devindex)
     device->MinimizeWindow = X11_MinimizeWindow;
     device->RestoreWindow = X11_RestoreWindow;
     device->SetWindowBordered = X11_SetWindowBordered;
+    device->SetWindowResizable = X11_SetWindowResizable;
     device->SetWindowFullscreen = X11_SetWindowFullscreen;
     device->SetWindowGammaRamp = X11_SetWindowGammaRamp;
     device->SetWindowGrab = X11_SetWindowGrab;
@@ -285,7 +287,7 @@ X11_CreateDevice(int devindex)
     device->StartTextInput = X11_StartTextInput;
     device->StopTextInput = X11_StopTextInput;
     device->SetTextInputRect = X11_SetTextInputRect;
-    
+
     device->free = X11_DeleteDevice;
 
     return device;
@@ -383,14 +385,6 @@ X11_VideoInit(_THIS)
     /* I have no idea how random this actually is, or has to be. */
     data->window_group = (XID) (((size_t) data->pid) ^ ((size_t) _this));
 
-    /* Open a connection to the X input manager */
-#ifdef X_HAVE_UTF8_STRING
-    if (SDL_X11_HAVE_UTF8) {
-        data->im =
-            X11_XOpenIM(data->display, NULL, data->classname, data->classname);
-    }
-#endif
-
     /* Look up some useful Atoms */
 #define GET_ATOM(X) data->X = X11_XInternAtom(data->display, #X, False)
     GET_ATOM(WM_PROTOCOLS);
@@ -414,6 +408,7 @@ X11_VideoInit(_THIS)
     GET_ATOM(_NET_WM_WINDOW_OPACITY);
     GET_ATOM(_NET_WM_USER_TIME);
     GET_ATOM(_NET_ACTIVE_WINDOW);
+    GET_ATOM(_NET_FRAME_EXTENTS);
     GET_ATOM(UTF8_STRING);
     GET_ATOM(PRIMARY);
     GET_ATOM(XdndEnter);
@@ -466,6 +461,8 @@ X11_VideoQuit(_THIS)
     X11_QuitMouse(_this);
     X11_QuitTouch(_this);
 
+/* !!! FIXME: other subsystems use D-Bus, so we shouldn't quit it here;
+       have SDL.c do this at a higher level, or add refcounting. */
 #if SDL_USE_LIBDBUS
     SDL_DBus_Quit();
 #endif

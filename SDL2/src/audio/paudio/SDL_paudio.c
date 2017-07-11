@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -35,11 +35,10 @@
 #include "SDL_timer.h"
 #include "SDL_audio.h"
 #include "SDL_stdinc.h"
-#include "../SDL_audiomem.h"
 #include "../SDL_audio_c.h"
 #include "SDL_paudio.h"
 
-#define DEBUG_AUDIO 0
+/* #define DEBUG_AUDIO */
 
 /* A conflict within AIX 4.3.3 <sys/> headers and probably others as well.
  * I guess nobody ever uses audio... Shame over AIX header files.  */
@@ -228,16 +227,11 @@ PAUDIO_GetDeviceBuf(_THIS)
 static void
 PAUDIO_CloseDevice(_THIS)
 {
-    if (this->hidden != NULL) {
-        SDL_FreeAudioMem(this->hidden->mixbuf);
-        this->hidden->mixbuf = NULL;
-        if (this->hidden->audio_fd >= 0) {
-            close(this->hidden->audio_fd);
-            this->hidden->audio_fd = -1;
-        }
-        SDL_free(this->hidden);
-        this->hidden = NULL;
+    if (this->hidden->audio_fd >= 0) {
+        close(this->hidden->audio_fd);
     }
+    SDL_free(this->hidden->mixbuf);
+    SDL_free(this->hidden);
 }
 
 static int
@@ -262,13 +256,12 @@ PAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
     if (this->hidden == NULL) {
         return SDL_OutOfMemory();
     }
-    SDL_memset(this->hidden, 0, (sizeof *this->hidden));
+    SDL_zerop(this->hidden);
 
     /* Open the audio device */
     fd = OpenAudioPath(audiodev, sizeof(audiodev), OPEN_FLAGS, 0);
     this->hidden->audio_fd = fd;
     if (fd < 0) {
-        PAUDIO_CloseDevice(this);
         return SDL_SetError("Couldn't open %s: %s", audiodev, strerror(errno));
     }
 
@@ -277,7 +270,6 @@ PAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
      * that we can have.
      */
     if (ioctl(fd, AUDIO_BUFFER, &paud_bufinfo) < 0) {
-        PAUDIO_CloseDevice(this);
         return SDL_SetError("Couldn't get audio buffer information");
     }
 
@@ -391,7 +383,6 @@ PAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
 #ifdef DEBUG_AUDIO
         fprintf(stderr, "Couldn't find any hardware audio formats\n");
 #endif
-        PAUDIO_CloseDevice(this);
         return SDL_SetError("Couldn't find any hardware audio formats");
     }
     this->spec.format = test_format;
@@ -449,15 +440,13 @@ PAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
     }
 
     if (err != NULL) {
-        PAUDIO_CloseDevice(this);
         return SDL_SetError("Paudio: %s", err);
     }
 
     /* Allocate mixing buffer */
     this->hidden->mixlen = this->spec.size;
-    this->hidden->mixbuf = (Uint8 *) SDL_AllocAudioMem(this->hidden->mixlen);
+    this->hidden->mixbuf = (Uint8 *) SDL_malloc(this->hidden->mixlen);
     if (this->hidden->mixbuf == NULL) {
-        PAUDIO_CloseDevice(this);
         return SDL_OutOfMemory();
     }
     SDL_memset(this->hidden->mixbuf, this->spec.silence, this->spec.size);
@@ -492,7 +481,6 @@ PAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
     paud_control.ioctl_request = AUDIO_START;
     paud_control.position = 0;
     if (ioctl(fd, AUDIO_CONTROL, &paud_control) < 0) {
-        PAUDIO_CloseDevice(this);
 #ifdef DEBUG_AUDIO
         fprintf(stderr, "Can't start audio play\n");
 #endif
@@ -522,11 +510,11 @@ PAUDIO_Init(SDL_AudioDriverImpl * impl)
     close(fd);
 
     /* Set the function pointers */
-    impl->OpenDevice = DSP_OpenDevice;
-    impl->PlayDevice = DSP_PlayDevice;
-    impl->PlayDevice = DSP_WaitDevice;
-    impl->GetDeviceBuf = DSP_GetDeviceBuf;
-    impl->CloseDevice = DSP_CloseDevice;
+    impl->OpenDevice = PAUDIO_OpenDevice;
+    impl->PlayDevice = PAUDIO_PlayDevice;
+    impl->PlayDevice = PAUDIO_WaitDevice;
+    impl->GetDeviceBuf = PAUDIO_GetDeviceBuf;
+    impl->CloseDevice = PAUDIO_CloseDevice;
     impl->OnlyHasDefaultOutputDevice = 1;       /* !!! FIXME: add device enum! */
 
     return 1;   /* this audio target is available. */
