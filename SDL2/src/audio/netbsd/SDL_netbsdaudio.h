@@ -20,8 +20,8 @@
 */
 #include "../../SDL_internal.h"
 
-#ifndef _SDL_netbsdaudio_h
-#define _SDL_netbsdaudio_h
+#ifndef SDL_netbsdaudio_h_
+#define SDL_netbsdaudio_h_
 
 #include "../SDL_sysaudio.h"
 
@@ -36,13 +36,13 @@ struct SDL_PrivateAudioData
     Uint8 *mixbuf;
     int mixlen;
 
-    /* Support for audio timing using a timer, in addition to select() */
+    /* Support for audio timing using a timer, in addition to SDL_IOReady() */
     float frame_ticks;
     float next_frame;
 };
 
 #define FUDGE_TICKS 10      /* The scheduler overhead ticks per frame */
 
-#endif /* _SDL_netbsdaudio_h */
+#endif /* SDL_netbsdaudio_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

@@ -150,6 +150,7 @@ LoadLibSampleRate(void)
     SDL_assert(SRC_lib == NULL);
     SRC_lib = SDL_LoadObject(SDL_LIBSAMPLERATE_DYNAMIC);
     if (!SRC_lib) {
+        SDL_ClearError();
         return SDL_FALSE;
     }
 
@@ -873,8 +874,6 @@ SDL_GetAudioDriver(int index)
     return NULL;
 }
 
-extern void SDL_ChooseAudioConverters(void);
-
 int
 SDL_AudioInit(const char *driver_name)
 {
@@ -888,8 +887,6 @@ SDL_AudioInit(const char *driver_name)
 
     SDL_zero(current_audio);
     SDL_zero(open_devices);
-
-    SDL_ChooseAudioConverters();
 
     /* Select the proper audio driver */
     if (driver_name == NULL) {
@@ -1412,7 +1409,14 @@ SDL_OpenAudio(SDL_AudioSpec * desired, SDL_AudioSpec * obtained)
         id = open_audio_device(NULL, 0, desired, obtained,
                                SDL_AUDIO_ALLOW_ANY_CHANGE, 1);
     } else {
-        id = open_audio_device(NULL, 0, desired, NULL, 0, 1);
+        SDL_AudioSpec _obtained;
+        SDL_zero(_obtained);
+        id = open_audio_device(NULL, 0, desired, &_obtained, 0, 1);
+        /* On successful open, copy calculated values into 'desired'. */
+        if (id > 0) {
+            desired->size = _obtained.size;
+            desired->silence = _obtained.silence;
+        }
     }
 
     SDL_assert((id == 0) || (id == 1));
@@ -1539,6 +1543,8 @@ SDL_AudioQuit(void)
 #ifdef HAVE_LIBSAMPLERATE_H
     UnloadLibSampleRate();
 #endif
+
+    SDL_FreeResampleFilter();
 }
 
 #define NUM_FORMATS 10

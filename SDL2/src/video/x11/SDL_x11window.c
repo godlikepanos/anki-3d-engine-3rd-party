@@ -225,6 +225,19 @@ X11_GetNetWMState(_THIS, Window xwindow)
         if (fullscreen == 1) {
             flags |= SDL_WINDOW_FULLSCREEN;
         }
+
+        /* If the window is unmapped, numItems will be zero and _NET_WM_STATE_HIDDEN
+         * will not be set. Do an additional check to see if the window is unmapped
+         * and mark it as SDL_WINDOW_HIDDEN if it is.
+         */
+        {
+            XWindowAttributes attr;
+            SDL_memset(&attr,0,sizeof(attr));
+            X11_XGetWindowAttributes(videodata->display, xwindow, &attr);
+            if (attr.map_state == IsUnmapped) {
+                flags |= SDL_WINDOW_HIDDEN;
+            }
+        }
         X11_XFree(propertyValue);
     }
 
@@ -1028,7 +1041,8 @@ X11_ShowWindow(_THIS, SDL_Window * window)
         /* Blocking wait for "MapNotify" event.
          * We use X11_XIfEvent because pXWindowEvent takes a mask rather than a type,
          * and XCheckTypedWindowEvent doesn't block */
-        X11_XIfEvent(display, &event, &isMapNotify, (XPointer)&data->xwindow);
+        if(!(window->flags & SDL_WINDOW_FOREIGN))
+            X11_XIfEvent(display, &event, &isMapNotify, (XPointer)&data->xwindow);
         X11_XFlush(display);
     }
 
@@ -1050,7 +1064,8 @@ X11_HideWindow(_THIS, SDL_Window * window)
     if (X11_IsWindowMapped(_this, window)) {
         X11_XWithdrawWindow(display, data->xwindow, displaydata->screen);
         /* Blocking wait for "UnmapNotify" event */
-        X11_XIfEvent(display, &event, &isUnmapNotify, (XPointer)&data->xwindow);
+        if(!(window->flags & SDL_WINDOW_FOREIGN))
+            X11_XIfEvent(display, &event, &isUnmapNotify, (XPointer)&data->xwindow);
         X11_XFlush(display);
     }
 }
@@ -1484,12 +1499,13 @@ X11_SetWindowGrab(_THIS, SDL_Window * window, SDL_bool grabbed)
     if (oldstyle_fullscreen || grabbed) {
         /* Try to grab the mouse */
         if (!data->videodata->broken_pointer_grab) {
+            const unsigned int mask = ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask;
             int attempts;
             int result;
 
             /* Try for up to 5000ms (5s) to grab. If it still fails, stop trying. */
             for (attempts = 0; attempts < 100; attempts++) {
-                result = X11_XGrabPointer(display, data->xwindow, True, 0, GrabModeAsync,
+                result = X11_XGrabPointer(display, data->xwindow, True, mask, GrabModeAsync,
                                  GrabModeAsync, data->xwindow, None, CurrentTime);
                 if (result == GrabSuccess) {
                     break;

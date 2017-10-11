@@ -97,8 +97,8 @@ RPI_Create()
     device->VideoQuit = RPI_VideoQuit;
     device->GetDisplayModes = RPI_GetDisplayModes;
     device->SetDisplayMode = RPI_SetDisplayMode;
-    device->CreateWindow = RPI_CreateWindow;
-    device->CreateWindowFrom = RPI_CreateWindowFrom;
+    device->CreateSDLWindow = RPI_CreateWindow;
+    device->CreateSDLWindowFrom = RPI_CreateWindowFrom;
     device->SetWindowTitle = RPI_SetWindowTitle;
     device->SetWindowIcon = RPI_SetWindowIcon;
     device->SetWindowPosition = RPI_SetWindowPosition;
@@ -123,6 +123,7 @@ RPI_Create()
     device->GL_GetSwapInterval = RPI_GLES_GetSwapInterval;
     device->GL_SwapWindow = RPI_GLES_SwapWindow;
     device->GL_DeleteContext = RPI_GLES_DeleteContext;
+    device->GL_DefaultProfileConfig = RPI_GLES_DefaultProfileConfig;
 
     device->PumpEvents = RPI_PumpEvents;
 

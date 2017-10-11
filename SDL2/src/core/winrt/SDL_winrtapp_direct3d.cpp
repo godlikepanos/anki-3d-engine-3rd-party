@@ -121,7 +121,8 @@ int SDL_WinRTInitNonXAMLApp(int (*mainFunction)(int, char **))
     return 0;
 }
 
-static void WINRT_SetDisplayOrientationsPreference(void *userdata, const char *name, const char *oldValue, const char *newValue)
+static void SDLCALL
+WINRT_SetDisplayOrientationsPreference(void *userdata, const char *name, const char *oldValue, const char *newValue)
 {
     SDL_assert(SDL_strcmp(name, SDL_HINT_ORIENTATIONS) == 0);
 
@@ -826,7 +827,7 @@ static void WINRT_OnBackButtonPressed(BackButtonEventArgs ^ args)
     }
 }
 
-#if NTDDI_VERSION == NTDDI_WIN10
+#if NTDDI_VERSION >= NTDDI_WIN10
 void SDL_WinRTApp::OnBackButtonPressed(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ args)
 
 {
