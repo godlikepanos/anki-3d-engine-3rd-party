@@ -47,10 +47,10 @@ typedef unsigned char lu_byte;
 
 /* type to ensure maximum alignment */
 #if !defined(LUAI_USER_ALIGNMENT_T)
-#	if defined(__MSC_VER)
-#	define LUAI_USER_ALIGNMENT_T	union { double u; void *s; long l; } __attribute__((aligned(16)))
+#	if !defined(_MSC_VER)
+#		define LUAI_USER_ALIGNMENT_T	union { double u; void *s; long l; } __attribute__((aligned(16)))
 #	else
-#	define LUAI_USER_ALIGNMENT_T	__declspec(align(16)) union { double u; void *s; long l; }
+#		define LUAI_USER_ALIGNMENT_T	__declspec(align(16)) union { double u; void *s; long l; }
 #	endif
 #endif
 
