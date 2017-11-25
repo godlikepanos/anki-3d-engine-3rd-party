@@ -143,7 +143,13 @@ keycode_to_SDL(int keycode)
             button = SDL_CONTROLLER_BUTTON_DPAD_RIGHT;
             break;
         case AKEYCODE_DPAD_CENTER:
-            button = SDL_CONTROLLER_BUTTON_MAX+4; /* Not supported by GameController */
+            /* This is handled better by applications as the A button */
+            /*button = SDL_CONTROLLER_BUTTON_MAX+4; /* Not supported by GameController */
+            button = SDL_CONTROLLER_BUTTON_A;
+            break;
+
+        case AKEYCODE_BACK:
+            button = SDL_CONTROLLER_BUTTON_B;
             break;
 
         /* More gamepad buttons (API 12), these get mapped to 20...35*/
@@ -454,7 +460,7 @@ SDL_SYS_JoystickDetect(void)
      * Ref: http://developer.android.com/reference/android/hardware/input/InputManager.InputDeviceListener.html
      */
     static Uint32 timeout = 0;
-    if (SDL_TICKS_PASSED(SDL_GetTicks(), timeout)) {
+    if (!timeout || SDL_TICKS_PASSED(SDL_GetTicks(), timeout)) {
         timeout = SDL_GetTicks() + 3000;
         Android_JNI_PollInputDevices();
     }
@@ -638,6 +644,11 @@ SDL_JoystickGUID SDL_SYS_JoystickGetGUID(SDL_Joystick * joystick)
     
     SDL_zero(guid);
     return guid;
+}
+
+SDL_bool SDL_SYS_IsDPAD_DeviceIndex(int device_index)
+{
+    return JoystickByDevIndex(device_index)->naxes == 0;
 }
 
 #endif /* SDL_JOYSTICK_ANDROID */

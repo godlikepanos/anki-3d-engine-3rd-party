@@ -42,9 +42,9 @@ include(${SDL2_SOURCE_DIR}/cmake/sdlchecks.cmake)
 # set SDL_BINARY_AGE and SDL_INTERFACE_AGE to 0.
 set(SDL_MAJOR_VERSION 2)
 set(SDL_MINOR_VERSION 0)
-set(SDL_MICRO_VERSION 6)
+set(SDL_MICRO_VERSION 8)
 set(SDL_INTERFACE_AGE 0)
-set(SDL_BINARY_AGE 6)
+set(SDL_BINARY_AGE 8)
 set(SDL_VERSION "${SDL_MAJOR_VERSION}.${SDL_MINOR_VERSION}.${SDL_MICRO_VERSION}")
 
 # Set defaults preventing destination file conflicts
@@ -356,7 +356,8 @@ file(GLOB SOURCE_FILES
   ${SDL2_SOURCE_DIR}/src/stdlib/*.c
   ${SDL2_SOURCE_DIR}/src/thread/*.c
   ${SDL2_SOURCE_DIR}/src/timer/*.c
-  ${SDL2_SOURCE_DIR}/src/video/*.c)
+  ${SDL2_SOURCE_DIR}/src/video/*.c
+  ${SDL2_SOURCE_DIR}/src/video/yuv2rgb/*.c)
 
 
 if(ASSERTIONS STREQUAL "auto")
@@ -637,8 +638,10 @@ if(LIBC)
             wcslen wcscmp
             strlen _strrev _strupr _strlwr strchr strrchr strstr itoa _ltoa
             _ultoa strtol strtoul strtoll strtod atoi atof strcmp strncmp
-            _stricmp _strnicmp sscanf atan atan2 acos asin ceil copysign cos
-            cosf fabs floor log pow scalbn sin sinf sqrt sqrtf tan tanf)
+            _stricmp _strnicmp sscanf
+            acos acosf asin asinf atan atanf atan2 atan2f ceil ceilf
+            copysign copysignf cos cosf fabs fabsf floor floorf fmod fmodf
+            log logf pow powf scalbn scalbnf sin sinf sqrt sqrtf tan tanf)
       string(TOUPPER ${_FN} _UPPER)
       set(HAVE_${_UPPER} 1)
     endforeach()
@@ -653,7 +656,7 @@ if(LIBC)
     check_include_file(sys/types.h HAVE_SYS_TYPES_H)
     foreach(_HEADER
             stdio.h stdlib.h stddef.h stdarg.h malloc.h memory.h string.h limits.h
-            strings.h wchar.h inttypes.h stdint.h ctype.h math.h iconv.h signal.h)
+            strings.h wchar.h inttypes.h stdint.h ctype.h math.h iconv.h signal.h libunwind.h)
       string(TOUPPER "HAVE_${_HEADER}" _UPPER)
       string(REPLACE "." "_" _HAVE_H ${_UPPER})
       check_include_file("${_HEADER}" ${_HAVE_H})
@@ -669,7 +672,7 @@ if(LIBC)
     foreach(_FN
             strtod malloc calloc realloc free getenv setenv putenv unsetenv
             qsort abs bcopy memset memcpy memmove memcmp strlen strlcpy strlcat
-            strdup _strrev _strupr _strlwr strchr strrchr strstr itoa _ltoa
+            _strrev _strupr _strlwr strchr strrchr strstr itoa _ltoa
             _uitoa _ultoa strtol strtoul _i64toa _ui64toa strtoll strtoull
             atoi atof strcmp strncmp _stricmp strcasecmp _strnicmp strncasecmp
             vsscanf vsnprintf fopen64 fseeko fseeko64 sigaction setjmp
@@ -1178,6 +1181,7 @@ elseif(WINDOWS)
     check_include_file(dsound.h HAVE_DSOUND_H)
     check_include_file(dinput.h HAVE_DINPUT_H)
     check_include_file(xaudio2.h HAVE_XAUDIO2_H)
+    check_include_file(mmdeviceapi.h HAVE_MMDEVICEAPI_H)
     check_include_file(audioclient.h HAVE_AUDIOCLIENT_H)
     check_include_file(dxgi.h HAVE_DXGI_H)
     if(HAVE_D3D_H OR HAVE_D3D11_H OR HAVE_DDRAW_H OR HAVE_DSOUND_H OR HAVE_DINPUT_H OR HAVE_XAUDIO2_H)
@@ -1209,7 +1213,7 @@ elseif(WINDOWS)
       set(SOURCE_FILES ${SOURCE_FILES} ${XAUDIO2_AUDIO_SOURCES})
     endif()
 
-    if(HAVE_AUDIOCLIENT_H)
+    if(HAVE_AUDIOCLIENT_H AND HAVE_MMDEVICEAPI_H)
       set(SDL_AUDIO_DRIVER_WASAPI 1)
       file(GLOB WASAPI_AUDIO_SOURCES ${SDL2_SOURCE_DIR}/src/audio/wasapi/*.c)
       set(SOURCE_FILES ${SOURCE_FILES} ${WASAPI_AUDIO_SOURCES})
@@ -1351,7 +1355,7 @@ elseif(APPLE)
   # !!! FIXME: we need Carbon for some very old API calls in
   # !!! FIXME:  src/video/cocoa/SDL_cocoakeyboard.c, but we should figure out
   # !!! FIXME:  how to dump those.
-  if (APPLE AND NOT IOS)
+  if(NOT IOS)
     set(SDL_FRAMEWORK_COCOA 1)
     set(SDL_FRAMEWORK_CARBON 1)
   endif()
@@ -1372,6 +1376,8 @@ elseif(APPLE)
   if(SDL_AUDIO)
     set(SDL_AUDIO_DRIVER_COREAUDIO 1)
     file(GLOB AUDIO_SOURCES ${SDL2_SOURCE_DIR}/src/audio/coreaudio/*.m)
+    # !!! FIXME: modern CMake doesn't need "LANGUAGE C" for Objective-C.
+    set_source_files_properties(${AUDIO_SOURCES} PROPERTIES LANGUAGE C)
     set(SOURCE_FILES ${SOURCE_FILES} ${AUDIO_SOURCES})
     set(HAVE_SDL_AUDIO TRUE)
     set(SDL_FRAMEWORK_COREAUDIO 1)
@@ -1807,10 +1813,12 @@ endif()
 
 ##### Uninstall target #####
 
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-    IMMEDIATE @ONLY)
+if(NOT TARGET uninstall)
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+      IMMEDIATE @ONLY)
 
-add_custom_target(uninstall
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+  add_custom_target(uninstall
+      COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()

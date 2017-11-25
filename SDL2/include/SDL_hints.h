@@ -798,6 +798,24 @@ extern "C" {
 #define SDL_HINT_RPI_VIDEO_LAYER           "SDL_RPI_VIDEO_LAYER"
 
 /**
+ * \brief Tell the video driver that we only want a double buffer.
+ *
+ * By default, most lowlevel 2D APIs will use a triple buffer scheme that 
+ * wastes no CPU time on waiting for vsync after issuing a flip, but
+ * introduces a frame of latency. On the other hand, using a double buffer
+ * scheme instead is recommended for cases where low latency is an important
+ * factor because we save a whole frame of latency.
+ * We do so by waiting for vsync immediately after issuing a flip, usually just
+ * after eglSwapBuffers call in the backend's *_SwapWindow function.
+ *
+ * Since it's driver-specific, it's only supported where possible and
+ * implemented. Currently supported the following drivers:
+ * - KMSDRM (kmsdrm)
+ * - Raspberry Pi (raspberrypi)
+ */
+#define SDL_HINT_VIDEO_DOUBLE_BUFFER      "SDL_VIDEO_DOUBLE_BUFFER"
+
+/**
  *  \brief  A variable controlling what driver to use for OpenGL ES contexts.
  *
  *  On some platforms, currently Windows and X11, OpenGL drivers may support

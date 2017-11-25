@@ -29,6 +29,10 @@
 #include "../core/windows/SDL_windows.h"
 #endif
 
+#if defined(__ANDROID__)
+#include "../core/android/SDL_android.h"
+#endif
+
 #include "SDL_stdinc.h"
 
 #if defined(__WIN32__) && (!defined(HAVE_SETENV) || !defined(HAVE_GETENV))
@@ -171,8 +175,13 @@ SDL_setenv(const char *name, const char *value, int overwrite)
 char *
 SDL_getenv(const char *name)
 {
+#if defined(__ANDROID__)
+    /* Make sure variables from the application manifest are available */
+    Android_JNI_GetManifestEnvironmentVariables();
+#endif
+
     /* Input validation */
-    if (!name || SDL_strlen(name)==0) {
+    if (!name || !*name) {
         return NULL;
     }
 
