@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -76,6 +76,7 @@ extern "C" {
  *    "opengl"
  *    "opengles2"
  *    "opengles"
+ *    "metal"
  *    "software"
  *
  *  The default varies by platform, but it's the first one in the list that
@@ -353,6 +354,16 @@ extern "C" {
  *    "1"       - Joystick axes are based on the orientation of the remote.
  */
 #define SDL_HINT_APPLE_TV_REMOTE_ALLOW_ROTATION "SDL_APPLE_TV_REMOTE_ALLOW_ROTATION"
+
+/**
+ * \brief  A variable controlling whether the Apple TV remote swipes are
+ *         translated into arrow key events
+ *
+ *  This variable can be set to the following values:
+ *    "0"       - Swipes are not translated into arrow key events
+ *    "1"       - Swipes are translated into arrow key events (the default)
+ */
+#define SDL_HINT_APPLE_TV_REMOTE_SWIPES_AS_ARROW_KEYS "SDL_APPLE_TV_REMOTE_SWIPES_AS_ARROW_KEYS"
 
 /**
  *  \brief  A variable controlling whether the Android / iOS built-in
@@ -718,6 +729,18 @@ extern "C" {
  * The value of this hint is used at runtime, so it can be changed at any time.
  */
 #define SDL_HINT_ANDROID_SEPARATE_MOUSE_AND_TOUCH "SDL_ANDROID_SEPARATE_MOUSE_AND_TOUCH"
+
+ /**
+ * \brief A variable to control whether the return key on the soft keyboard
+ *        should hide the soft keyboard on Android and iOS.
+ *
+ * The variable can be set to the following values:
+ *   "0"       - The return key will be handled as a key event. This is the behaviour of SDL <= 2.0.3. (default)
+ *   "1"       - The return key will hide the keyboard.
+ *
+ * The value of this hint is used at runtime, so it can be changed at any time.
+ */
+#define SDL_HINT_RETURN_KEY_HIDES_IME "SDL_RETURN_KEY_HIDES_IME"
 
 /**
  *  \brief override the binding element for keyboard inputs for Emscripten builds

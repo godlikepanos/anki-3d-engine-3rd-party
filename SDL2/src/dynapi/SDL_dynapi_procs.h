@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -697,3 +697,5 @@ SDL_DYNAPI_PROC(float,SDL_fmodf,(float a, float b),(a,b),return)
 SDL_DYNAPI_PROC(void,SDL_SetYUVConversionMode,(SDL_YUV_CONVERSION_MODE a),(a),)
 SDL_DYNAPI_PROC(SDL_YUV_CONVERSION_MODE,SDL_GetYUVConversionMode,(void),(),return)
 SDL_DYNAPI_PROC(SDL_YUV_CONVERSION_MODE,SDL_GetYUVConversionModeForResolution,(int a, int b),(a,b),return)
+SDL_DYNAPI_PROC(void*,SDL_RenderGetMetalLayer,(SDL_Renderer *a),(a),return)
+SDL_DYNAPI_PROC(void*,SDL_RenderGetMetalCommandEncoder,(SDL_Renderer *a),(a),return)

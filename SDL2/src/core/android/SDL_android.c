@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -29,7 +29,6 @@
 
 #include "SDL_system.h"
 #include "SDL_android.h"
-#include <EGL/egl.h>
 
 #include "keyinfotable.h"
 
@@ -2030,10 +2029,14 @@ const char * SDL_AndroidGetInternalStoragePath(void)
             return NULL;
         }
 
-        /* path = fileObject.getAbsolutePath(); */
+        /* path = fileObject.getCanonicalPath(); */
         mid = (*env)->GetMethodID(env, (*env)->GetObjectClass(env, fileObject),
-                "getAbsolutePath", "()Ljava/lang/String;");
+                "getCanonicalPath", "()Ljava/lang/String;");
         pathString = (jstring)(*env)->CallObjectMethod(env, fileObject, mid);
+        if (Android_JNI_ExceptionOccurred(SDL_FALSE)) {
+            LocalReferenceHolder_Cleanup(&refs);
+            return NULL;
+        }
 
         path = (*env)->GetStringUTFChars(env, pathString, NULL);
         s_AndroidInternalFilesPath = SDL_strdup(path);

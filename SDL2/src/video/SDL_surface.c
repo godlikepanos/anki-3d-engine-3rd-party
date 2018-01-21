@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -296,11 +296,11 @@ int
 SDL_GetColorKey(SDL_Surface * surface, Uint32 * key)
 {
     if (!surface) {
-        return -1;
+        return SDL_InvalidParamError("surface");
     }
 
     if (!(surface->map->info.flags & SDL_COPY_COLORKEY)) {
-        return -1;
+        return SDL_SetError("Surface doesn't have a colorkey");
     }
 
     if (key) {

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -191,18 +191,18 @@
 #endif /* HAVE_LIBC */
 
 #cmakedefine HAVE_ALTIVEC_H 1
-#cmakedefine HAVE_LIBUDEV_H 1
 #cmakedefine HAVE_DBUS_DBUS_H 1
-#cmakedefine HAVE_IBUS_IBUS_H 1
 #cmakedefine HAVE_FCITX_FRONTEND_H 1
+#cmakedefine HAVE_IBUS_IBUS_H 1
+#cmakedefine HAVE_IMMINTRIN_H 1
 #cmakedefine HAVE_LIBSAMPLERATE_H 1
+#cmakedefine HAVE_LIBUDEV_H 1
 
 #cmakedefine HAVE_D3D_H @HAVE_D3D_H@
 #cmakedefine HAVE_D3D11_H @HAVE_D3D11_H@
 #cmakedefine HAVE_DDRAW_H @HAVE_DDRAW_H@
 #cmakedefine HAVE_DSOUND_H @HAVE_DSOUND_H@
 #cmakedefine HAVE_DINPUT_H @HAVE_DINPUT_H@
-#cmakedefine HAVE_XAUDIO2_H @HAVE_XAUDIO2_H@
 #cmakedefine HAVE_XINPUT_H @HAVE_XINPUT_H@
 #cmakedefine HAVE_DXGI_H @HAVE_DXGI_H@
 #cmakedefine HAVE_XINPUT_GAMEPAD_EX @HAVE_XINPUT_GAMEPAD_EX@
@@ -259,7 +259,6 @@
 #cmakedefine SDL_AUDIO_DRIVER_SUNAUDIO @SDL_AUDIO_DRIVER_SUNAUDIO@
 #cmakedefine SDL_AUDIO_DRIVER_WASAPI @SDL_AUDIO_DRIVER_WASAPI@
 #cmakedefine SDL_AUDIO_DRIVER_WINMM @SDL_AUDIO_DRIVER_WINMM@
-#cmakedefine SDL_AUDIO_DRIVER_XAUDIO2 @SDL_AUDIO_DRIVER_XAUDIO2@
 
 /* Enable various input drivers */
 #cmakedefine SDL_INPUT_LINUXEV @SDL_INPUT_LINUXEV@
@@ -358,6 +357,7 @@
 #cmakedefine SDL_VIDEO_RENDER_OGL_ES @SDL_VIDEO_RENDER_OGL_ES@
 #cmakedefine SDL_VIDEO_RENDER_OGL_ES2 @SDL_VIDEO_RENDER_OGL_ES2@
 #cmakedefine SDL_VIDEO_RENDER_DIRECTFB @SDL_VIDEO_RENDER_DIRECTFB@
+#cmakedefine SDL_VIDEO_RENDER_METAL @SDL_VIDEO_RENDER_METAL@
 
 /* Enable OpenGL support */
 #cmakedefine SDL_VIDEO_OPENGL @SDL_VIDEO_OPENGL@

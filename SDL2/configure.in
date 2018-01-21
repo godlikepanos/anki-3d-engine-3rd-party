@@ -670,6 +670,13 @@ AC_HELP_STRING([--enable-sse3], [use SSE3 assembly routines [[default=maybe]]]),
         fi
     fi
 
+    AC_CHECK_HEADER(immintrin.h,
+                    have_immintrin_h_hdr=yes,
+                    have_immintrin_h_hdr=no)
+    if test x$have_immintrin_h_hdr = xyes; then
+        AC_DEFINE(HAVE_IMMINTRIN_H, 1, [ ])
+    fi
+
     AC_ARG_ENABLE(altivec,
 AC_HELP_STRING([--enable-altivec], [use Altivec assembly routines [[default=yes]]]),
                   , enable_altivec=yes)
@@ -1564,7 +1571,11 @@ CheckRPI()
 AC_HELP_STRING([--enable-video-rpi], [use Raspberry Pi video driver [[default=yes]]]),
                   , enable_video_rpi=yes)
     if test x$enable_video = xyes -a x$enable_video_rpi = xyes; then
-        if test x$ARCH = xnetbsd; then
+        AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
+        if test x$PKG_CONFIG != xno && $PKG_CONFIG --exists bcm_host; then
+            RPI_CFLAGS=`$PKG_CONFIG --cflags bcm_host brcmegl`
+            RPI_LDFLAGS=`$PKG_CONFIG --libs bcm_host brcmegl`
+        elif test x$ARCH = xnetbsd; then
             RPI_CFLAGS="-I/usr/pkg/include -I/usr/pkg/include/interface/vcos/pthreads -I/usr/pkg/include/interface/vmcs_host/linux"
             RPI_LDFLAGS="-Wl,-R/usr/pkg/lib -L/usr/pkg/lib -lbcm_host"
         else
@@ -2053,6 +2064,40 @@ AC_HELP_STRING([--enable-video-cocoa], [use Cocoa video driver [[default=yes]]])
     fi
 }
 
+CheckMETAL()
+{
+    AC_ARG_ENABLE(render-metal,
+AC_HELP_STRING([--enable-render-metal], [enable the Metal render driver [[default=yes]]]),
+                                , enable_render_metal=yes)
+    if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+        save_CFLAGS="$CFLAGS"
+        dnl Work around that we don't have Objective-C support in autoconf
+        CFLAGS="$CFLAGS -x objective-c"
+        AC_MSG_CHECKING(for Metal framework)
+        have_metal=no
+        AC_TRY_COMPILE([
+          #import <Cocoa/Cocoa.h>
+          #import <Metal/Metal.h>
+          #import <QuartzCore/CAMetalLayer.h>
+
+          #if !TARGET_CPU_X86_64
+          #error Metal doesn't work on this configuration
+          #endif
+        ],[
+        ],[
+        have_metal=yes
+        ])
+        CFLAGS="$save_CFLAGS"
+        AC_MSG_RESULT($have_metal)
+        if test x$have_metal = xyes; then
+            AC_DEFINE(SDL_VIDEO_RENDER_METAL, 1, [ ])
+            SOURCES="$SOURCES $srcdir/src/render/metal/*.m"
+            SUMMARY_video="${SUMMARY_video} metal"
+        fi
+    fi
+}
+
+
 dnl Find DirectFB
 CheckDirectFB()
 {
@@ -2103,7 +2148,6 @@ AC_HELP_STRING([--enable-directfb-shared], [dynamically load directfb support [[
                               , enable_directfb_shared=yes)
 
             AC_DEFINE(SDL_VIDEO_DRIVER_DIRECTFB, 1, [ ])
-            AC_DEFINE(SDL_VIDEO_RENDER_DIRECTFB, 1, [ ])
             SOURCES="$SOURCES $srcdir/src/video/directfb/*.c"
             EXTRA_CFLAGS="$EXTRA_CFLAGS $DIRECTFB_CFLAGS"
 
@@ -2978,7 +3022,6 @@ AC_HELP_STRING([--enable-directx], [use DirectX for Windows audio/video [[defaul
         AC_CHECK_HEADER(dsound.h, have_dsound=yes)
         AC_CHECK_HEADER(dinput.h, have_dinput=yes)
         AC_CHECK_HEADER(dxgi.h, have_dxgi=yes)
-        AC_CHECK_HEADER(xaudio2.h, have_xaudio2=yes)
         AC_CHECK_HEADER(xinput.h, have_xinput=yes)
         AC_CHECK_HEADER(mmdeviceapi.h, have_wasapi=yes)
         AC_CHECK_HEADER(audioclient.h,,have_wasapi=no)
@@ -3486,10 +3529,6 @@ AC_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
                 AC_DEFINE(SDL_AUDIO_DRIVER_DSOUND, 1, [ ])
                 SOURCES="$SOURCES $srcdir/src/audio/directsound/*.c"
             fi
-            if test x$have_xaudio2 = xyes; then
-                AC_DEFINE(SDL_AUDIO_DRIVER_XAUDIO2, 1, [ ])
-                SOURCES="$SOURCES $srcdir/src/audio/xaudio2/*.c"
-            fi
             if test x$have_wasapi = xyes; then
                 AC_DEFINE(SDL_AUDIO_DRIVER_WASAPI, 1, [ ])
                 SOURCES="$SOURCES $srcdir/src/audio/wasapi/*.c"
@@ -3641,8 +3680,9 @@ AC_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         CheckDiskAudio
         CheckDummyAudio
         CheckDLOPEN
-        CheckPTHREAD
+        CheckMETAL
         CheckVulkan
+        CheckPTHREAD
 
         # Set up files for the audio library
         if test x$enable_audio = xyes; then
@@ -3706,6 +3746,10 @@ AC_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,OpenGLES"
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,QuartzCore"
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,UIKit"
+
+        if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+            EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,Metal"
+        fi
         ;;
     *-*-darwin* )
         # This could be either full "Mac OS X", or plain "Darwin" which is
@@ -3724,6 +3768,7 @@ AC_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         CheckDummyAudio
         CheckDLOPEN
         CheckCOCOA
+        CheckMETAL
         CheckX11
         CheckMacGL
         CheckOpenGLX11
@@ -3781,6 +3826,10 @@ AC_HELP_STRING([--enable-render-d3d], [enable the Direct3D render driver [[defau
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,Cocoa"
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,Carbon"
         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-framework,IOKit"
+
+        if test x$enable_render = xyes -a x$enable_render_metal = xyes; then
+            EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-weak_framework,QuartzCore -Wl,-weak_framework,Metal"
+        fi
         ;;
     *-nacl|*-pnacl)
         ARCH=nacl

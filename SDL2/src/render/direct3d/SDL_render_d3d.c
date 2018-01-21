@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -1077,7 +1077,9 @@ D3D_SetRenderTargetInternal(SDL_Renderer * renderer, SDL_Texture * texture)
 static int
 D3D_SetRenderTarget(SDL_Renderer * renderer, SDL_Texture * texture)
 {
-    D3D_ActivateRenderer(renderer);
+    if (D3D_ActivateRenderer(renderer) < 0) {
+        return -1;
+    }
 
     return D3D_SetRenderTargetInternal(renderer, texture);
 }
@@ -1412,6 +1414,10 @@ D3D_UpdateTextureScaleMode(D3D_RenderData *data, D3D_TextureData *texturedata, u
                                          texturedata->scaleMode);
         IDirect3DDevice9_SetSamplerState(data->device, index, D3DSAMP_MAGFILTER,
                                          texturedata->scaleMode);
+        IDirect3DDevice9_SetSamplerState(data->device, index, D3DSAMP_ADDRESSU,
+                                         D3DTADDRESS_CLAMP);
+        IDirect3DDevice9_SetSamplerState(data->device, index, D3DSAMP_ADDRESSV,
+                                         D3DTADDRESS_CLAMP);
         data->scaleMode[index] = texturedata->scaleMode;
     }
 }

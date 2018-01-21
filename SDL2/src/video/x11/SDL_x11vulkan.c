@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -83,6 +83,12 @@ int X11_Vulkan_LoadLibrary(_THIS, const char *path)
             hasXlibSurfaceExtension = SDL_TRUE;
     }
     SDL_free(extensions);
+    if(!hasSurfaceExtension)
+    {
+        SDL_SetError("Installed Vulkan doesn't implement the "
+                     VK_KHR_SURFACE_EXTENSION_NAME " extension");
+        goto fail;
+    }
     if(hasXCBSurfaceExtension)
     {
         const char *libX11XCBLibraryName = SDL_getenv("SDL_X11_XCB_LIBRARY");

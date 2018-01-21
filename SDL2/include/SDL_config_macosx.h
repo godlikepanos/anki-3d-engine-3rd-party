@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -179,9 +179,28 @@
 #define SDL_VIDEO_RENDER_OGL    1
 #endif
 
+#ifndef SDL_VIDEO_RENDER_OGL_ES2
+#define SDL_VIDEO_RENDER_OGL_ES2 1
+#endif
+
+#ifndef SDL_VIDEO_RENDER_METAL
+/* Metal only supported on 64-bit architectures with 10.11+ */
+#if TARGET_CPU_X86_64 && (MAC_OS_X_VERSION_MAX_ALLOWED >= 101100)
+#define SDL_VIDEO_RENDER_METAL    1
+#else
+#define SDL_VIDEO_RENDER_METAL    0
+#endif
+#endif
+
 /* Enable OpenGL support */
 #ifndef SDL_VIDEO_OPENGL
 #define SDL_VIDEO_OPENGL    1
+#endif
+#ifndef SDL_VIDEO_OPENGL_ES2
+#define SDL_VIDEO_OPENGL_ES2    1
+#endif
+#ifndef SDL_VIDEO_OPENGL_EGL
+#define SDL_VIDEO_OPENGL_EGL    1
 #endif
 #ifndef SDL_VIDEO_OPENGL_CGL
 #define SDL_VIDEO_OPENGL_CGL    1
@@ -195,7 +214,7 @@
 #if TARGET_CPU_X86_64 && (MAC_OS_X_VERSION_MAX_ALLOWED >= 101100)
 #define SDL_VIDEO_VULKAN 1
 #else
-#define  SDL_VIDEO_VULKAN 0
+#define SDL_VIDEO_VULKAN 0
 #endif
 
 /* Enable system power support */

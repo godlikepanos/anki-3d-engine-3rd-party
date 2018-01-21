@@ -389,9 +389,9 @@
     <ClCompile Include="..\..\src\audio\SDL_audiotypecvt.c" />
     <ClCompile Include="..\..\src\audio\SDL_mixer.c" />
     <ClCompile Include="..\..\src\audio\SDL_wave.c" />
-    <ClCompile Include="..\..\src\audio\wasapi\SDL_wasapi.c" />
     <ClCompile Include="..\..\src\audio\winmm\SDL_winmm.c" />
-    <ClCompile Include="..\..\src\audio\xaudio2\SDL_xaudio2.c" />
+    <ClCompile Include="..\..\src\audio\wasapi\SDL_wasapi.c" />
+    <ClCompile Include="..\..\src\audio\wasapi\SDL_wasapi_win32.c" />
     <ClCompile Include="..\..\src\core\windows\SDL_windows.c" />
     <ClCompile Include="..\..\src\core\windows\SDL_xinput.c" />
     <ClCompile Include="..\..\src\cpuinfo\SDL_cpuinfo.c" />
