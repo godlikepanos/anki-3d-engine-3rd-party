@@ -68,11 +68,15 @@ public:
 	}
 
 	template <typename Op>
-	void walk_from(uint32_t block, const Op &op) const
+	void walk_from(std::unordered_set<uint32_t> &seen_blocks, uint32_t block, const Op &op) const
 	{
+		if (seen_blocks.count(block))
+			return;
+		seen_blocks.insert(block);
+
 		op(block);
 		for (auto b : succeeding_edges[block])
-			walk_from(b, op);
+			walk_from(seen_blocks, b, op);
 	}
 
 private:
@@ -90,7 +94,6 @@ private:
 	bool post_order_visit(uint32_t block);
 	uint32_t visit_count = 0;
 
-	uint32_t update_common_dominator(uint32_t a, uint32_t b);
 	bool is_back_edge(uint32_t to) const;
 };
 
