@@ -59,15 +59,10 @@ using libspirv::ValidationState_t;
 
 spv_result_t spvValidateIDs(const spv_instruction_t* pInsts,
                             const uint64_t count,
-                            const spv_opcode_table opcodeTable,
-                            const spv_operand_table operandTable,
-                            const spv_ext_inst_table extInstTable,
                             const ValidationState_t& state,
                             spv_position position) {
   position->index = SPV_INDEX_INSTRUCTION;
-  if (auto error =
-          spvValidateInstructionIDs(pInsts, count, opcodeTable, operandTable,
-                                    extInstTable, state, position))
+  if (auto error = spvValidateInstructionIDs(pInsts, count, state, position))
     return error;
   return SPV_SUCCESS;
 }
@@ -127,7 +122,7 @@ void RegisterExtension(ValidationState_t& _,
                        const spv_parsed_instruction_t* inst) {
   const std::string extension_str = libspirv::GetExtensionString(inst);
   Extension extension;
-  if (!GetExtensionFromString(extension_str, &extension)) {
+  if (!GetExtensionFromString(extension_str.c_str(), &extension)) {
     // The error will be logged in the ProcessInstruction pass.
     return;
   }
@@ -161,7 +156,8 @@ spv_result_t ProcessInstruction(void* user_data,
   _.increment_instruction_count();
   if (static_cast<SpvOp>(inst->opcode) == SpvOpEntryPoint) {
     const auto entry_point = inst->words[2];
-    _.RegisterEntryPointId(entry_point);
+    const SpvExecutionModel execution_model = SpvExecutionModel(inst->words[1]);
+    _.RegisterEntryPointId(entry_point, execution_model);
     // Operand 3 and later are the <id> of interfaces for the entry point.
     for (int i = 3; i < inst->num_operands; ++i) {
       _.RegisterInterfaceForEntryPoint(entry_point,
@@ -189,6 +185,7 @@ spv_result_t ProcessInstruction(void* user_data,
   if (auto error = ExtInstPass(_, inst)) return error;
   if (auto error = ImagePass(_, inst)) return error;
   if (auto error = AtomicsPass(_, inst)) return error;
+  if (auto error = BarriersPass(_, inst)) return error;
   if (auto error = PrimitivesPass(_, inst)) return error;
   if (auto error = LiteralsPass(_, inst)) return error;
 
@@ -290,6 +287,10 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
            << id_str.substr(0, id_str.size() - 1);
   }
 
+  // Validate the preconditions involving adjacent instructions. e.g. SpvOpPhi
+  // must only be preceeded by SpvOpLabel, SpvOpPhi, or SpvOpLine.
+  if (auto error = ValidateAdjacency(*vstate)) return error;
+
   // CFG checks are performed after the binary has been parsed
   // and the CFGPass has collected information about the control flow
   if (auto error = PerformCfgChecks(*vstate)) return error;
@@ -336,9 +337,13 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
   }
 
   position.index = SPV_INDEX_INSTRUCTION;
-  return spvValidateIDs(instructions.data(), instructions.size(),
-                        context.opcode_table, context.operand_table,
-                        context.ext_inst_table, *vstate, &position);
+  if (auto error = spvValidateIDs(instructions.data(), instructions.size(),
+                                  *vstate, &position))
+    return error;
+
+  if (auto error = ValidateBuiltIns(*vstate)) return error;
+
+  return SPV_SUCCESS;
 }
 }  // anonymous namespace
 

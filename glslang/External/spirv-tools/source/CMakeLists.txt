@@ -66,7 +66,7 @@ macro(spvtools_vimsyntax VERSION CLVERSION)
   add_custom_command(OUTPUT ${VIMSYNTAX_FILE}
       COMMAND ${PYTHON_EXECUTABLE} ${VIMSYNTAX_PROCESSING_SCRIPT}
       --spirv-core-grammar=${GRAMMAR_JSON_FILE}
-      --exinst-debuginfo-grammar=${DEBUGINFO_GRAMMAR_JSON_FILE}
+      --extinst-debuginfo-grammar=${DEBUGINFO_GRAMMAR_JSON_FILE}
       --extinst-glsl-grammar=${GLSL_GRAMMAR_JSON_FILE}
       --extinst-opencl-grammar=${OPENCL_GRAMMAR_JSON_FILE}
       >${VIMSYNTAX_FILE}
@@ -130,13 +130,10 @@ macro(spvtools_extinst_lang_headers NAME GRAMMAR_FILE)
   set_property(TARGET spirv-tools-header-${NAME} PROPERTY FOLDER "SPIRV-Tools build")
 endmacro(spvtools_extinst_lang_headers)
 
-
-spvtools_core_tables("1.0")
-spvtools_core_tables("1.1")
-spvtools_core_tables("1.2")
-spvtools_enum_string_mapping("1.2")
-spvtools_opencl_tables("1.2")
-spvtools_glsl_tables("1.2")
+spvtools_core_tables("unified1")
+spvtools_enum_string_mapping("unified1")
+spvtools_opencl_tables("unified1")
+spvtools_glsl_tables("unified1")
 spvtools_vendor_tables("spv-amd-shader-explicit-vertex-parameter")
 spvtools_vendor_tables("spv-amd-shader-trinary-minmax")
 spvtools_vendor_tables("spv-amd-gcn-shader")
@@ -144,7 +141,7 @@ spvtools_vendor_tables("spv-amd-shader-ballot")
 spvtools_vendor_tables("debuginfo")
 spvtools_extinst_lang_headers("DebugInfo" ${DEBUGINFO_GRAMMAR_JSON_FILE})
 
-spvtools_vimsyntax("1.2" "1.0")
+spvtools_vimsyntax("unified1" "1.0")
 add_custom_target(spirv-tools-vimsyntax DEPENDS ${VIMSYNTAX_FILE})
 set_property(TARGET spirv-tools-vimsyntax PROPERTY FOLDER "SPIRV-Tools utilities")
 
@@ -224,10 +221,12 @@ set(SPIRV_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/util/hex_float.h
   ${CMAKE_CURRENT_SOURCE_DIR}/util/parse_number.h
   ${CMAKE_CURRENT_SOURCE_DIR}/util/string_utils.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/util/timer.h
   ${CMAKE_CURRENT_SOURCE_DIR}/assembly_grammar.h
   ${CMAKE_CURRENT_SOURCE_DIR}/binary.h
   ${CMAKE_CURRENT_SOURCE_DIR}/cfa.h
   ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/disassemble.h
   ${CMAKE_CURRENT_SOURCE_DIR}/enum_set.h
   ${CMAKE_CURRENT_SOURCE_DIR}/enum_string_mapping.h
   ${CMAKE_CURRENT_SOURCE_DIR}/ext_inst.h
@@ -280,9 +279,12 @@ set(SPIRV_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/text.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/text_handler.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/validate_adjacency.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate_arithmetics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate_atomics.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/validate_barriers.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate_bitwise.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/validate_builtins.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate_capability.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate_cfg.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/validate_composites.cpp
@@ -305,6 +307,12 @@ set(SPIRV_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/val/function.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/val/instruction.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/val/validation_state.cpp)
+
+if (${SPIRV_TIMER_ENABLED})
+  set(SPIRV_SOURCES
+    ${SPIRV_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/util/timer.cpp)
+endif()
 
 # The software_version.cpp file includes build-version.inc.
 # Rebuild the software_version.cpp object file if it is older than
@@ -331,8 +339,23 @@ target_include_directories(${SPIRV_TOOLS}
 set_property(TARGET ${SPIRV_TOOLS} PROPERTY FOLDER "SPIRV-Tools libraries")
 spvtools_check_symbol_exports(${SPIRV_TOOLS})
 
+add_library(${SPIRV_TOOLS}-shared SHARED ${SPIRV_SOURCES})
+spvtools_default_compile_options(${SPIRV_TOOLS}-shared)
+target_include_directories(${SPIRV_TOOLS}-shared
+  PUBLIC ${spirv-tools_SOURCE_DIR}/include
+  PRIVATE ${spirv-tools_BINARY_DIR}
+  PRIVATE ${SPIRV_HEADER_INCLUDE_DIR}
+  )
+set_target_properties(${SPIRV_TOOLS}-shared PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET ${SPIRV_TOOLS}-shared PROPERTY FOLDER "SPIRV-Tools libraries")
+spvtools_check_symbol_exports(${SPIRV_TOOLS}-shared)
+target_compile_definitions(${SPIRV_TOOLS}-shared
+  PRIVATE SPIRV_TOOLS_IMPLEMENTATION
+  PUBLIC SPIRV_TOOLS_SHAREDLIB
+)
+
 if(ENABLE_SPIRV_TOOLS_INSTALL)
-  install(TARGETS ${SPIRV_TOOLS}
+  install(TARGETS ${SPIRV_TOOLS} ${SPIRV_TOOLS}-shared
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})

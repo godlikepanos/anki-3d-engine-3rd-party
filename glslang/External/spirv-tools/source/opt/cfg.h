@@ -17,8 +17,10 @@
 
 #include "basic_block.h"
 
+#include <algorithm>
 #include <list>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace spvtools {
 namespace ir {
@@ -33,6 +35,7 @@ class CFG {
   // Return the list of predecesors for basic block with label |blkid|.
   // TODO(dnovillo): Move this to ir::BasicBlock.
   const std::vector<uint32_t>& preds(uint32_t blk_id) const {
+    assert(label2preds_.count(blk_id));
     return label2preds_.at(blk_id);
   }
 
@@ -68,6 +71,63 @@ class CFG {
   void ComputeStructuredOrder(ir::Function* func, ir::BasicBlock* root,
                               std::list<ir::BasicBlock*>* order);
 
+  // Applies |f| to the basic block in reverse post order starting with |bb|.
+  // Note that basic blocks that cannot be reached from |bb| node will not be
+  // processed.
+  void ForEachBlockInReversePostOrder(
+      BasicBlock* bb, const std::function<void(BasicBlock*)>& f);
+
+  // Registers |blk| as a basic block in the cfg, this also updates the
+  // predecessor lists of each successor of |blk|.
+  void RegisterBlock(ir::BasicBlock* blk) {
+    uint32_t blk_id = blk->id();
+    id2block_[blk_id] = blk;
+    AddEdges(blk);
+  }
+
+  // Removes from the CFG any mapping for the basic block id |blk_id|.
+  void ForgetBlock(const ir::BasicBlock* blk) {
+    id2block_.erase(blk->id());
+    label2preds_.erase(blk->id());
+    RemoveSuccessorEdges(blk);
+  }
+
+  void RemoveEdge(uint32_t pred_blk_id, uint32_t succ_blk_id) {
+    auto pred_it = label2preds_.find(succ_blk_id);
+    if (pred_it == label2preds_.end()) return;
+    auto& preds_list = pred_it->second;
+    auto it = std::find(preds_list.begin(), preds_list.end(), pred_blk_id);
+    if (it != preds_list.end()) preds_list.erase(it);
+  }
+
+  // Registers |blk| to all of its successors.
+  void AddEdges(ir::BasicBlock* blk);
+
+  // Registers the basic block id |pred_blk_id| as being a predecessor of the
+  // basic block id |succ_blk_id|.
+  void AddEdge(uint32_t pred_blk_id, uint32_t succ_blk_id) {
+    label2preds_[succ_blk_id].push_back(pred_blk_id);
+  }
+
+  // Removes any edges that no longer exist from the predecessor mapping for
+  // the basic block id |blk_id|.
+  void RemoveNonExistingEdges(uint32_t blk_id);
+
+  // Remove all edges that leave |bb|.
+  void RemoveSuccessorEdges(const ir::BasicBlock* bb) {
+    bb->ForEachSuccessorLabel(
+        [bb, this](uint32_t succ_id) { RemoveEdge(bb->id(), succ_id); });
+  }
+
+  // Divides |block| into two basic blocks.  The first block will have the same
+  // id as |block| and will become a preheader for the loop.  The other block
+  // is a new block that will be the new loop header.
+  //
+  // Returns a pointer to the new loop header.
+  BasicBlock* SplitLoopHeader(ir::BasicBlock* bb);
+
+  std::unordered_set<BasicBlock*> FindReachableBlocks(BasicBlock* start);
+
  private:
   using cbb_ptr = const ir::BasicBlock*;
 
@@ -79,6 +139,13 @@ class CFG {
   // vector contain duplicates of the merge or continue blocks, they are safely
   // ignored by DFS.
   void ComputeStructuredSuccessors(ir::Function* func);
+
+  // Computes the post-order traversal of the cfg starting at |bb| skipping
+  // nodes in |seen|.  The order of the traversal is appended to |order|, and
+  // all nodes in the traversal are added to |seen|.
+  void ComputePostOrderTraversal(BasicBlock* bb,
+                                 std::vector<BasicBlock*>* order,
+                                 std::unordered_set<BasicBlock*>* seen);
 
   // Module for this CFG.
   ir::Module* module_;

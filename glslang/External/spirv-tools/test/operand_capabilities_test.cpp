@@ -45,15 +45,19 @@ using EnumCapabilityTest =
     TestWithParam<tuple<spv_target_env, EnumCapabilityCase>>;
 
 TEST_P(EnumCapabilityTest, Sample) {
-  spv_operand_table operandTable;
-  ASSERT_EQ(SPV_SUCCESS, spvOperandTableGet(&operandTable, get<0>(GetParam())));
+  const auto env = get<0>(GetParam());
+  const auto context = spvContextCreate(env);
+  const libspirv::AssemblyGrammar grammar(context);
   spv_operand_desc entry;
+
   ASSERT_EQ(SPV_SUCCESS,
-            spvOperandTableValueLookup(operandTable, get<1>(GetParam()).type,
-                                       get<1>(GetParam()).value, &entry));
-  EXPECT_THAT(
-      ElementsIn(CapabilitySet(entry->numCapabilities, entry->capabilities)),
-      Eq(ElementsIn(get<1>(GetParam()).expected_capabilities)))
+            grammar.lookupOperand(get<1>(GetParam()).type,
+                                  get<1>(GetParam()).value, &entry));
+  const auto cap_set = grammar.filterCapsAgainstTargetEnv(
+      entry->capabilities, entry->numCapabilities);
+
+  EXPECT_THAT(ElementsIn(cap_set),
+              Eq(ElementsIn(get<1>(GetParam()).expected_capabilities)))
       << " capability value " << get<1>(GetParam()).value;
 }
 
@@ -363,25 +367,6 @@ INSTANTIATE_TEST_CASE_P(
                 CASE1(FP_FAST_MATH_MODE, FPFastMathModeFastMask, Kernel),
             })), );
 
-// See SPIR-V Section 3.16 FP Rounding Mode
-INSTANTIATE_TEST_CASE_P(
-    FPRoundingMode, EnumCapabilityTest,
-    Combine(Values(SPV_ENV_UNIVERSAL_1_0, SPV_ENV_UNIVERSAL_1_1),
-            ValuesIn(std::vector<EnumCapabilityCase>{
-                CASE5(FP_ROUNDING_MODE, FPRoundingModeRTE, Kernel,
-                      StorageUniformBufferBlock16, StorageUniform16,
-                      StoragePushConstant16, StorageInputOutput16),
-                CASE5(FP_ROUNDING_MODE, FPRoundingModeRTZ, Kernel,
-                      StorageUniformBufferBlock16, StorageUniform16,
-                      StoragePushConstant16, StorageInputOutput16),
-                CASE5(FP_ROUNDING_MODE, FPRoundingModeRTP, Kernel,
-                      StorageUniformBufferBlock16, StorageUniform16,
-                      StoragePushConstant16, StorageInputOutput16),
-                CASE5(FP_ROUNDING_MODE, FPRoundingModeRTN, Kernel,
-                      StorageUniformBufferBlock16, StorageUniform16,
-                      StoragePushConstant16, StorageInputOutput16),
-            })), );
-
 // See SPIR-V Section 3.17 Linkage Type
 INSTANTIATE_TEST_CASE_P(
     LinkageType, EnumCapabilityTest,
@@ -463,9 +448,6 @@ INSTANTIATE_TEST_CASE_P(
                 CASE1(DECORATION, DecorationXfbBuffer, TransformFeedback),
                 CASE1(DECORATION, DecorationXfbStride, TransformFeedback),
                 CASE1(DECORATION, DecorationFuncParamAttr, Kernel),
-                CASE5(DECORATION, DecorationFPRoundingMode, Kernel,
-                      StorageUniformBufferBlock16, StorageUniform16,
-                      StoragePushConstant16, StorageInputOutput16),
                 CASE1(DECORATION, DecorationFPFastMathMode, Kernel),
                 CASE1(DECORATION, DecorationLinkageAttributes, Linkage),
                 CASE1(DECORATION, DecorationNoContraction, Shader),
@@ -532,12 +514,12 @@ INSTANTIATE_TEST_CASE_P(
             CASE1(BUILT_IN, BuiltInGlobalOffset, Kernel),
             CASE1(BUILT_IN, BuiltInGlobalLinearId, Kernel),
             // Value 35 intentionally missing
-            CASE1(BUILT_IN, BuiltInSubgroupSize, Kernel),
+            CASE2(BUILT_IN, BuiltInSubgroupSize, Kernel, SubgroupBallotKHR),
             CASE1(BUILT_IN, BuiltInSubgroupMaxSize, Kernel),
             CASE1(BUILT_IN, BuiltInNumSubgroups, Kernel),
             CASE1(BUILT_IN, BuiltInNumEnqueuedSubgroups, Kernel),
             CASE1(BUILT_IN, BuiltInSubgroupId, Kernel),
-            CASE1(BUILT_IN, BuiltInSubgroupLocalInvocationId, Kernel),
+            CASE2(BUILT_IN, BuiltInSubgroupLocalInvocationId, Kernel, SubgroupBallotKHR),
             CASE1(BUILT_IN, BuiltInVertexIndex, Shader),
             CASE1(BUILT_IN, BuiltInInstanceIndex, Shader),
             // clang-format on

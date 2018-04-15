@@ -16,9 +16,10 @@
 
 #include "insert_extract_elim.h"
 
+#include "composite.h"
 #include "ir_context.h"
 #include "iterator.h"
-#include "spirv/1.2/GLSL.std.450.h"
+#include "latest_version_glsl_std_450_header.h"
 
 #include <vector>
 
@@ -27,10 +28,10 @@ namespace opt {
 
 namespace {
 
+const uint32_t kConstantValueInIdx = 0;
 const uint32_t kExtractCompositeIdInIdx = 0;
 const uint32_t kInsertObjectIdInIdx = 0;
 const uint32_t kInsertCompositeIdInIdx = 1;
-const uint32_t kConstantValueInIdx = 0;
 const uint32_t kVectorShuffleVec1IdInIdx = 0;
 const uint32_t kVectorShuffleVec2IdInIdx = 1;
 const uint32_t kVectorShuffleCompsInIdx = 2;
@@ -44,36 +45,6 @@ const uint32_t kFMixYIdInIdx = 3;
 const uint32_t kFMixAIdInIdx = 4;
 
 }  // anonymous namespace
-
-bool InsertExtractElimPass::ExtInsMatch(const std::vector<uint32_t>& extIndices,
-                                        const ir::Instruction* insInst,
-                                        const uint32_t extOffset) const {
-  uint32_t numIndices = static_cast<uint32_t>(extIndices.size()) - extOffset;
-  if (numIndices != insInst->NumInOperands() - 2) return false;
-  for (uint32_t i = 0; i < numIndices; ++i)
-    if (extIndices[i + extOffset] != insInst->GetSingleWordInOperand(i + 2))
-      return false;
-  return true;
-}
-
-bool InsertExtractElimPass::ExtInsConflict(
-    const std::vector<uint32_t>& extIndices, const ir::Instruction* insInst,
-    const uint32_t extOffset) const {
-  if (extIndices.size() - extOffset == insInst->NumInOperands() - 2)
-    return false;
-  uint32_t extNumIndices = static_cast<uint32_t>(extIndices.size()) - extOffset;
-  uint32_t insNumIndices = insInst->NumInOperands() - 2;
-  uint32_t numIndices = std::min(extNumIndices, insNumIndices);
-  for (uint32_t i = 0; i < numIndices; ++i)
-    if (extIndices[i + extOffset] != insInst->GetSingleWordInOperand(i + 2))
-      return false;
-  return true;
-}
-
-bool InsertExtractElimPass::IsVectorType(uint32_t typeId) {
-  ir::Instruction* typeInst = get_def_use_mgr()->GetDef(typeId);
-  return typeInst->opcode() == SpvOpTypeVector;
-}
 
 uint32_t InsertExtractElimPass::DoExtract(ir::Instruction* compInst,
                                           std::vector<uint32_t>* pExtIndices,
@@ -125,7 +96,7 @@ uint32_t InsertExtractElimPass::DoExtract(ir::Instruction* compInst,
       }
     } else if (cinst->opcode() == SpvOpExtInst &&
                cinst->GetSingleWordInOperand(kExtInstSetIdInIdx) ==
-                   get_module()->GetExtInstImportId("GLSL.std.450") &&
+                   get_feature_mgr()->GetExtInstImportId_GLSLstd450() &&
                cinst->GetSingleWordInOperand(kExtInstInstructionInIdx) ==
                    GLSLstd450FMix) {
       // If mixing value component is 0 or 1 we just match with x or y.
@@ -228,25 +199,9 @@ bool InsertExtractElimPass::EliminateInsertExtract(ir::Function* func) {
 
 void InsertExtractElimPass::Initialize(ir::IRContext* c) {
   InitializeProcessing(c);
-
-  // Initialize extension whitelist
-  InitExtensions();
-};
-
-bool InsertExtractElimPass::AllExtensionsSupported() const {
-  // If any extension not in whitelist, return false
-  for (auto& ei : get_module()->extensions()) {
-    const char* extName =
-        reinterpret_cast<const char*>(&ei.GetInOperand(0).words[0]);
-    if (extensions_whitelist_.find(extName) == extensions_whitelist_.end())
-      return false;
-  }
-  return true;
 }
 
 Pass::Status InsertExtractElimPass::ProcessImpl() {
-  // Do not process if any disallowed extensions are enabled
-  if (!AllExtensionsSupported()) return Status::SuccessWithoutChange;
   // Process all entry point functions.
   ProcessFunction pfn = [this](ir::Function* fp) {
     return EliminateInsertExtract(fp);
@@ -260,34 +215,6 @@ InsertExtractElimPass::InsertExtractElimPass() {}
 Pass::Status InsertExtractElimPass::Process(ir::IRContext* c) {
   Initialize(c);
   return ProcessImpl();
-}
-
-void InsertExtractElimPass::InitExtensions() {
-  extensions_whitelist_.clear();
-  extensions_whitelist_.insert({
-      "SPV_AMD_shader_explicit_vertex_parameter",
-      "SPV_AMD_shader_trinary_minmax",
-      "SPV_AMD_gcn_shader",
-      "SPV_KHR_shader_ballot",
-      "SPV_AMD_shader_ballot",
-      "SPV_AMD_gpu_shader_half_float",
-      "SPV_KHR_shader_draw_parameters",
-      "SPV_KHR_subgroup_vote",
-      "SPV_KHR_16bit_storage",
-      "SPV_KHR_device_group",
-      "SPV_KHR_multiview",
-      "SPV_NVX_multiview_per_view_attributes",
-      "SPV_NV_viewport_array2",
-      "SPV_NV_stereo_view_rendering",
-      "SPV_NV_sample_mask_override_coverage",
-      "SPV_NV_geometry_shader_passthrough",
-      "SPV_AMD_texture_gather_bias_lod",
-      "SPV_KHR_storage_buffer_storage_class",
-      "SPV_KHR_variable_pointers",
-      "SPV_AMD_gpu_shader_int16",
-      "SPV_KHR_post_depth_coverage",
-      "SPV_KHR_shader_atomic_counter_ops",
-  });
 }
 
 }  // namespace opt

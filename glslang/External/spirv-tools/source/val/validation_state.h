@@ -18,6 +18,7 @@
 #include <deque>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -154,10 +155,12 @@ class ValidationState_t {
   /// instruction
   bool in_block() const;
 
-  /// Registers the given <id> as an Entry Point.
-  void RegisterEntryPointId(const uint32_t id) {
+  /// Registers the given <id> as an Entry Point with |execution_model|.
+  void RegisterEntryPointId(const uint32_t id,
+                            SpvExecutionModel execution_model) {
     entry_points_.push_back(id);
-    entry_point_interfaces_.insert(std::make_pair(id, std::vector<uint32_t>()));
+    entry_point_interfaces_.emplace(id, std::vector<uint32_t>());
+    entry_point_to_execution_models_[id].insert(execution_model);
   }
 
   /// Returns a list of entry point function ids
@@ -169,11 +172,40 @@ class ValidationState_t {
     entry_point_interfaces_[entry_point].push_back(interface);
   }
 
+  /// Registers execution mode for the given entry point.
+  void RegisterExecutionModeForEntryPoint(uint32_t entry_point,
+                                          SpvExecutionMode execution_mode) {
+    entry_point_to_execution_modes_[entry_point].insert(execution_mode);
+  }
+
   /// Returns the interfaces of a given entry point. If the given id is not a
   /// valid Entry Point id, std::out_of_range exception is thrown.
   const std::vector<uint32_t>& entry_point_interfaces(
       uint32_t entry_point) const {
     return entry_point_interfaces_.at(entry_point);
+  }
+
+  /// Returns Execution Models for the given Entry Point.
+  /// Returns nullptr if none found (would trigger assertion).
+  const std::set<SpvExecutionModel>* GetExecutionModels(
+      uint32_t entry_point) const {
+    const auto it = entry_point_to_execution_models_.find(entry_point);
+    if (it == entry_point_to_execution_models_.end()) {
+      assert(0);
+      return nullptr;
+    }
+    return &it->second;
+  }
+
+  /// Returns Execution Modes for the given Entry Point.
+  /// Returns nullptr if none found.
+  const std::set<SpvExecutionMode>* GetExecutionModes(
+      uint32_t entry_point) const {
+    const auto it = entry_point_to_execution_modes_.find(entry_point);
+    if (it == entry_point_to_execution_modes_.end()) {
+      return nullptr;
+    }
+    return &it->second;
   }
 
   /// Inserts an <id> to the set of functions that are target of OpFunctionCall.
@@ -268,7 +300,14 @@ class ValidationState_t {
     return id_decorations_[id];
   }
   const std::vector<Decoration>& id_decorations(uint32_t id) const {
+    // TODO: This would throw or generate SIGABRT if id has no
+    // decorations. Remove/refactor this function.
     return id_decorations_.at(id);
+  }
+
+  // Returns const pointer to the internal decoration container.
+  const std::map<uint32_t, std::vector<Decoration>>& id_decorations() const {
+    return id_decorations_;
   }
 
   /// Finds id's def, if it exists.  If found, returns the definition otherwise
@@ -413,6 +452,10 @@ class ValidationState_t {
   bool GetPointerTypeInfo(uint32_t id, uint32_t* data_type,
                           uint32_t* storage_class) const;
 
+  // Tries to evaluate a 32-bit signed or unsigned scalar integer constant.
+  // Returns tuple <is_int32, is_const_int32, value>.
+  std::tuple<bool, bool, uint32_t> EvalInt32IfConst(uint32_t id);
+
  private:
   ValidationState_t(const ValidationState_t&);
 
@@ -484,7 +527,7 @@ class ValidationState_t {
   std::unordered_map<uint32_t, uint32_t> struct_nesting_depth_;
 
   /// Stores the list of decorations for a given <id>
-  std::unordered_map<uint32_t, std::vector<Decoration>> id_decorations_;
+  std::map<uint32_t, std::vector<Decoration>> id_decorations_;
 
   /// Stores type declarations which need to be unique (i.e. non-aggregates),
   /// in the form [opcode, operand words], result_id is not stored.
@@ -506,6 +549,16 @@ class ValidationState_t {
 
   /// Maps function ids to function stat objects.
   std::unordered_map<uint32_t, Function*> id_to_function_;
+
+  /// Mapping entry point -> execution models. It is presumed that the same
+  /// function could theoretically be used as 'main' by multiple OpEntryPoint
+  /// instructions.
+  std::unordered_map<uint32_t, std::set<SpvExecutionModel>>
+      entry_point_to_execution_models_;
+
+  /// Mapping entry point -> execution modes.
+  std::unordered_map<uint32_t, std::set<SpvExecutionMode>>
+      entry_point_to_execution_modes_;
 };
 
 }  // namespace libspirv

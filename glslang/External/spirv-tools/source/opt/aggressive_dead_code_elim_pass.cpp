@@ -117,7 +117,7 @@ void AggressiveDCEPass::AddStores(uint32_t ptrId) {
       // If default, assume it stores e.g. frexp, modf, function call
       case SpvOpStore:
       default:
-        if (!IsLive(user)) AddToWorklist(user);
+        AddToWorklist(user);
         break;
     }
   });
@@ -136,9 +136,8 @@ bool AggressiveDCEPass::AllExtensionsSupported() const {
 
 bool AggressiveDCEPass::IsDead(ir::Instruction* inst) {
   if (IsLive(inst)) return false;
-  if (inst->IsBranch() &&
-      !IsStructuredIfOrLoopHeader(context()->get_instr_block(inst), nullptr,
-                                  nullptr, nullptr))
+  if (inst->IsBranch() && !IsStructuredHeader(context()->get_instr_block(inst),
+                                              nullptr, nullptr, nullptr))
     return false;
   return true;
 }
@@ -173,18 +172,14 @@ void AggressiveDCEPass::ProcessLoad(uint32_t varId) {
   live_local_vars_.insert(varId);
 }
 
-bool AggressiveDCEPass::IsStructuredIfOrLoopHeader(ir::BasicBlock* bp,
-                                                   ir::Instruction** mergeInst,
-                                                   ir::Instruction** branchInst,
-                                                   uint32_t* mergeBlockId) {
+bool AggressiveDCEPass::IsStructuredHeader(ir::BasicBlock* bp,
+                                           ir::Instruction** mergeInst,
+                                           ir::Instruction** branchInst,
+                                           uint32_t* mergeBlockId) {
   if (!bp) return false;
   ir::Instruction* mi = bp->GetMergeInst();
   if (mi == nullptr) return false;
   ir::Instruction* bri = &*bp->tail();
-  // Make sure it is not a Switch
-  if (mi->opcode() == SpvOpSelectionMerge &&
-      bri->opcode() != SpvOpBranchConditional)
-    return false;
   if (branchInst != nullptr) *branchInst = bri;
   if (mergeInst != nullptr) *mergeInst = mi;
   if (mergeBlockId != nullptr) *mergeBlockId = mi->GetSingleWordInOperand(0);
@@ -195,10 +190,14 @@ void AggressiveDCEPass::ComputeBlock2HeaderMaps(
     std::list<ir::BasicBlock*>& structuredOrder) {
   block2headerBranch_.clear();
   branch2merge_.clear();
+  structured_order_index_.clear();
   std::stack<ir::Instruction*> currentHeaderBranch;
   currentHeaderBranch.push(nullptr);
   uint32_t currentMergeBlockId = 0;
-  for (auto bi = structuredOrder.begin(); bi != structuredOrder.end(); ++bi) {
+  uint32_t index = 0;
+  for (auto bi = structuredOrder.begin(); bi != structuredOrder.end();
+       ++bi, ++index) {
+    structured_order_index_[*bi] = index;
     // If this block is the merge block of the current control construct,
     // we are leaving the current construct so we must update state
     if ((*bi)->id() == currentMergeBlockId) {
@@ -211,7 +210,7 @@ void AggressiveDCEPass::ComputeBlock2HeaderMaps(
     ir::Instruction* branchInst;
     uint32_t mergeBlockId;
     bool is_header =
-        IsStructuredIfOrLoopHeader(*bi, &mergeInst, &branchInst, &mergeBlockId);
+        IsStructuredHeader(*bi, &mergeInst, &branchInst, &mergeBlockId);
     // If this is a loop header, update state first so the block will map to
     // the loop.
     if (is_header && mergeInst->opcode() == SpvOpLoopMerge) {
@@ -240,26 +239,21 @@ void AggressiveDCEPass::AddBranch(uint32_t labelId, ir::BasicBlock* bp) {
 
 void AggressiveDCEPass::AddBreaksAndContinuesToWorklist(
     ir::Instruction* loopMerge) {
+  ir::BasicBlock* header = context()->get_instr_block(loopMerge);
+  uint32_t headerIndex = structured_order_index_[header];
   const uint32_t mergeId =
       loopMerge->GetSingleWordInOperand(kLoopMergeMergeBlockIdInIdx);
+  ir::BasicBlock* merge = context()->get_instr_block(mergeId);
+  uint32_t mergeIndex = structured_order_index_[merge];
   get_def_use_mgr()->ForEachUser(
-      mergeId, [&loopMerge, this](ir::Instruction* user) {
-        // A branch to the merge block can only be a break if it is nested in
-        // the current loop
-        SpvOp op = user->opcode();
-        if (op != SpvOpBranchConditional && op != SpvOpBranch) return;
-        ir::Instruction* branchInst = user;
-        while (true) {
-          ir::BasicBlock* blk = context()->get_instr_block(branchInst);
-          ir::Instruction* hdrBranch = block2headerBranch_[blk];
-          if (hdrBranch == nullptr) return;
-          ir::Instruction* hdrMerge = branch2merge_[hdrBranch];
-          if (hdrMerge == loopMerge) break;
-          branchInst = hdrBranch;
-        }
-        if (!IsLive(user)) {
+      mergeId, [headerIndex, mergeIndex, this](ir::Instruction* user) {
+        if (!user->IsBranch()) return;
+        ir::BasicBlock* block = context()->get_instr_block(user);
+        uint32_t index = structured_order_index_[block];
+        if (headerIndex < index && index < mergeIndex) {
+          // This is a break from the loop.
           AddToWorklist(user);
-          // Add branch's merge if there is one
+          // Add branch's merge if there is one.
           ir::Instruction* userMerge = branch2merge_[user];
           if (userMerge != nullptr) AddToWorklist(userMerge);
         }
@@ -269,16 +263,16 @@ void AggressiveDCEPass::AddBreaksAndContinuesToWorklist(
   get_def_use_mgr()->ForEachUser(contId, [&contId,
                                           this](ir::Instruction* user) {
     SpvOp op = user->opcode();
-    if (op == SpvOpBranchConditional) {
-      // A conditional branch can only be a continue if it does not have a merge
-      // instruction or its merge block is not the continue block.
+    if (op == SpvOpBranchConditional || op == SpvOpSwitch) {
+      // A conditional branch or switch can only be a continue if it does not
+      // have a merge instruction or its merge block is not the continue block.
       ir::Instruction* hdrMerge = branch2merge_[user];
       if (hdrMerge != nullptr && hdrMerge->opcode() == SpvOpSelectionMerge) {
         uint32_t hdrMergeId =
             hdrMerge->GetSingleWordInOperand(kSelectionMergeMergeBlockIdInIdx);
         if (hdrMergeId == contId) return;
         // Need to mark merge instruction too
-        if (!IsLive(hdrMerge)) AddToWorklist(hdrMerge);
+        AddToWorklist(hdrMerge);
       }
     } else if (op == SpvOpBranch) {
       // An unconditional branch can only be a continue if it is not
@@ -294,7 +288,7 @@ void AggressiveDCEPass::AddBreaksAndContinuesToWorklist(
     } else {
       return;
     }
-    if (!IsLive(user)) AddToWorklist(user);
+    AddToWorklist(user);
   });
 }
 
@@ -353,14 +347,11 @@ bool AggressiveDCEPass::AggressiveDCE(ir::Function* func) {
               ii->GetSingleWordInOperand(kLoopMergeMergeBlockIdInIdx));
         } break;
         case SpvOpSelectionMerge: {
-          auto brii = ii;
-          ++brii;
-          bool is_structured_if = brii->opcode() == SpvOpBranchConditional;
-          assume_branches_live.push(!is_structured_if);
+          assume_branches_live.push(false);
           currentMergeBlockId.push(
               ii->GetSingleWordInOperand(kSelectionMergeMergeBlockIdInIdx));
-          if (!is_structured_if) AddToWorklist(&*ii);
         } break;
+        case SpvOpSwitch:
         case SpvOpBranch:
         case SpvOpBranchConditional: {
           if (assume_branches_live.top()) AddToWorklist(&*ii);
@@ -401,7 +392,7 @@ bool AggressiveDCEPass::AggressiveDCE(ir::Function* func) {
       // as part of live code discovery and can create false live code,
       // for example, the branch to a header of a loop.
       if (inInst->opcode() == SpvOpLabel && liveInst->IsBranch()) return;
-      if (!IsLive(inInst)) AddToWorklist(inInst);
+      AddToWorklist(inInst);
     });
     if (liveInst->type_id() != 0) {
       AddToWorklist(get_def_use_mgr()->GetDef(liveInst->type_id()));
@@ -412,7 +403,7 @@ bool AggressiveDCEPass::AggressiveDCE(ir::Function* func) {
     // worklist.
     ir::BasicBlock* blk = context()->get_instr_block(liveInst);
     ir::Instruction* branchInst = block2headerBranch_[blk];
-    if (branchInst != nullptr && !IsLive(branchInst)) {
+    if (branchInst != nullptr) {
       AddToWorklist(branchInst);
       ir::Instruction* mergeInst = branch2merge_[branchInst];
       AddToWorklist(mergeInst);
@@ -441,6 +432,15 @@ bool AggressiveDCEPass::AggressiveDCE(ir::Function* func) {
     // If function parameter, treat as if it's result id is loaded from
     else if (liveInst->opcode() == SpvOpFunctionParameter) {
       ProcessLoad(liveInst->result_id());
+    }
+    // We treat an OpImageTexelPointer as a load of the pointer, and
+    // that value is manipulated to get the result.
+    else if (liveInst->opcode() == SpvOpImageTexelPointer) {
+      uint32_t varId;
+      (void)GetPtr(liveInst, &varId);
+      if (varId != 0) {
+        ProcessLoad(varId);
+      }
     }
     worklist_.pop();
   }
@@ -487,11 +487,22 @@ void AggressiveDCEPass::Initialize(ir::IRContext* c) {
 }
 
 void AggressiveDCEPass::InitializeModuleScopeLiveInstructions() {
+  // Keep all execution modes.
   for (auto& exec : get_module()->execution_modes()) {
     AddToWorklist(&exec);
   }
+  // Keep all entry points.
   for (auto& entry : get_module()->entry_points()) {
     AddToWorklist(&entry);
+  }
+  // Keep workgroup size.
+  for (auto& anno : get_module()->annotations()) {
+    if (anno.opcode() == SpvOpDecorate) {
+      if (anno.GetSingleWordInOperand(1u) == SpvDecorationBuiltIn &&
+          anno.GetSingleWordInOperand(2u) == SpvBuiltInWorkgroupSize) {
+        AddToWorklist(&anno);
+      }
+    }
   }
 }
 
@@ -693,6 +704,16 @@ void AggressiveDCEPass::InitExtensions() {
       "SPV_AMD_gpu_shader_int16",
       "SPV_KHR_post_depth_coverage",
       "SPV_KHR_shader_atomic_counter_ops",
+      "SPV_EXT_shader_stencil_export",
+      "SPV_EXT_shader_viewport_index_layer",
+      "SPV_AMD_shader_image_load_store_lod",
+      "SPV_AMD_shader_fragment_mask",
+      "SPV_EXT_fragment_fully_covered",
+      "SPV_AMD_gpu_shader_half_float_fetch",
+      "SPV_GOOGLE_decorate_string",
+      "SPV_GOOGLE_hlsl_functionality1",
+      "SPV_NV_shader_subgroup_partitioned",
+      "SPV_EXT_descriptor_indexing",
   });
 }
 

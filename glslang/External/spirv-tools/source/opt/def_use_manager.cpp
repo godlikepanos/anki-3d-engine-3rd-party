@@ -14,6 +14,8 @@
 
 #include "def_use_manager.h"
 
+#include <iostream>
+
 #include "log.h"
 #include "reflect.h"
 
@@ -40,8 +42,12 @@ void DefUseManager::AnalyzeInstUse(ir::Instruction* inst) {
   // Create entry for the given instruction. Note that the instruction may
   // not have any in-operands. In such cases, we still need a entry for those
   // instructions so this manager knows it has seen the instruction later.
-  auto& used_ids = inst_to_used_ids_[inst];
-  used_ids.clear();  // It might have existed before.
+  auto* used_ids = &inst_to_used_ids_[inst];
+  if (used_ids->size()) {
+    EraseUseRecordsOfOperandIds(inst);
+    used_ids = &inst_to_used_ids_[inst];
+  }
+  used_ids->clear();  // It might have existed before.
 
   for (uint32_t i = 0; i < inst->NumOperands(); ++i) {
     switch (inst->GetOperand(i).type) {
@@ -54,7 +60,7 @@ void DefUseManager::AnalyzeInstUse(ir::Instruction* inst) {
         ir::Instruction* def = GetDef(use_id);
         assert(def && "Definition is not registered.");
         id_to_users_.insert(UserEntry(def, inst));
-        used_ids.push_back(use_id);
+        used_ids->push_back(use_id);
       } break;
       default:
         break;
@@ -64,6 +70,17 @@ void DefUseManager::AnalyzeInstUse(ir::Instruction* inst) {
 
 void DefUseManager::AnalyzeInstDefUse(ir::Instruction* inst) {
   AnalyzeInstDef(inst);
+  AnalyzeInstUse(inst);
+}
+
+void DefUseManager::UpdateDefUse(ir::Instruction* inst) {
+  const uint32_t def_id = inst->result_id();
+  if (def_id != 0) {
+    auto iter = id_to_def_.find(def_id);
+    if (iter == id_to_def_.end()) {
+      AnalyzeInstDef(inst);
+    }
+  }
   AnalyzeInstUse(inst);
 }
 
@@ -96,16 +113,33 @@ bool DefUseManager::UsersNotEnd(const IdToUsersMap::const_iterator& iter,
   return UsersNotEnd(iter, id_to_users_.end(), inst);
 }
 
+bool DefUseManager::WhileEachUser(
+    const ir::Instruction* def,
+    const std::function<bool(ir::Instruction*)>& f) const {
+  // Ensure that |def| has been registered.
+  assert(def && (!def->HasResultId() || def == GetDef(def->result_id())) &&
+         "Definition is not registered.");
+  if (!def->HasResultId()) return true;
+
+  auto end = id_to_users_.end();
+  for (auto iter = UsersBegin(def); UsersNotEnd(iter, end, def); ++iter) {
+    if (!f(iter->second)) return false;
+  }
+  return true;
+}
+
+bool DefUseManager::WhileEachUser(
+    uint32_t id, const std::function<bool(ir::Instruction*)>& f) const {
+  return WhileEachUser(GetDef(id), f);
+}
+
 void DefUseManager::ForEachUser(
     const ir::Instruction* def,
     const std::function<void(ir::Instruction*)>& f) const {
-  // Ensure that |def| has been registered.
-  assert(def && def == GetDef(def->result_id()) &&
-         "Definition is not registered.");
-  auto end = id_to_users_.end();
-  for (auto iter = UsersBegin(def); UsersNotEnd(iter, end, def); ++iter) {
-    f(iter->second);
-  }
+  WhileEachUser(def, [&f](ir::Instruction* user) {
+    f(user);
+    return true;
+  });
 }
 
 void DefUseManager::ForEachUser(
@@ -113,22 +147,42 @@ void DefUseManager::ForEachUser(
   ForEachUser(GetDef(id), f);
 }
 
-void DefUseManager::ForEachUse(
+bool DefUseManager::WhileEachUse(
     const ir::Instruction* def,
-    const std::function<void(ir::Instruction*, uint32_t)>& f) const {
+    const std::function<bool(ir::Instruction*, uint32_t)>& f) const {
   // Ensure that |def| has been registered.
-  assert(def && def == GetDef(def->result_id()) &&
+  assert(def && (!def->HasResultId() || def == GetDef(def->result_id())) &&
          "Definition is not registered.");
+  if (!def->HasResultId()) return true;
+
   auto end = id_to_users_.end();
   for (auto iter = UsersBegin(def); UsersNotEnd(iter, end, def); ++iter) {
     ir::Instruction* user = iter->second;
     for (uint32_t idx = 0; idx != user->NumOperands(); ++idx) {
       const ir::Operand& op = user->GetOperand(idx);
       if (op.type != SPV_OPERAND_TYPE_RESULT_ID && spvIsIdType(op.type)) {
-        if (def->result_id() == op.words[0]) f(user, idx);
+        if (def->result_id() == op.words[0]) {
+          if (!f(user, idx)) return false;
+        }
       }
     }
   }
+  return true;
+}
+
+bool DefUseManager::WhileEachUse(
+    uint32_t id,
+    const std::function<bool(ir::Instruction*, uint32_t)>& f) const {
+  return WhileEachUse(GetDef(id), f);
+}
+
+void DefUseManager::ForEachUse(
+    const ir::Instruction* def,
+    const std::function<void(ir::Instruction*, uint32_t)>& f) const {
+  WhileEachUse(def, [&f](ir::Instruction* user, uint32_t index) {
+    f(user, index);
+    return true;
+  });
 }
 
 void DefUseManager::ForEachUse(
@@ -215,6 +269,16 @@ bool operator==(const DefUseManager& lhs, const DefUseManager& rhs) {
   }
 
   if (lhs.id_to_users_ != rhs.id_to_users_) {
+    for (auto p : lhs.id_to_users_) {
+      if (rhs.id_to_users_.count(p) == 0) {
+        return false;
+      }
+    }
+    for (auto p : rhs.id_to_users_) {
+      if (lhs.id_to_users_.count(p) == 0) {
+        return false;
+      }
+    }
     return false;
   }
 

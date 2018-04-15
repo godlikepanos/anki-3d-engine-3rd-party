@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <ostream>
 
 #include "operand.h"
 #include "reflect.h"
@@ -29,7 +30,7 @@ std::vector<Instruction*> Module::GetTypes() {
     if (IsTypeInst(inst.opcode())) type_insts.push_back(&inst);
   }
   return type_insts;
-};
+}
 
 std::vector<const Instruction*> Module::GetTypes() const {
   std::vector<const Instruction*> type_insts;
@@ -37,7 +38,7 @@ std::vector<const Instruction*> Module::GetTypes() const {
     if (IsTypeInst(inst.opcode())) type_insts.push_back(&inst);
   }
   return type_insts;
-};
+}
 
 std::vector<Instruction*> Module::GetConstants() {
   std::vector<Instruction*> const_insts;
@@ -45,7 +46,7 @@ std::vector<Instruction*> Module::GetConstants() {
     if (IsConstantInst(inst.opcode())) const_insts.push_back(&inst);
   }
   return const_insts;
-};
+}
 
 std::vector<const Instruction*> Module::GetConstants() const {
   std::vector<const Instruction*> const_insts;
@@ -53,7 +54,7 @@ std::vector<const Instruction*> Module::GetConstants() const {
     if (IsConstantInst(inst.opcode())) const_insts.push_back(&inst);
   }
   return const_insts;
-};
+}
 
 uint32_t Module::GetGlobalValue(SpvOp opcode) const {
   for (auto& inst : types_values_) {
@@ -156,6 +157,16 @@ uint32_t Module::GetExtInstImportId(const char* extstr) {
                 reinterpret_cast<const char*>(&(ei.GetInOperand(0).words[0]))))
       return ei.result_id();
   return 0;
+}
+
+std::ostream& operator<<(std::ostream& str, const Module& module) {
+  module.ForEachInst([&str](const ir::Instruction* inst) {
+    str << *inst;
+    if (inst->opcode() != SpvOpFunctionEnd) {
+      str << std::endl;
+    }
+  });
+  return str;
 }
 
 }  // namespace ir

@@ -18,50 +18,17 @@
 
 #include "cfa.h"
 #include "iterator.h"
+#include "ssa_rewrite_pass.h"
 
 namespace spvtools {
 namespace opt {
-
-bool LocalMultiStoreElimPass::EliminateMultiStoreLocal(ir::Function* func) {
-  // Add Phi instructions to the function.
-  if (InsertPhiInstructions(func) == Status::SuccessWithoutChange) return false;
-
-  // Remove all target variable stores.
-  bool modified = false;
-  for (auto bi = func->begin(); bi != func->end(); ++bi) {
-    std::vector<ir::Instruction*> dead_instructions;
-    for (auto ii = bi->begin(); ii != bi->end(); ++ii) {
-      if (ii->opcode() != SpvOpStore) continue;
-      uint32_t varId;
-      (void)GetPtr(&*ii, &varId);
-      if (!IsTargetVar(varId)) continue;
-      assert(!HasLoads(varId));
-      dead_instructions.push_back(&*ii);
-      modified = true;
-    }
-
-    while (!dead_instructions.empty()) {
-      ir::Instruction* inst = dead_instructions.back();
-      dead_instructions.pop_back();
-      DCEInst(inst, [&dead_instructions](ir::Instruction* other_inst) {
-        auto i = std::find(dead_instructions.begin(), dead_instructions.end(),
-                           other_inst);
-        if (i != dead_instructions.end()) {
-          dead_instructions.erase(i);
-        }
-      });
-    }
-  }
-
-  return modified;
-}
 
 void LocalMultiStoreElimPass::Initialize(ir::IRContext* c) {
   InitializeProcessing(c);
 
   // Initialize extension whitelist
   InitExtensions();
-};
+}
 
 bool LocalMultiStoreElimPass::AllExtensionsSupported() const {
   // If any extension not in whitelist, return false
@@ -75,10 +42,6 @@ bool LocalMultiStoreElimPass::AllExtensionsSupported() const {
 }
 
 Pass::Status LocalMultiStoreElimPass::ProcessImpl() {
-  // Assumes all control flow structured.
-  // TODO(greg-lunarg): Do SSA rewrite for non-structured control flow
-  if (!context()->get_feature_mgr()->HasCapability(SpvCapabilityShader))
-    return Status::SuccessWithoutChange;
   // Assumes relaxed logical addressing only (see instruction.h)
   // TODO(greg-lunarg): Add support for physical addressing
   if (context()->get_feature_mgr()->HasCapability(SpvCapabilityAddresses))
@@ -92,7 +55,7 @@ Pass::Status LocalMultiStoreElimPass::ProcessImpl() {
   if (!AllExtensionsSupported()) return Status::SuccessWithoutChange;
   // Process functions
   ProcessFunction pfn = [this](ir::Function* fp) {
-    return EliminateMultiStoreLocal(fp);
+    return SSARewriter(this).RewriteFunctionIntoSSA(fp);
   };
   bool modified = ProcessEntryPointCallTree(pfn, get_module());
   return modified ? Status::SuccessWithChange : Status::SuccessWithoutChange;
@@ -131,6 +94,16 @@ void LocalMultiStoreElimPass::InitExtensions() {
       "SPV_AMD_gpu_shader_int16",
       "SPV_KHR_post_depth_coverage",
       "SPV_KHR_shader_atomic_counter_ops",
+      "SPV_EXT_shader_stencil_export",
+      "SPV_EXT_shader_viewport_index_layer",
+      "SPV_AMD_shader_image_load_store_lod",
+      "SPV_AMD_shader_fragment_mask",
+      "SPV_EXT_fragment_fully_covered",
+      "SPV_AMD_gpu_shader_half_float_fetch",
+      "SPV_GOOGLE_decorate_string",
+      "SPV_GOOGLE_hlsl_functionality1",
+      "SPV_NV_shader_subgroup_partitioned",
+      "SPV_EXT_descriptor_indexing",
   });
 }
 

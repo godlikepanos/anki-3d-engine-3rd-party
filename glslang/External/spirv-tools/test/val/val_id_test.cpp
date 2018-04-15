@@ -122,8 +122,6 @@ string BranchConditionalSetup = R"(
    %voidfunc = OpTypeFunction %void
        %main = OpFunction %void None %voidfunc
       %lmain = OpLabel
-
-               OpSelectionMerge %end None
 )";
 
 string BranchConditionalTail = R"(
@@ -2829,7 +2827,8 @@ TEST_P(AccessChainInstructionTest, AccessChainBaseTypeNonPtrVariableBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Private_float %_ptr_Private_float )" + elem +
                  R"(%int_0 %int_1
 OpReturn
@@ -2849,7 +2848,8 @@ TEST_P(AccessChainInstructionTest,
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Function_float %my_matrix )" + elem +
                  R"(%int_0 %int_1
 OpReturn
@@ -2870,7 +2870,8 @@ TEST_P(AccessChainInstructionTest,
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Private_float %my_float_var )" + elem + R"(%int_0
 OpReturn
 OpFunctionEnd
@@ -2889,7 +2890,8 @@ TEST_P(AccessChainInstructionTest, AccessChainNoIndexesGood) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Private_float %my_float_var )" + elem + R"(
 OpReturn
 OpFunctionEnd
@@ -2904,7 +2906,8 @@ TEST_P(AccessChainInstructionTest, AccessChainNoIndexesBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Private_mat4x3 %my_float_var )" + elem + R"(
 OpReturn
 OpFunctionEnd
@@ -3053,9 +3056,10 @@ TEST_P(AccessChainInstructionTest, CustomizedAccessChainTooManyIndexesBad) {
 TEST_P(AccessChainInstructionTest, AccessChainUndefinedIndexBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
-  string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
+  string spirv =
+      kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
 %entry = )" + instr +
-                 R"( %_ptr_Private_float %my_matrix )" + elem + R"(%float %int_1
+      R"( %_ptr_Private_float %my_matrix )" + elem + R"(%float %int_1
 OpReturn
 OpFunctionEnd
   )";
@@ -3072,8 +3076,8 @@ TEST_P(AccessChainInstructionTest, AccessChainStructIndexNotConstantBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%f = )" + instr + R"( %_ptr_Uniform_float %blockName_var )" +
-                 elem +
+%f = )" +
+                 instr + R"( %_ptr_Uniform_float %blockName_var )" + elem +
                  R"(%int_0 %spec_int %int_2
 OpReturn
 OpFunctionEnd
@@ -3092,7 +3096,8 @@ TEST_P(AccessChainInstructionTest,
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Uniform_float %blockName_var )" + elem +
                  R"(%int_0 %int_1 %int_2
 OpReturn
@@ -3112,7 +3117,8 @@ TEST_P(AccessChainInstructionTest, AccessChainStructTooManyIndexesBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Uniform_float %blockName_var )" + elem +
                  R"(%int_0 %int_2 %int_2
 OpReturn
@@ -3131,7 +3137,8 @@ TEST_P(AccessChainInstructionTest, AccessChainStructIndexOutOfBoundBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Uniform_float %blockName_var )" + elem +
                  R"(%int_3 %int_2 %int_2
 OpReturn
@@ -3218,7 +3225,8 @@ TEST_P(AccessChainInstructionTest, AccessChainMatrixMoreArgsThanNeededBad) {
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Private_float %my_matrix )" + elem +
                  R"(%int_0 %int_1 %int_0
 OpReturn
@@ -3238,7 +3246,8 @@ TEST_P(AccessChainInstructionTest,
   const std::string instr = GetParam();
   const std::string elem = AccessChainRequiresElemId(instr) ? "%int_0 " : "";
   string spirv = kGLSL450MemoryModel + kDeeplyNestedStructureSetup + R"(
-%entry = )" + instr +
+%entry = )" +
+                 instr +
                  R"( %_ptr_Private_mat4x3 %my_matrix )" + elem +
                  R"(%int_0 %int_1
 OpReturn
@@ -3515,21 +3524,6 @@ OpFunctionEnd)";
               HasSubstr("Result <id> from OpSampledImage instruction must not "
                         "appear as operands of OpSelect. Found result <id> "
                         "'23' as an operand of <id> '24'."));
-}
-
-// Invalid: OpSampledImage result <id> is used by OpPhi
-TEST_F(ValidateIdWithMessage, OpSampledImageUsedInOpPhiBad) {
-  string spirv = kGLSL450MemoryModel + sampledImageSetup + R"(
-%smpld_img  = OpSampledImage %sampled_image_type %image_inst %sampler_inst
-%phi_result = OpPhi %sampled_image_type %smpld_img %label_1
-OpReturn
-OpFunctionEnd)";
-  CompileSuccessfully(spirv.c_str());
-  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Result <id> from OpSampledImage instruction must not "
-                        "appear as operands of OpPhi. Found result <id> '23' "
-                        "as an operand of <id> '24'."));
 }
 
 // Valid: Get a float in a matrix using CompositeExtract.
@@ -3931,14 +3925,200 @@ TEST_F(ValidateIdWithMessage, OpVectorShuffleLiterals) {
 // TODO: OpDPdxCoarse
 // TODO: OpDPdyCoarse
 // TODO: OpFwidthCoarse
-// TODO: OpPhi
 // TODO: OpLoopMerge
 // TODO: OpSelectionMerge
 // TODO: OpBranch
 
+TEST_F(ValidateIdWithMessage, OpPhiNotAType) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranch %8
+%8 = OpLabel
+%9 = OpPhi %3 %3 %7
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpPhi's type <id> 3 is not a type instruction."));
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiSamePredecessor) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranchConditional %3 %8 %8
+%8 = OpLabel
+%9 = OpPhi %2 %3 %7
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiOddArgumentNumber) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranch %8
+%8 = OpLabel
+%9 = OpPhi %2 %3
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpPhi does not have an equal number of incoming "
+                        "values and basic blocks."));
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiTooFewPredecessors) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranch %8
+%8 = OpLabel
+%9 = OpPhi %2
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpPhi's number of incoming blocks (0) does not match "
+                        "block's predecessor count (1)."));
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiTooManyPredecessors) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranch %8
+%9 = OpLabel
+OpReturn
+%8 = OpLabel
+%10 = OpPhi %2 %3 %7 %3 %9
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpPhi's number of incoming blocks (2) does not match "
+                        "block's predecessor count (1)."));
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiMismatchedTypes) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeInt 32 0
+%6 = OpConstant %5 0
+%7 = OpTypeFunction %4
+%8 = OpFunction %4 None %7
+%9 = OpLabel
+OpBranchConditional %3 %10 %11
+%11 = OpLabel
+OpBranch %10
+%10 = OpLabel
+%12 = OpPhi %2 %3 %9 %6 %11
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpPhi's result type <id> 2 does not match incoming "
+                        "value <id> 6 type <id> 5."));
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiPredecessorNotABlock) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranchConditional %3 %8 %9
+%9 = OpLabel
+OpBranch %11
+%11 = OpLabel
+OpBranch %8
+%8 = OpLabel
+%10 = OpPhi %2 %3 %7 %3 %3
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("OpPhi's incoming basic block <id> 3 is not an OpLabel."));
+}
+
+TEST_F(ValidateIdWithMessage, OpPhiNotAPredecessor) {
+  string spirv = kOpenCLMemoryModel32 + R"(
+%2 = OpTypeBool
+%3 = OpConstantTrue %2
+%4 = OpTypeVoid
+%5 = OpTypeFunction %4
+%6 = OpFunction %4 None %5
+%7 = OpLabel
+OpBranchConditional %3 %8 %9
+%9 = OpLabel
+OpBranch %11
+%11 = OpLabel
+OpBranch %8
+%8 = OpLabel
+%10 = OpPhi %2 %3 %7 %3 %9
+OpReturn
+OpFunctionEnd
+  )";
+
+  CompileSuccessfully(spirv.c_str());
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpPhi's incoming basic block <id> 9 is not a "
+                        "predecessor of <id> 8."));
+}
+
 TEST_F(ValidateIdWithMessage, OpBranchConditionalGood) {
   string spirv = BranchConditionalSetup + R"(
     %branch_cond = OpINotEqual %bool %i0 %i1
+                   OpSelectionMerge %end None
                    OpBranchConditional %branch_cond %target_t %target_f
   )" + BranchConditionalTail;
 
@@ -3949,6 +4129,7 @@ TEST_F(ValidateIdWithMessage, OpBranchConditionalGood) {
 TEST_F(ValidateIdWithMessage, OpBranchConditionalWithWeightsGood) {
   string spirv = BranchConditionalSetup + R"(
     %branch_cond = OpINotEqual %bool %i0 %i1
+                   OpSelectionMerge %end None
                    OpBranchConditional %branch_cond %target_t %target_f 1 1
   )" + BranchConditionalTail;
 
@@ -3958,7 +4139,8 @@ TEST_F(ValidateIdWithMessage, OpBranchConditionalWithWeightsGood) {
 
 TEST_F(ValidateIdWithMessage, OpBranchConditional_CondIsScalarInt) {
   string spirv = BranchConditionalSetup + R"(
-    OpBranchConditional %i0 %target_t %target_f
+                   OpSelectionMerge %end None
+                   OpBranchConditional %i0 %target_t %target_f
   )" + BranchConditionalTail;
 
   CompileSuccessfully(spirv.c_str());
@@ -3971,6 +4153,7 @@ TEST_F(ValidateIdWithMessage, OpBranchConditional_CondIsScalarInt) {
 
 TEST_F(ValidateIdWithMessage, OpBranchConditional_TrueTargetIsNotLabel) {
   string spirv = BranchConditionalSetup + R"(
+                   OpSelectionMerge %end None
                    OpBranchConditional %i0 %i0 %target_f
   )" + BranchConditionalTail;
 
@@ -3989,7 +4172,8 @@ TEST_F(ValidateIdWithMessage, OpBranchConditional_TrueTargetIsNotLabel) {
 
 TEST_F(ValidateIdWithMessage, OpBranchConditional_FalseTargetIsNotLabel) {
   string spirv = BranchConditionalSetup + R"(
-    OpBranchConditional %i0 %target_t %i0
+                   OpSelectionMerge %end None
+                   OpBranchConditional %i0 %target_t %i0
   )" + BranchConditionalTail;
 
   CompileSuccessfully(spirv.c_str());
@@ -4008,6 +4192,7 @@ TEST_F(ValidateIdWithMessage, OpBranchConditional_FalseTargetIsNotLabel) {
 TEST_F(ValidateIdWithMessage, OpBranchConditional_NotEnoughWeights) {
   string spirv = BranchConditionalSetup + R"(
     %branch_cond = OpINotEqual %bool %i0 %i1
+                   OpSelectionMerge %end None
                    OpBranchConditional %branch_cond %target_t %target_f 1
   )" + BranchConditionalTail;
 
@@ -4021,6 +4206,7 @@ TEST_F(ValidateIdWithMessage, OpBranchConditional_NotEnoughWeights) {
 TEST_F(ValidateIdWithMessage, OpBranchConditional_TooManyWeights) {
   string spirv = BranchConditionalSetup + R"(
     %branch_cond = OpINotEqual %bool %i0 %i1
+                   OpSelectionMerge %end None
                    OpBranchConditional %branch_cond %target_t %target_f 1 2 3
   )" + BranchConditionalTail;
 

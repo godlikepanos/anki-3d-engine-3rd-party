@@ -48,20 +48,22 @@ std::string GetListOfPassesAsString(const spvtools::Optimizer& optimizer) {
   return ss.str();
 }
 
+const auto kDefaultEnvironment = SPV_ENV_UNIVERSAL_1_3;
+
 std::string GetLegalizationPasses() {
-  spvtools::Optimizer optimizer(SPV_ENV_UNIVERSAL_1_2);
+  spvtools::Optimizer optimizer(kDefaultEnvironment);
   optimizer.RegisterLegalizationPasses();
   return GetListOfPassesAsString(optimizer);
 }
 
 std::string GetOptimizationPasses() {
-  spvtools::Optimizer optimizer(SPV_ENV_UNIVERSAL_1_2);
+  spvtools::Optimizer optimizer(kDefaultEnvironment);
   optimizer.RegisterPerformancePasses();
   return GetListOfPassesAsString(optimizer);
 }
 
 std::string GetSizePasses() {
-  spvtools::Optimizer optimizer(SPV_ENV_UNIVERSAL_1_2);
+  spvtools::Optimizer optimizer(kDefaultEnvironment);
   optimizer.RegisterSizePasses();
   return GetListOfPassesAsString(optimizer);
 }
@@ -100,6 +102,10 @@ Options (in lexicographical order):
                on function scope variables referenced only with load, store,
                and constant index access chains in entry point call tree
                functions.
+  --copy-propagate-arrays
+               Does propagation of memory references when an array is a copy of
+               another.  It will only propagate an array if the source is never
+               written to, and the only store to the target is the copy.
   --eliminate-common-uniform
                Perform load/load elimination for duplicate uniform values.
                Converts any constant index access chain uniform loads into
@@ -118,6 +124,10 @@ Options (in lexicographical order):
   --eliminate-dead-functions
                Deletes functions that cannot be reached from entry points or
                exported functions.
+  --eliminate-dead-insert
+               Deletes unreferenced inserts into composites, most notably
+               unused stores to vector components, that are not removed by
+               aggressive dead code elimination.
   --eliminate-dead-variables
                Deletes module scope variables that are not referenced.
   --eliminate-insert-extract
@@ -148,6 +158,8 @@ Options (in lexicographical order):
   --freeze-spec-const
                Freeze the values of specialization constants to their default
                values.
+  --if-conversion
+               Convert if-then-else like assignments into OpSelect.
   --inline-entry-points-exhaustive
                Exhaustively inline all function calls in entry point call tree
                functions. Currently does not inline calls to functions with
@@ -163,18 +175,34 @@ Options (in lexicographical order):
   --local-redundancy-elimination
                Looks for instructions in the same basic block that compute the
                same value, and deletes the redundant ones.
+  --loop-unroll
+               Fully unrolls loops marked with the Unroll flag
+  --loop-unroll-partial
+               Partially unrolls loops marked with the Unroll flag. Takes an
+               additional non-0 integer argument to set the unroll factor, or
+               how many times a loop body should be duplicated
   --merge-blocks
                Join two blocks into a single block if the second has the
                first as its only predecessor. Performed only on entry point
                call tree functions.
   --merge-return
-               Replace all return instructions with unconditional branches to
-               a new basic block containing an unified return.
-               This pass does not currently support structured control flow. It
-               makes no changes if the shader capability is detected.
-  --local-redundancy-elimination
-               Looks for instructions in the same basic block that compute the
-               same value, and deletes the redundant ones.
+               Changes functions that have multiple return statements so they
+               have a single return statement.
+
+               For structured control flow it is assumed that the only
+               unreachable blocks in the function are trivial merge and continue
+               blocks.
+
+               A trivial merge block contains the label and an OpUnreachable
+               instructions, nothing else.  A trivial continue block contain a
+               label and an OpBranch to the header, nothing else.
+
+               These conditions are guaranteed to be met after running
+               dead-branch elimination.
+  --loop-unswitch
+               Hoists loop-invariant conditionals out of loops by duplicating
+               the loop on each branch of the conditional and adjusting each
+               copy of the loop.
   -O
                Optimize for performance. Apply a sequence of transformations
                in an attempt to improve the performance of the generated
@@ -234,6 +262,13 @@ Options (in lexicographical order):
                Allow store from one struct type to a different type with
                compatible layout and members. This option is forwarded to the
                validator.
+  --replace-invalid-opcode
+               Replaces instructions whose opcode is valid for shader modules,
+               but not for the current shader stage.  To have an effect, all
+               entry points must have the same execution model.
+  --ssa-rewrite
+               Replace loads and stores to function local variables with
+               operations on SSA IDs.
   --scalar-replacement
                Replace aggregate function scope variables that are only accessed
                via their elements with new function variables representing each
@@ -245,6 +280,9 @@ Options (in lexicographical order):
                blank spaces, and in each pair, spec id and default value must
                be separated with colon ':' without any blank spaces in between.
                e.g.: --set-spec-const-default-value "1:100 2:400"
+  --simplify-instructions
+               Will simplify all instructions in the function as much as
+               possible.
   --skip-validation
                Will not validate the SPIR-V before optimizing.  If the SPIR-V
                is invalid, the optimizer may fail or generate incorrect code.
@@ -253,6 +291,20 @@ Options (in lexicographical order):
                Replaces instructions with equivalent and less expensive ones.
   --strip-debug
                Remove all debug instructions.
+  --strip-reflect
+               Remove all reflection information.  For now, this covers
+               reflection information defined by SPV_GOOGLE_hlsl_functionality1.
+  --time-report
+               Print the resource utilization of each pass (e.g., CPU time,
+               RSS) to standard error output. Currently it supports only Unix
+               systems. This option is the same as -ftime-report in GCC. It
+               prints CPU/WALL/USR/SYS time (and RSS if possible), but note that
+               USR/SYS time are returned by getrusage() and can have a small
+               error.
+  --workaround-1209
+               Rewrites instructions for which there are known driver bugs to
+               avoid triggering those bugs.
+               Current workarounds: Avoid OpUnreachable in loops.
   --unify-const
                Remove the duplicated constants.
   -h, --help
@@ -338,6 +390,21 @@ OptStatus ParseOconfigFlag(const char* prog_name, const char* opt_flag,
                     in_file, out_file, nullptr, &skip_validator);
 }
 
+OptStatus ParseLoopUnrollPartialArg(int argc, const char** argv, int argi,
+                                    Optimizer* optimizer) {
+  if (argi < argc) {
+    int factor = atoi(argv[argi]);
+    if (factor != 0) {
+      optimizer->RegisterPass(CreateLoopUnrollPass(false, factor));
+      return {OPT_CONTINUE, 0};
+    }
+  }
+  fprintf(stderr,
+          "error: --loop-unroll-partial must be followed by a non-0 "
+          "integer\n");
+  return {OPT_STOP, 1};
+}
+
 // Parses command-line flags. |argc| contains the number of command-line flags.
 // |argv| points to an array of strings holding the flags. |optimizer| is the
 // Optimizer instance used to optimize the program.
@@ -367,6 +434,8 @@ OptStatus ParseFlags(int argc, const char** argv, Optimizer* optimizer,
         }
       } else if (0 == strcmp(cur_arg, "--strip-debug")) {
         optimizer->RegisterPass(CreateStripDebugInfoPass());
+      } else if (0 == strcmp(cur_arg, "--strip-reflect")) {
+        optimizer->RegisterPass(CreateStripReflectInfoPass());
       } else if (0 == strcmp(cur_arg, "--set-spec-const-default-value")) {
         if (++argi < argc) {
           auto spec_ids_vals =
@@ -387,6 +456,8 @@ OptStatus ParseFlags(int argc, const char** argv, Optimizer* optimizer,
               "error: Expected a string of <spec id>:<default value> pairs.");
           return {OPT_STOP, 1};
         }
+      } else if (0 == strcmp(cur_arg, "--if-conversion")) {
+        optimizer->RegisterPass(CreateIfConversionPass());
       } else if (0 == strcmp(cur_arg, "--freeze-spec-const")) {
         optimizer->RegisterPass(CreateFreezeSpecConstantValuePass());
       } else if (0 == strcmp(cur_arg, "--inline-entry-points-exhaustive")) {
@@ -417,10 +488,14 @@ OptStatus ParseFlags(int argc, const char** argv, Optimizer* optimizer,
         optimizer->RegisterPass(CreateCommonUniformElimPass());
       } else if (0 == strcmp(cur_arg, "--eliminate-dead-const")) {
         optimizer->RegisterPass(CreateEliminateDeadConstantPass());
+      } else if (0 == strcmp(cur_arg, "--eliminate-dead-inserts")) {
+        optimizer->RegisterPass(CreateDeadInsertElimPass());
       } else if (0 == strcmp(cur_arg, "--eliminate-dead-variables")) {
         optimizer->RegisterPass(CreateDeadVariableEliminationPass());
       } else if (0 == strcmp(cur_arg, "--fold-spec-const-op-composite")) {
         optimizer->RegisterPass(CreateFoldSpecConstantOpAndCompositePass());
+      } else if (0 == strcmp(cur_arg, "--loop-unswitch")) {
+        optimizer->RegisterPass(CreateLoopUnswitchPass());
       } else if (0 == strcmp(cur_arg, "--scalar-replacement")) {
         optimizer->RegisterPass(CreateScalarReplacementPass());
       } else if (0 == strcmp(cur_arg, "--strength-reduction")) {
@@ -435,14 +510,34 @@ OptStatus ParseFlags(int argc, const char** argv, Optimizer* optimizer,
         optimizer->RegisterPass(CreateCFGCleanupPass());
       } else if (0 == strcmp(cur_arg, "--local-redundancy-elimination")) {
         optimizer->RegisterPass(CreateLocalRedundancyEliminationPass());
+      } else if (0 == strcmp(cur_arg, "--loop-invariant-code-motion")) {
+        optimizer->RegisterPass(CreateLoopInvariantCodeMotionPass());
       } else if (0 == strcmp(cur_arg, "--redundancy-elimination")) {
         optimizer->RegisterPass(CreateRedundancyEliminationPass());
       } else if (0 == strcmp(cur_arg, "--private-to-local")) {
         optimizer->RegisterPass(CreatePrivateToLocalPass());
       } else if (0 == strcmp(cur_arg, "--remove-duplicates")) {
         optimizer->RegisterPass(CreateRemoveDuplicatesPass());
+      } else if (0 == strcmp(cur_arg, "--workaround-1209")) {
+        optimizer->RegisterPass(CreateWorkaround1209Pass());
       } else if (0 == strcmp(cur_arg, "--relax-struct-store")) {
         options->relax_struct_store = true;
+      } else if (0 == strcmp(cur_arg, "--replace-invalid-opcode")) {
+        optimizer->RegisterPass(CreateReplaceInvalidOpcodePass());
+      } else if (0 == strcmp(cur_arg, "--simplify-instructions")) {
+        optimizer->RegisterPass(CreateSimplificationPass());
+      } else if (0 == strcmp(cur_arg, "--ssa-rewrite")) {
+        optimizer->RegisterPass(CreateSSARewritePass());
+      } else if (0 == strcmp(cur_arg, "--copy-propagate-arrays")) {
+        optimizer->RegisterPass(CreateCopyPropagateArraysPass());
+      } else if (0 == strcmp(cur_arg, "--loop-unroll")) {
+        optimizer->RegisterPass(CreateLoopUnrollPass(true));
+      } else if (0 == strcmp(cur_arg, "--loop-unroll-partial")) {
+        OptStatus status =
+            ParseLoopUnrollPartialArg(argc, argv, ++argi, optimizer);
+        if (status.action != OPT_CONTINUE) {
+          return status;
+        }
       } else if (0 == strcmp(cur_arg, "--skip-validation")) {
         *skip_validator = true;
       } else if (0 == strcmp(cur_arg, "-O")) {
@@ -462,6 +557,8 @@ OptStatus ParseFlags(int argc, const char** argv, Optimizer* optimizer,
         optimizer->RegisterPass(CreateCCPPass());
       } else if (0 == strcmp(cur_arg, "--print-all")) {
         optimizer->SetPrintAll(&std::cerr);
+      } else if (0 == strcmp(cur_arg, "--time-report")) {
+        optimizer->SetTimeReport(&std::cerr);
       } else if ('\0' == cur_arg[1]) {
         // Setting a filename of "-" to indicate stdin.
         if (!*in_file) {
@@ -497,7 +594,7 @@ int main(int argc, const char** argv) {
   const char* out_file = nullptr;
   bool skip_validator = false;
 
-  spv_target_env target_env = SPV_ENV_UNIVERSAL_1_2;
+  spv_target_env target_env = kDefaultEnvironment;
   spv_validator_options options = spvValidatorOptionsCreate();
 
   spvtools::Optimizer optimizer(target_env);

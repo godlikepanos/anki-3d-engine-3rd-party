@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <memory>
+#include <ostream>
 #include <utility>
 #include <vector>
 
@@ -110,14 +111,33 @@ class BasicBlock {
   inline void ForEachInst(const std::function<void(const Instruction*)>& f,
                           bool run_on_debug_line_insts = false) const;
 
+  // Runs the given function |f| on each instruction in this basic block, and
+  // optionally on the debug line instructions that might precede them. If |f|
+  // returns false, iteration is terminated and this function returns false.
+  inline bool WhileEachInst(const std::function<bool(Instruction*)>& f,
+                            bool run_on_debug_line_insts = false);
+  inline bool WhileEachInst(const std::function<bool(const Instruction*)>& f,
+                            bool run_on_debug_line_insts = false) const;
+
   // Runs the given function |f| on each Phi instruction in this basic block,
   // and optionally on the debug line instructions that might precede them.
   inline void ForEachPhiInst(const std::function<void(Instruction*)>& f,
                              bool run_on_debug_line_insts = false);
 
+  // Runs the given function |f| on each Phi instruction in this basic block,
+  // and optionally on the debug line instructions that might precede them. If
+  // |f| returns false, iteration is terminated and this function return false.
+  inline bool WhileEachPhiInst(const std::function<bool(Instruction*)>& f,
+                               bool run_on_debug_line_insts = false);
+
   // Runs the given function |f| on each label id of each successor block
   void ForEachSuccessorLabel(
       const std::function<void(const uint32_t)>& f) const;
+
+  // Runs the given function |f| on each label id of each successor block.
+  // Modifying the pointed value will change the branch taken by the basic
+  // block. It is the caller responsibility to update or invalidate the CFG.
+  void ForEachSuccessorLabel(const std::function<void(uint32_t*)>& f);
 
   // Returns true if |block| is a direct successor of |this|.
   bool IsSuccessor(const ir::BasicBlock* block) const;
@@ -127,12 +147,7 @@ class BasicBlock {
 
   // Returns true if this basic block has any Phi instructions.
   bool HasPhiInstructions() {
-    int count = 0;
-    ForEachPhiInst([&count](ir::Instruction*) {
-      ++count;
-      return;
-    });
-    return count > 0;
+    return !WhileEachPhiInst([](ir::Instruction*) { return false; });
   }
 
   // Return true if this block is a loop header block.
@@ -148,6 +163,7 @@ class BasicBlock {
 
   // Returns the terminator instruction.  Assumes the terminator exists.
   Instruction* terminator() { return &*tail(); }
+  const Instruction* terminator() const { return &*ctail(); }
 
   // Returns true if this basic block exits this function and returns to its
   // caller.
@@ -155,6 +171,23 @@ class BasicBlock {
 
   // Returns true if this basic block exits this function or aborts execution.
   bool IsReturnOrAbort() const { return ctail()->IsReturnOrAbort(); }
+
+  // Kill all instructions in this block. Whether or not to kill the label is
+  // indicated by |killLabel|.
+  void KillAllInsts(bool killLabel);
+
+  // Splits this basic block into two. Returns a new basic block with label
+  // |labelId| containing the instructions from |iter| onwards. Instructions
+  // prior to |iter| remain in this basic block.
+  BasicBlock* SplitBasicBlock(IRContext* context, uint32_t label_id,
+                              iterator iter);
+
+  // Pretty-prints this basic block into a std::string by printing every
+  // instruction in it.
+  //
+  // |options| are the disassembly options. SPV_BINARY_TO_TEXT_OPTION_NO_HEADER
+  // is always added to |options|.
+  std::string PrettyPrint(uint32_t options = 0u) const;
 
  private:
   // The enclosing function.
@@ -164,6 +197,9 @@ class BasicBlock {
   // Instructions inside this basic block, but not the OpLabel.
   InstructionList insts_;
 };
+
+// Pretty-prints |block| to |str|. Returns |str|.
+std::ostream& operator<<(std::ostream& str, const BasicBlock& block);
 
 inline BasicBlock::BasicBlock(std::unique_ptr<Instruction> label)
     : function_(nullptr), label_(std::move(label)) {}
@@ -177,38 +213,85 @@ inline void BasicBlock::AddInstructions(BasicBlock* bp) {
   (void)bEnd.MoveBefore(&bp->insts_);
 }
 
-inline void BasicBlock::ForEachInst(const std::function<void(Instruction*)>& f,
-                                    bool run_on_debug_line_insts) {
-  if (label_) label_->ForEachInst(f, run_on_debug_line_insts);
+inline bool BasicBlock::WhileEachInst(
+    const std::function<bool(Instruction*)>& f, bool run_on_debug_line_insts) {
+  if (label_) {
+    if (!label_->WhileEachInst(f, run_on_debug_line_insts)) return false;
+  }
   if (insts_.empty()) {
-    return;
+    return true;
   }
 
   Instruction* inst = &insts_.front();
   while (inst != nullptr) {
     Instruction* next_instruction = inst->NextNode();
-    inst->ForEachInst(f, run_on_debug_line_insts);
+    if (!inst->WhileEachInst(f, run_on_debug_line_insts)) return false;
     inst = next_instruction;
   }
+  return true;
+}
+
+inline bool BasicBlock::WhileEachInst(
+    const std::function<bool(const Instruction*)>& f,
+    bool run_on_debug_line_insts) const {
+  if (label_) {
+    if (!static_cast<const Instruction*>(label_.get())
+             ->WhileEachInst(f, run_on_debug_line_insts))
+      return false;
+  }
+  for (const auto& inst : insts_) {
+    if (!static_cast<const Instruction*>(&inst)->WhileEachInst(
+            f, run_on_debug_line_insts))
+      return false;
+  }
+  return true;
+}
+
+inline void BasicBlock::ForEachInst(const std::function<void(Instruction*)>& f,
+                                    bool run_on_debug_line_insts) {
+  WhileEachInst(
+      [&f](Instruction* inst) {
+        f(inst);
+        return true;
+      },
+      run_on_debug_line_insts);
 }
 
 inline void BasicBlock::ForEachInst(
     const std::function<void(const Instruction*)>& f,
     bool run_on_debug_line_insts) const {
-  if (label_)
-    static_cast<const Instruction*>(label_.get())
-        ->ForEachInst(f, run_on_debug_line_insts);
-  for (const auto& inst : insts_)
-    static_cast<const Instruction*>(&inst)->ForEachInst(
-        f, run_on_debug_line_insts);
+  WhileEachInst(
+      [&f](const Instruction* inst) {
+        f(inst);
+        return true;
+      },
+      run_on_debug_line_insts);
+}
+
+inline bool BasicBlock::WhileEachPhiInst(
+    const std::function<bool(Instruction*)>& f, bool run_on_debug_line_insts) {
+  if (insts_.empty()) {
+    return true;
+  }
+
+  Instruction* inst = &insts_.front();
+  while (inst != nullptr) {
+    Instruction* next_instruction = inst->NextNode();
+    if (inst->opcode() != SpvOpPhi) break;
+    if (!inst->WhileEachInst(f, run_on_debug_line_insts)) return false;
+    inst = next_instruction;
+  }
+  return true;
 }
 
 inline void BasicBlock::ForEachPhiInst(
     const std::function<void(Instruction*)>& f, bool run_on_debug_line_insts) {
-  for (auto& inst : insts_) {
-    if (inst.opcode() != SpvOpPhi) break;
-    inst.ForEachInst(f, run_on_debug_line_insts);
-  }
+  WhileEachPhiInst(
+      [&f](Instruction* inst) {
+        f(inst);
+        return true;
+      },
+      run_on_debug_line_insts);
 }
 
 }  // namespace ir

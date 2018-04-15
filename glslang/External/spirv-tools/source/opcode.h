@@ -37,12 +37,14 @@ void spvOpcodeSplit(const uint32_t word, uint16_t* word_count,
 
 // Finds the named opcode in the given opcode table. On success, returns
 // SPV_SUCCESS and writes a handle of the table entry into *entry.
-spv_result_t spvOpcodeTableNameLookup(const spv_opcode_table table,
+spv_result_t spvOpcodeTableNameLookup(spv_target_env,
+                                      const spv_opcode_table table,
                                       const char* name, spv_opcode_desc* entry);
 
 // Finds the opcode by enumerant in the given opcode table. On success, returns
 // SPV_SUCCESS and writes a handle of the table entry into *entry.
-spv_result_t spvOpcodeTableValueLookup(const spv_opcode_table table,
+spv_result_t spvOpcodeTableValueLookup(spv_target_env,
+                                       const spv_opcode_table table,
                                        const SpvOp opcode,
                                        spv_opcode_desc* entry);
 
@@ -60,6 +62,10 @@ const char* spvOpcodeString(const SpvOp opcode);
 // Determine if the given opcode is a scalar type. Returns zero if false,
 // non-zero otherwise.
 int32_t spvOpcodeIsScalarType(const SpvOp opcode);
+
+// Determines if the given opcode is a specialization constant. Returns zero if
+// false, non-zero otherwise.
+int32_t spvOpcodeIsSpecConstant(const SpvOp opcode);
 
 // Determines if the given opcode is a constant. Returns zero if false, non-zero
 // otherwise.

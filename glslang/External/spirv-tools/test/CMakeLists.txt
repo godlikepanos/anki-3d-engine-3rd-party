@@ -31,7 +31,7 @@ endif()
 function(add_spvtools_unittest)
   if (NOT "${SPIRV_SKIP_TESTS}" AND TARGET gmock_main)
     set(one_value_args TARGET)
-    set(multi_value_args SRCS LIBS)
+    set(multi_value_args SRCS LIBS ENVIRONMENT)
     cmake_parse_arguments(
       ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
     set(target test_${ARG_TARGET})
@@ -72,6 +72,9 @@ function(add_spvtools_unittest)
     endif()
     target_link_libraries(${target} PRIVATE gmock_main)
     add_test(NAME spirv-tools-${target} COMMAND ${target})
+    if (DEFINED ARG_ENVIRONMENT)
+      set_tests_properties(spirv-tools-${target} PROPERTIES ENVIRONMENT ${ARG_ENVIRONMENT})
+    endif()
     set_property(TARGET ${target} PROPERTY FOLDER "SPIRV-Tools tests")
   endif()
 endfunction()
@@ -133,6 +136,7 @@ set(TEST_SOURCES
   text_to_binary.pipe_storage_test.cpp
   text_to_binary.type_declaration_test.cpp
   text_to_binary.subgroup_dispatch_test.cpp
+  text_to_binary.reserved_sampling_test.cpp
   text_word_get_test.cpp
 
   unit_spirv.cpp
@@ -154,6 +158,12 @@ add_spvtools_unittest(
   LIBS ${SPIRV_TOOLS})
 
 add_spvtools_unittest(
+  TARGET c_interface_shared
+  SRCS c_interface_test.cpp
+  LIBS ${SPIRV_TOOLS}-shared
+  ENVIRONMENT PATH=$<TARGET_FILE_DIR:${SPIRV_TOOLS}-shared>)
+
+add_spvtools_unittest(
   TARGET cpp_interface
   SRCS cpp_interface_test.cpp
   LIBS SPIRV-Tools-opt)
@@ -167,6 +177,13 @@ add_spvtools_unittest(
   TARGET string_utils
   SRCS string_utils_test.cpp
   LIBS ${SPIRV_TOOLS})
+
+if (${SPIRV_TIMER_ENABLED})
+add_spvtools_unittest(
+  TARGET timer
+  SRCS timer_test.cpp
+  LIBS ${SPIRV_TOOLS})
+endif()
 
 add_spvtools_unittest(
   TARGET log

@@ -82,6 +82,10 @@ class Pass {
     return context()->get_decoration_mgr();
   }
 
+  FeatureManager* get_feature_mgr() const {
+    return context()->get_feature_mgr();
+  }
+
   // Returns a pointer to the current module for this pass.
   ir::Module* get_module() const { return context_->module(); }
 
@@ -126,6 +130,9 @@ class Pass {
     return ir::IRContext::kAnalysisNone;
   }
 
+  // Return type id for |ptrInst|'s pointee
+  uint32_t GetPointeeTypeId(const ir::Instruction* ptrInst) const;
+
  protected:
   // Initialize basic data structures for the pass. This sets up the def-use
   // manager, module and other attributes.
@@ -135,9 +142,6 @@ class Pass {
   // processing. Returns the corresponding Status::Success if processing is
   // succesful to indicate whether changes are made to the module.
   virtual Status Process(ir::IRContext* context) = 0;
-
-  // Return type id for |ptrInst|'s pointee
-  uint32_t GetPointeeTypeId(const ir::Instruction* ptrInst) const;
 
   // Return the next available SSA id and increment it.
   uint32_t TakeNextId() { return context_->TakeNextId(); }

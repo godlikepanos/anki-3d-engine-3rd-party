@@ -47,6 +47,9 @@ class DominatorAnalysisBase {
     return tree_.Dominates(a, b);
   }
 
+  // Returns true if instruction |a| dominates instruction |b|.
+  bool Dominates(ir::Instruction* a, ir::Instruction* b) const;
+
   // Returns true if BasicBlock |a| strictly dominates BasicBlock |b|.
   inline bool StrictlyDominates(const ir::BasicBlock* a,
                                 const ir::BasicBlock* b) const {
@@ -110,6 +113,10 @@ class DominatorAnalysisBase {
   void Visit(std::function<bool(const DominatorTreeNode*)> func) const {
     tree_.Visit(func);
   }
+
+  // Returns the most immediate basic block that dominates both |b1| and |b2|.
+  // If there is no such basic block, nullptr is returned.
+  ir::BasicBlock* CommonDominator(ir::BasicBlock* b1, ir::BasicBlock* b2) const;
 
  protected:
   DominatorTree tree_;

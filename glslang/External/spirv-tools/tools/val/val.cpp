@@ -58,7 +58,7 @@ Options:
 
 int main(int argc, char** argv) {
   const char* inFile = nullptr;
-  spv_target_env target_env = SPV_ENV_UNIVERSAL_1_2;
+  spv_target_env target_env = SPV_ENV_UNIVERSAL_1_3;
   spvtools::ValidatorOptions options;
   bool continue_processing = true;
   int return_code = 0;
@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
           spv_validator_limit limit_type;
           if (spvParseUniversalLimitsOptions(cur_arg, &limit_type)) {
             uint32_t limit = 0;
-            if (sscanf(argv[++argi], "%d", &limit)) {
+            if (sscanf(argv[++argi], "%u", &limit)) {
               options.SetUniversalLimit(limit_type, limit);
             } else {
               fprintf(stderr, "error: missing argument to %s\n", cur_arg);
@@ -90,11 +90,14 @@ int main(int argc, char** argv) {
         }
       } else if (0 == strcmp(cur_arg, "--version")) {
         printf("%s\n", spvSoftwareVersionDetailsString());
-        // TODO(dneto): Add OpenCL 2.2 at least.
-        printf("Targets:\n  %s\n  %s\n  %s\n",
+        printf("Targets:\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n",
+               spvTargetEnvDescription(SPV_ENV_UNIVERSAL_1_0),
                spvTargetEnvDescription(SPV_ENV_UNIVERSAL_1_1),
+               spvTargetEnvDescription(SPV_ENV_UNIVERSAL_1_2),
+               spvTargetEnvDescription(SPV_ENV_UNIVERSAL_1_3),
+               spvTargetEnvDescription(SPV_ENV_OPENCL_2_2),
                spvTargetEnvDescription(SPV_ENV_VULKAN_1_0),
-               spvTargetEnvDescription(SPV_ENV_UNIVERSAL_1_2));
+               spvTargetEnvDescription(SPV_ENV_VULKAN_1_1));
         continue_processing = false;
         return_code = 0;
       } else if (0 == strcmp(cur_arg, "--help") || 0 == strcmp(cur_arg, "-h")) {

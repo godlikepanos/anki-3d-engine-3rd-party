@@ -46,6 +46,11 @@ add_spvtools_unittest(TARGET pass_strip_debug_info
   LIBS SPIRV-Tools-opt
 )
 
+add_spvtools_unittest(TARGET pass_strip_reflect_info
+  SRCS strip_reflect_info_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
 add_spvtools_unittest(TARGET pass_compact_ids
   SRCS compact_ids_test.cpp pass_utils.cpp
   LIBS SPIRV-Tools-opt
@@ -78,6 +83,11 @@ add_spvtools_unittest(TARGET pass_inline_opaque
 
 add_spvtools_unittest(TARGET pass_insert_extract_elim
   SRCS insert_extract_elim_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET pass_dead_insert_elim
+  SRCS dead_insert_elim_test.cpp pass_utils.cpp
   LIBS SPIRV-Tools-opt
 )
 
@@ -261,3 +271,43 @@ add_spvtools_unittest(TARGET ccp
   SRCS ccp_test.cpp
   LIBS SPIRV-Tools-opt
 )
+
+add_spvtools_unittest(TARGET pass_workaround1209
+  SRCS workaround1209_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET pass_if_conversion
+  SRCS if_conversion_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET ir_builder
+  SRCS ir_builder.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET instruction_folding
+  SRCS fold_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET replace_invalid_opc
+  SRCS replace_invalid_opc_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET simplification
+  SRCS simplification_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+add_spvtools_unittest(TARGET copy_prop_array
+  SRCS copy_prop_array_test.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET scalar_analysis
+  SRCS scalar_analysis.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+

@@ -17,7 +17,6 @@
 #include "log.h"
 #include "mem_pass.h"
 #include "reflect.h"
-#include "spirv/1.0/GLSL.std.450.h"
 
 #include <cstring>
 
@@ -39,6 +38,15 @@ void IRContext::BuildInvalidAnalyses(IRContext::Analysis set) {
   }
   if (set & kAnalysisDominatorAnalysis) {
     ResetDominatorAnalysis();
+  }
+  if (set & kAnalysisLoopAnalysis) {
+    ResetLoopAnalysis();
+  }
+  if (set & kAnalysisNameMap) {
+    BuildIdToNameMap();
+  }
+  if (set & kAnalysisScalarEvolution) {
+    BuildScalarEvolutionAnalysis();
   }
 }
 
@@ -67,6 +75,9 @@ void IRContext::InvalidateAnalyses(IRContext::Analysis analyses_to_invalidate) {
   if (analyses_to_invalidate & kAnalysisDominatorAnalysis) {
     dominator_trees_.clear();
     post_dominator_trees_.clear();
+  }
+  if (analyses_to_invalidate & kAnalysisNameMap) {
+    id_to_name_.reset(nullptr);
   }
 
   valid_analyses_ = Analysis(valid_analyses_ & ~analyses_to_invalidate);
@@ -97,6 +108,12 @@ Instruction* IRContext::KillInst(ir::Instruction* inst) {
   if (type_mgr_ && ir::IsTypeInst(inst->opcode())) {
     type_mgr_->RemoveId(inst->result_id());
   }
+
+  if (constant_mgr_ && ir::IsConstantInst(inst->opcode())) {
+    constant_mgr_->RemoveId(inst->result_id());
+  }
+
+  RemoveFromIdToName(inst);
 
   Instruction* next_instruction = nullptr;
   if (inst->IsInAList()) {
@@ -181,19 +198,25 @@ bool IRContext::IsConsistent() {
       return false;
     }
   }
+
   if (AreAnalysesValid(kAnalysisInstrToBlockMapping)) {
     for (auto& func : *module()) {
       for (auto& block : func) {
-        bool ok = true;
-        block.ForEachInst([this, &block, &ok](ir::Instruction* inst) {
-          if (get_instr_block(inst) != &block) {
-            ok = false;
-          }
-        });
-        if (!ok) return false;
+        if (!block.WhileEachInst([this, &block](ir::Instruction* inst) {
+              if (get_instr_block(inst) != &block) {
+                return false;
+              }
+              return true;
+            }))
+          return false;
       }
     }
   }
+
+  if (!CheckCFG()) {
+    return false;
+  }
+
   return true;
 }
 
@@ -206,6 +229,7 @@ void spvtools::ir::IRContext::ForgetUses(Instruction* inst) {
       get_decoration_mgr()->RemoveDecoration(inst);
     }
   }
+  RemoveFromIdToName(inst);
 }
 
 void IRContext::AnalyzeUses(Instruction* inst) {
@@ -217,6 +241,10 @@ void IRContext::AnalyzeUses(Instruction* inst) {
       get_decoration_mgr()->AddDecoration(inst);
     }
   }
+  if (id_to_name_ &&
+      (inst->opcode() == SpvOpName || inst->opcode() == SpvOpMemberName)) {
+    id_to_name_->insert({inst->GetSingleWordInOperand(0), inst});
+  }
 }
 
 void IRContext::KillNamesAndDecorates(uint32_t id) {
@@ -227,19 +255,12 @@ void IRContext::KillNamesAndDecorates(uint32_t id) {
     KillInst(inst);
   }
 
-  Instruction* debug_inst = &*debug2_begin();
-  while (debug_inst) {
-    bool killed_inst = false;
-    if (debug_inst->opcode() == SpvOpMemberName ||
-        debug_inst->opcode() == SpvOpName) {
-      if (debug_inst->GetSingleWordInOperand(0) == id) {
-        debug_inst = KillInst(debug_inst);
-        killed_inst = true;
-      }
-    }
-    if (!killed_inst) {
-      debug_inst = debug_inst->NextNode();
-    }
+  std::vector<ir::Instruction*> name_to_kill;
+  for (auto name : GetNames(id)) {
+    name_to_kill.push_back(name.second);
+  }
+  for (ir::Instruction* name_inst : name_to_kill) {
+    KillInst(name_inst);
   }
 }
 
@@ -254,6 +275,33 @@ void IRContext::AddCombinatorsForCapability(uint32_t capability) {
     combinator_ops_[0].insert({
         SpvOpNop,
         SpvOpUndef,
+        SpvOpConstant,
+        SpvOpConstantTrue,
+        SpvOpConstantFalse,
+        SpvOpConstantComposite,
+        SpvOpConstantSampler,
+        SpvOpConstantNull,
+        SpvOpTypeVoid,
+        SpvOpTypeBool,
+        SpvOpTypeInt,
+        SpvOpTypeFloat,
+        SpvOpTypeVector,
+        SpvOpTypeMatrix,
+        SpvOpTypeImage,
+        SpvOpTypeSampler,
+        SpvOpTypeSampledImage,
+        SpvOpTypeArray,
+        SpvOpTypeRuntimeArray,
+        SpvOpTypeStruct,
+        SpvOpTypeOpaque,
+        SpvOpTypePointer,
+        SpvOpTypeFunction,
+        SpvOpTypeEvent,
+        SpvOpTypeDeviceEvent,
+        SpvOpTypeReserveId,
+        SpvOpTypeQueue,
+        SpvOpTypePipe,
+        SpvOpTypeForwardPointer,
         SpvOpVariable,
         SpvOpImageTexelPointer,
         SpvOpLoad,
@@ -474,15 +522,42 @@ void IRContext::AddCombinatorsForExtension(ir::Instruction* extension) {
 }
 
 void IRContext::InitializeCombinators() {
-  for (auto& capability : module()->capabilities()) {
-    AddCombinatorsForCapability(capability.GetSingleWordInOperand(0));
-  }
+  get_feature_mgr()->GetCapabilities()->ForEach(
+      [this](SpvCapability cap) { AddCombinatorsForCapability(cap); });
 
   for (auto& extension : module()->ext_inst_imports()) {
     AddCombinatorsForExtension(&extension);
   }
 
   valid_analyses_ |= kAnalysisCombinators;
+}
+
+void IRContext::RemoveFromIdToName(const Instruction* inst) {
+  if (id_to_name_ &&
+      (inst->opcode() == SpvOpName || inst->opcode() == SpvOpMemberName)) {
+    auto range = id_to_name_->equal_range(inst->GetSingleWordInOperand(0));
+    for (auto it = range.first; it != range.second; ++it) {
+      if (it->second == inst) {
+        id_to_name_->erase(it);
+        break;
+      }
+    }
+  }
+}
+
+ir::LoopDescriptor* IRContext::GetLoopDescriptor(const ir::Function* f) {
+  if (!AreAnalysesValid(kAnalysisLoopAnalysis)) {
+    ResetLoopAnalysis();
+  }
+
+  std::unordered_map<const ir::Function*, ir::LoopDescriptor>::iterator it =
+      loop_descriptors_.find(f);
+  if (it == loop_descriptors_.end()) {
+    return &loop_descriptors_.emplace(std::make_pair(f, ir::LoopDescriptor(f)))
+                .first->second;
+  }
+
+  return &it->second;
 }
 
 // Gets the dominator analysis for function |f|.
@@ -513,5 +588,56 @@ opt::PostDominatorAnalysis* IRContext::GetPostDominatorAnalysis(
   return &post_dominator_trees_[f];
 }
 
+bool ir::IRContext::CheckCFG() {
+  std::unordered_map<uint32_t, std::vector<uint32_t>> real_preds;
+  if (!AreAnalysesValid(kAnalysisCFG)) {
+    return true;
+  }
+
+  for (ir::Function& function : *module()) {
+    for (const auto& bb : function) {
+      bb.ForEachSuccessorLabel([&bb, &real_preds](const uint32_t lab_id) {
+        real_preds[lab_id].push_back(bb.id());
+      });
+    }
+
+    for (auto& bb : function) {
+      std::vector<uint32_t> preds = cfg()->preds(bb.id());
+      std::vector<uint32_t> real = real_preds[bb.id()];
+      std::sort(preds.begin(), preds.end());
+      std::sort(real.begin(), real.end());
+
+      bool same = true;
+      if (preds.size() != real.size()) {
+        same = false;
+      }
+
+      for (size_t i = 0; i < real.size() && same; i++) {
+        if (preds[i] != real[i]) {
+          same = false;
+        }
+      }
+
+      if (!same) {
+        std::cerr << "Predecessors for " << bb.id() << " are different:\n";
+
+        std::cerr << "Real:";
+        for (uint32_t i : real) {
+          std::cerr << ' ' << i;
+        }
+        std::cerr << std::endl;
+
+        std::cerr << "Recorded:";
+        for (uint32_t i : preds) {
+          std::cerr << ' ' << i;
+        }
+        std::cerr << std::endl;
+      }
+      if (!same) return false;
+    }
+  }
+
+  return true;
+}
 }  // namespace ir
 }  // namespace spvtools

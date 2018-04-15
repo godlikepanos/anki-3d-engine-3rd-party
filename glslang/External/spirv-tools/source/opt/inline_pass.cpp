@@ -136,8 +136,7 @@ void InlinePass::CloneAndMapLocals(
     std::unique_ptr<ir::Instruction> var_inst(
         callee_var_itr->Clone(callee_var_itr->context()));
     uint32_t newId = TakeNextId();
-    get_decoration_mgr()->CloneDecorations(callee_var_itr->result_id(), newId,
-                                           update_def_use_mgr_);
+    get_decoration_mgr()->CloneDecorations(callee_var_itr->result_id(), newId);
     var_inst->SetResultId(newId);
     (*callee2caller)[callee_var_itr->result_id()] = newId;
     new_vars->push_back(std::move(var_inst));
@@ -150,9 +149,8 @@ uint32_t InlinePass::CreateReturnVar(
     std::vector<std::unique_ptr<ir::Instruction>>* new_vars) {
   uint32_t returnVarId = 0;
   const uint32_t calleeTypeId = calleeFn->type_id();
-  const ir::Instruction* calleeType =
-      get_def_use_mgr()->id_to_defs().find(calleeTypeId)->second;
-  if (calleeType->opcode() != SpvOpTypeVoid) {
+  analysis::Type* calleeType = context()->get_type_mgr()->GetType(calleeTypeId);
+  if (calleeType->AsVoid() == nullptr) {
     // Find or create ptr to callee return type.
     uint32_t returnVarTypeId = context()->get_type_mgr()->FindPointerToType(
         calleeTypeId, SpvStorageClassFunction);
@@ -166,8 +164,7 @@ uint32_t InlinePass::CreateReturnVar(
           {SpvStorageClassFunction}}}));
     new_vars->push_back(std::move(var_inst));
   }
-  get_decoration_mgr()->CloneDecorations(calleeFn->result_id(), returnVarId,
-                                         update_def_use_mgr_);
+  get_decoration_mgr()->CloneDecorations(calleeFn->result_id(), returnVarId);
   return returnVarId;
 }
 
@@ -180,30 +177,30 @@ void InlinePass::CloneSameBlockOps(
     std::unordered_map<uint32_t, uint32_t>* postCallSB,
     std::unordered_map<uint32_t, ir::Instruction*>* preCallSB,
     std::unique_ptr<ir::BasicBlock>* block_ptr) {
-  (*inst)->ForEachInId([&postCallSB, &preCallSB, &block_ptr,
-                        this](uint32_t* iid) {
-    const auto mapItr = (*postCallSB).find(*iid);
-    if (mapItr == (*postCallSB).end()) {
-      const auto mapItr2 = (*preCallSB).find(*iid);
-      if (mapItr2 != (*preCallSB).end()) {
-        // Clone pre-call same-block ops, map result id.
-        const ir::Instruction* inInst = mapItr2->second;
-        std::unique_ptr<ir::Instruction> sb_inst(
-            inInst->Clone(inInst->context()));
-        CloneSameBlockOps(&sb_inst, postCallSB, preCallSB, block_ptr);
-        const uint32_t rid = sb_inst->result_id();
-        const uint32_t nid = this->TakeNextId();
-        get_decoration_mgr()->CloneDecorations(rid, nid, update_def_use_mgr_);
-        sb_inst->SetResultId(nid);
-        (*postCallSB)[rid] = nid;
-        *iid = nid;
-        (*block_ptr)->AddInstruction(std::move(sb_inst));
-      }
-    } else {
-      // Reset same-block op operand.
-      *iid = mapItr->second;
-    }
-  });
+  (*inst)->ForEachInId(
+      [&postCallSB, &preCallSB, &block_ptr, this](uint32_t* iid) {
+        const auto mapItr = (*postCallSB).find(*iid);
+        if (mapItr == (*postCallSB).end()) {
+          const auto mapItr2 = (*preCallSB).find(*iid);
+          if (mapItr2 != (*preCallSB).end()) {
+            // Clone pre-call same-block ops, map result id.
+            const ir::Instruction* inInst = mapItr2->second;
+            std::unique_ptr<ir::Instruction> sb_inst(
+                inInst->Clone(inInst->context()));
+            CloneSameBlockOps(&sb_inst, postCallSB, preCallSB, block_ptr);
+            const uint32_t rid = sb_inst->result_id();
+            const uint32_t nid = this->TakeNextId();
+            get_decoration_mgr()->CloneDecorations(rid, nid);
+            sb_inst->SetResultId(nid);
+            (*postCallSB)[rid] = nid;
+            *iid = nid;
+            (*block_ptr)->AddInstruction(std::move(sb_inst));
+          }
+        } else {
+          // Reset same-block op operand.
+          *iid = mapItr->second;
+        }
+      });
 }
 
 void InlinePass::GenInlineCode(
@@ -218,6 +215,11 @@ void InlinePass::GenInlineCode(
   std::unordered_map<uint32_t, ir::Instruction*> preCallSB;
   // Post-call same-block op ids
   std::unordered_map<uint32_t, uint32_t> postCallSB;
+
+  // Invalidate the def-use chains.  They are not kept up to date while
+  // inlining.  However, certain calls try to keep them up-to-date if they are
+  // valid.  These operations can fail.
+  context()->InvalidateAnalyses(ir::IRContext::kAnalysisDefUse);
 
   ir::Function* calleeFn = id2function_[call_inst_itr->GetSingleWordOperand(
       kSpvFunctionCallFunctionId)];
@@ -318,8 +320,10 @@ void InlinePass::GenInlineCode(
         if (firstBlock) {
           // Copy contents of original caller block up to call instruction.
           for (auto cii = call_block_itr->begin(); cii != call_inst_itr;
-               ++cii) {
-            std::unique_ptr<ir::Instruction> cp_inst(cii->Clone(context()));
+               cii = call_block_itr->begin()) {
+            ir::Instruction* inst = &*cii;
+            inst->RemoveFromList();
+            std::unique_ptr<ir::Instruction> cp_inst(inst);
             // Remember same-block ops for possible regeneration.
             if (IsSameBlockOp(&*cp_inst)) {
               auto* sb_inst_ptr = cp_inst.get();
@@ -426,9 +430,10 @@ void InlinePass::GenInlineCode(
           AddLoad(calleeTypeId, resId, returnVarId, &new_blk_ptr);
         }
         // Copy remaining instructions from caller block.
-        auto cii = call_inst_itr;
-        for (++cii; cii != call_block_itr->end(); ++cii) {
-          std::unique_ptr<ir::Instruction> cp_inst(cii->Clone(context()));
+        for (ir::Instruction* inst = call_inst_itr->NextNode(); inst;
+             inst = call_inst_itr->NextNode()) {
+          inst->RemoveFromList();
+          std::unique_ptr<ir::Instruction> cp_inst(inst);
           // If multiple blocks generated, regenerate any same-block
           // instruction that has not been seen in this last block.
           if (multiBlocks) {
@@ -473,7 +478,7 @@ void InlinePass::GenInlineCode(
             callee2caller[rid] = nid;
           }
           cp_inst->SetResultId(nid);
-          get_decoration_mgr()->CloneDecorations(rid, nid, update_def_use_mgr_);
+          get_decoration_mgr()->CloneDecorations(rid, nid);
         }
         new_blk_ptr->AddInstruction(std::move(cp_inst));
       } break;
@@ -523,14 +528,16 @@ void InlinePass::UpdateSucceedingPhis(
   const auto lastBlk = new_blocks.end() - 1;
   const uint32_t firstId = (*firstBlk)->id();
   const uint32_t lastId = (*lastBlk)->id();
-  (*lastBlk)->ForEachSuccessorLabel([&firstId, &lastId, this](uint32_t succ) {
-    ir::BasicBlock* sbp = this->id2block_[succ];
-    sbp->ForEachPhiInst([&firstId, &lastId](ir::Instruction* phi) {
-      phi->ForEachInId([&firstId, &lastId](uint32_t* id) {
-        if (*id == firstId) *id = lastId;
+  const ir::BasicBlock& const_last_block = *lastBlk->get();
+  const_last_block.ForEachSuccessorLabel(
+      [&firstId, &lastId, this](const uint32_t succ) {
+        ir::BasicBlock* sbp = this->id2block_[succ];
+        sbp->ForEachPhiInst([&firstId, &lastId](ir::Instruction* phi) {
+          phi->ForEachInId([&firstId, &lastId](uint32_t* id) {
+            if (*id == firstId) *id = lastId;
+          });
+        });
       });
-    });
-  });
 }
 
 bool InlinePass::HasMultipleReturns(ir::Function* func) {
@@ -560,7 +567,8 @@ void InlinePass::ComputeStructuredSuccessors(ir::Function* func) {
     }
 
     // Add true successors.
-    blk.ForEachSuccessorLabel([&blk, this](uint32_t sbid) {
+    const auto& const_blk = blk;
+    const_blk.ForEachSuccessorLabel([&blk, this](const uint32_t sbid) {
       block2structured_succs_[&blk].push_back(id2block_[sbid]);
     });
   }
@@ -641,9 +649,6 @@ bool InlinePass::IsInlinableFunction(ir::Function* func) {
 void InlinePass::InitializeInline(ir::IRContext* c) {
   InitializeProcessing(c);
 
-  // Don't bother updating the DefUseManger
-  update_def_use_mgr_ = [](ir::Instruction&, bool) {};
-
   false_id_ = 0;
 
   // clear collections
@@ -663,7 +668,7 @@ void InlinePass::InitializeInline(ir::IRContext* c) {
     // Compute inlinability
     if (IsInlinableFunction(&fn)) inlinable_.insert(fn.result_id());
   }
-};
+}
 
 InlinePass::InlinePass() {}
 

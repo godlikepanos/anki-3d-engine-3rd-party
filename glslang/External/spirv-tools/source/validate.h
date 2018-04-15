@@ -63,6 +63,18 @@ spv_result_t UpdateIdUse(ValidationState_t& _);
 /// @return SPV_SUCCESS if no errors are found. SPV_ERROR_INVALID_ID otherwise
 spv_result_t CheckIdDefinitionDominateUse(const ValidationState_t& _);
 
+/// @brief This function checks for preconditions involving the adjacent
+/// instructions.
+///
+/// This function will iterate over all instructions and check for any required
+/// predecessor and/or successor instructions. e.g. SpvOpPhi must only be
+/// preceeded by SpvOpLabel, SpvOpPhi, or SpvOpLine.
+///
+/// @param[in] _ the validation state of the module
+///
+/// @return SPV_SUCCESS if no errors are found. SPV_ERROR_INVALID_DATA otherwise
+spv_result_t ValidateAdjacency(ValidationState_t& _);
+
 /// @brief Updates the immediate dominator for each of the block edges
 ///
 /// Updates the immediate dominator of the blocks for each of the edges
@@ -105,6 +117,9 @@ spv_result_t InstructionPass(ValidationState_t& _,
 /// Performs decoration validation.
 spv_result_t ValidateDecorations(ValidationState_t& _);
 
+/// Performs validation of built-in variables.
+spv_result_t ValidateBuiltIns(const ValidationState_t& _);
+
 /// Validates that type declarations are unique, unless multiple declarations
 /// of the same data type are allowed by the specification.
 /// (see section 2.8 Types and Variables)
@@ -143,6 +158,10 @@ spv_result_t ImagePass(ValidationState_t& _,
 spv_result_t AtomicsPass(ValidationState_t& _,
                          const spv_parsed_instruction_t* inst);
 
+/// Validates correctness of barrier instructions.
+spv_result_t BarriersPass(ValidationState_t& _,
+                          const spv_parsed_instruction_t* inst);
+
 /// Validates correctness of literal numbers.
 spv_result_t LiteralsPass(ValidationState_t& _,
                           const spv_parsed_instruction_t* inst);
@@ -166,17 +185,12 @@ spv_result_t PrimitivesPass(ValidationState_t& _,
 ///
 /// @param[in] pInsts stream of instructions
 /// @param[in] instCount number of instructions
-/// @param[in] opcodeTable table of specified Opcodes
-/// @param[in] operandTable table of specified operands
 /// @param[in] usedefs use-def info from module parsing
 /// @param[in,out] position current position in the stream
 ///
 /// @return result code
 spv_result_t spvValidateInstructionIDs(const spv_instruction_t* pInsts,
                                        const uint64_t instCount,
-                                       const spv_opcode_table opcodeTable,
-                                       const spv_operand_table operandTable,
-                                       const spv_ext_inst_table extInstTable,
                                        const libspirv::ValidationState_t& state,
                                        spv_position position);
 
@@ -185,17 +199,12 @@ spv_result_t spvValidateInstructionIDs(const spv_instruction_t* pInsts,
 /// @param[in] pInstructions array of instructions
 /// @param[in] count number of elements in instruction array
 /// @param[in] bound the binary header
-/// @param[in] opcodeTable table of specified Opcodes
-/// @param[in] operandTable table of specified operands
 /// @param[in,out] position current word in the binary
 /// @param[in] consumer message consumer callback
 ///
 /// @return result code
 spv_result_t spvValidateIDs(const spv_instruction_t* pInstructions,
                             const uint64_t count, const uint32_t bound,
-                            const spv_opcode_table opcodeTable,
-                            const spv_operand_table operandTable,
-                            const spv_ext_inst_table extInstTable,
                             spv_position position,
                             const spvtools::MessageConsumer& consumer);
 

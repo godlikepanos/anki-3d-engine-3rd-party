@@ -484,12 +484,12 @@ TEST_F(InsertExtractElimTest, ConflictingInsertPreventsOptimization2) {
   // void main()
   // {
   //     S_t s0;
-  //     s0.v1[1] = 1.0;
+  //     s0.v1[1] = 1.0; // dead
   //     s0.v1 = Baseline;
   //     gl_FragColor = vec4(s0.v1[1], 0.0, 0.0, 0.0);
   // }
 
-  const std::string assembly =
+  const std::string before_predefs =
       R"(OpCapability Shader
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
@@ -521,7 +521,44 @@ OpName %gl_FragColor "gl_FragColor"
 %_ptr_Output_v4float = OpTypePointer Output %v4float
 %gl_FragColor = OpVariable %_ptr_Output_v4float Output
 %float_0 = OpConstant %float 0
-%main = OpFunction %void None %8
+)";
+
+  const std::string after_predefs =
+      R"(OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main" %BaseColor %gl_FragColor
+OpExecutionMode %main OriginUpperLeft
+OpSource GLSL 140
+OpName %main "main"
+OpName %S_t "S_t"
+OpMemberName %S_t 0 "v0"
+OpMemberName %S_t 1 "v1"
+OpName %s0 "s0"
+OpName %BaseColor "BaseColor"
+OpName %gl_FragColor "gl_FragColor"
+%void = OpTypeVoid
+%8 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%S_t = OpTypeStruct %v4float %v4float
+%_ptr_Function_S_t = OpTypePointer Function %S_t
+%int = OpTypeInt 32 1
+%int_1 = OpConstant %int 1
+%float_1 = OpConstant %float 1
+%uint = OpTypeInt 32 0
+%uint_1 = OpConstant %uint 1
+%_ptr_Function_float = OpTypePointer Function %float
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+%BaseColor = OpVariable %_ptr_Input_v4float Input
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%gl_FragColor = OpVariable %_ptr_Output_v4float Output
+%float_0 = OpConstant %float 0
+)";
+
+  const std::string before =
+      R"(%main = OpFunction %void None %8
 %22 = OpLabel
 %s0 = OpVariable %_ptr_Function_S_t Function
 %23 = OpLoad %S_t %s0
@@ -535,8 +572,23 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::InsertExtractElimPass>(assembly, assembly, true,
-                                                    true);
+  const std::string after =
+      R"(%main = OpFunction %void None %8
+%22 = OpLabel
+%s0 = OpVariable %_ptr_Function_S_t Function
+%23 = OpLoad %S_t %s0
+%24 = OpCompositeInsert %S_t %float_1 %23 1 1
+%25 = OpLoad %v4float %BaseColor
+%26 = OpCompositeInsert %S_t %25 %24 1
+%27 = OpCompositeExtract %float %26 1 1
+%28 = OpCompositeConstruct %v4float %27 %float_0 %float_0 %float_0
+OpStore %gl_FragColor %28
+OpReturn
+OpFunctionEnd
+)";
+
+  SinglePassRunAndCheck<opt::InsertExtractElimPass>(
+      before_predefs + before, after_predefs + after, true, true);
 }
 
 TEST_F(InsertExtractElimTest, MixWithConstants) {

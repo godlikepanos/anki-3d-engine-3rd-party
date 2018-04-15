@@ -22,7 +22,9 @@
 #include "def_use_manager.h"
 #include "dominator_analysis.h"
 #include "feature_manager.h"
+#include "loop_descriptor.h"
 #include "module.h"
+#include "scalar_analysis.h"
 #include "type_manager.h"
 
 #include <algorithm>
@@ -55,7 +57,10 @@ class IRContext {
     kAnalysisCombinators = 1 << 3,
     kAnalysisCFG = 1 << 4,
     kAnalysisDominatorAnalysis = 1 << 5,
-    kAnalysisEnd = 1 << 6
+    kAnalysisLoopAnalysis = 1 << 6,
+    kAnalysisNameMap = 1 << 7,
+    kAnalysisScalarEvolution = 1 << 8,
+    kAnalysisEnd = 1 << 9
   };
 
   friend inline Analysis operator|(Analysis lhs, Analysis rhs);
@@ -73,7 +78,8 @@ class IRContext {
         def_use_mgr_(nullptr),
         valid_analyses_(kAnalysisNone),
         constant_mgr_(nullptr),
-        type_mgr_(nullptr) {
+        type_mgr_(nullptr),
+        id_to_name_(nullptr) {
     libspirv::SetContextMessageConsumer(syntax_context_, consumer_);
     module_->SetContext(this);
   }
@@ -87,8 +93,8 @@ class IRContext {
         consumer_(std::move(c)),
         def_use_mgr_(nullptr),
         valid_analyses_(kAnalysisNone),
-        constant_mgr_(nullptr),
-        type_mgr_(nullptr) {
+        type_mgr_(nullptr),
+        id_to_name_(nullptr) {
     libspirv::SetContextMessageConsumer(syntax_context_, consumer_);
     module_->SetContext(this);
     InitializeCombinators();
@@ -254,6 +260,24 @@ class IRContext {
     return type_mgr_.get();
   }
 
+  // Returns a pointer to the scalar evolution analysis. If it is invalid it
+  // will be rebuilt first.
+  opt::ScalarEvolutionAnalysis* GetScalarEvolutionAnalysis() {
+    if (!AreAnalysesValid(kAnalysisScalarEvolution)) {
+      BuildScalarEvolutionAnalysis();
+    }
+    return scalar_evolution_analysis_.get();
+  }
+
+  // Build the map from the ids to the OpName and OpMemberName instruction
+  // associated with it.
+  inline void BuildIdToNameMap();
+
+  // Returns a range of instrucions that contain all of the OpName and
+  // OpMemberNames associated with the given id.
+  inline IteratorRange<std::multimap<uint32_t, Instruction*>::iterator>
+  GetNames(uint32_t id);
+
   // Sets the message consumer to the given |consumer|. |consumer| which will be
   // invoked every time there is a message to be communicated to the outside.
   void SetMessageConsumer(spvtools::MessageConsumer c) {
@@ -363,6 +387,9 @@ class IRContext {
     return cfg_.get();
   }
 
+  // Gets the loop descriptor for function |f|.
+  ir::LoopDescriptor* GetLoopDescriptor(const ir::Function* f);
+
   // Gets the dominator analysis for function |f|.
   opt::DominatorAnalysis* GetDominatorAnalysis(const ir::Function* f,
                                                const ir::CFG&);
@@ -390,6 +417,13 @@ class IRContext {
     }
     return feature_mgr_.get();
   }
+
+  // Returns the grammar for this context.
+  const libspirv::AssemblyGrammar& grammar() const { return grammar_; }
+
+  // If |inst| has not yet been analysed by the def-use manager, then analyse
+  // its definitions and uses.
+  inline void UpdateDefUse(Instruction* inst);
 
  private:
   // Builds the def-use manager from scratch, even if it was already valid.
@@ -421,6 +455,11 @@ class IRContext {
     valid_analyses_ = valid_analyses_ | kAnalysisCFG;
   }
 
+  void BuildScalarEvolutionAnalysis() {
+    scalar_evolution_analysis_.reset(new opt::ScalarEvolutionAnalysis(this));
+    valid_analyses_ = valid_analyses_ | kAnalysisScalarEvolution;
+  }
+
   // Removes all computed dominator and post-dominator trees. This will force
   // the context to rebuild the trees on demand.
   void ResetDominatorAnalysis() {
@@ -428,6 +467,13 @@ class IRContext {
     dominator_trees_.clear();
     post_dominator_trees_.clear();
     valid_analyses_ = valid_analyses_ | kAnalysisDominatorAnalysis;
+  }
+
+  // Removes all computed loop descriptors.
+  void ResetLoopAnalysis() {
+    // Clear the cache.
+    loop_descriptors_.clear();
+    valid_analyses_ = valid_analyses_ | kAnalysisLoopAnalysis;
   }
 
   // Analyzes the features in the owned module. Builds the manager if required.
@@ -445,6 +491,13 @@ class IRContext {
 
   // Add the combinator opcode for the given extension to combinator_ops_.
   void AddCombinatorsForExtension(ir::Instruction* extension);
+
+  // Remove |inst| from |id_to_name_| if it is in map.
+  void RemoveFromIdToName(const Instruction* inst);
+
+  // Returns true if it is suppose to be valid but it is incorrect.  Returns
+  // true if the cfg is invalidated.
+  bool CheckCFG();
 
   // The SPIR-V syntax context containing grammar tables for opcodes and
   // operands.
@@ -496,11 +549,20 @@ class IRContext {
   std::map<const ir::Function*, opt::PostDominatorAnalysis>
       post_dominator_trees_;
 
+  // Cache of loop descriptors for each function.
+  std::unordered_map<const ir::Function*, ir::LoopDescriptor> loop_descriptors_;
+
   // Constant manager for |module_|.
   std::unique_ptr<opt::analysis::ConstantManager> constant_mgr_;
 
   // Type manager for |module_|.
   std::unique_ptr<opt::analysis::TypeManager> type_mgr_;
+
+  // A map from an id to its corresponding OpName and OpMemberName instructions.
+  std::unique_ptr<std::multimap<uint32_t, Instruction*>> id_to_name_;
+
+  // The cache scalar evolution analysis node.
+  std::unique_ptr<opt::ScalarEvolutionAnalysis> scalar_evolution_analysis_;
 };
 
 inline ir::IRContext::Analysis operator|(ir::IRContext::Analysis lhs,
@@ -673,6 +735,11 @@ void IRContext::AddDebug1Inst(std::unique_ptr<Instruction>&& d) {
 }
 
 void IRContext::AddDebug2Inst(std::unique_ptr<Instruction>&& d) {
+  if (AreAnalysesValid(kAnalysisNameMap)) {
+    if (d->opcode() == SpvOpName || d->opcode() == SpvOpMemberName) {
+      id_to_name_->insert({d->result_id(), d.get()});
+    }
+  }
   module()->AddDebug2Inst(std::move(d));
 }
 
@@ -689,10 +756,16 @@ void IRContext::AddAnnotationInst(std::unique_ptr<Instruction>&& a) {
 
 void IRContext::AddType(std::unique_ptr<Instruction>&& t) {
   module()->AddType(std::move(t));
+  if (AreAnalysesValid(kAnalysisDefUse)) {
+    get_def_use_mgr()->AnalyzeInstDef(&*(--types_values_end()));
+  }
 }
 
 void IRContext::AddGlobalValue(std::unique_ptr<Instruction>&& v) {
   module()->AddGlobalValue(std::move(v));
+  if (AreAnalysesValid(kAnalysisDefUse)) {
+    get_def_use_mgr()->AnalyzeInstDef(&*(--types_values_end()));
+  }
 }
 
 void IRContext::AddFunction(std::unique_ptr<Function>&& f) {
@@ -703,6 +776,32 @@ void IRContext::AnalyzeDefUse(Instruction* inst) {
   if (AreAnalysesValid(kAnalysisDefUse)) {
     get_def_use_mgr()->AnalyzeInstDefUse(inst);
   }
+}
+
+void IRContext::UpdateDefUse(Instruction* inst) {
+  if (AreAnalysesValid(kAnalysisDefUse)) {
+    get_def_use_mgr()->UpdateDefUse(inst);
+  }
+}
+
+void IRContext::BuildIdToNameMap() {
+  id_to_name_.reset(new std::multimap<uint32_t, Instruction*>());
+  for (Instruction& debug_inst : debugs2()) {
+    if (debug_inst.opcode() == SpvOpMemberName ||
+        debug_inst.opcode() == SpvOpName) {
+      id_to_name_->insert({debug_inst.GetSingleWordInOperand(0), &debug_inst});
+    }
+  }
+  valid_analyses_ = valid_analyses_ | kAnalysisNameMap;
+}
+
+IteratorRange<std::multimap<uint32_t, Instruction*>::iterator>
+IRContext::GetNames(uint32_t id) {
+  if (!AreAnalysesValid(kAnalysisNameMap)) {
+    BuildIdToNameMap();
+  }
+  auto result = id_to_name_->equal_range(id);
+  return make_range(std::move(result.first), std::move(result.second));
 }
 
 }  // namespace ir
