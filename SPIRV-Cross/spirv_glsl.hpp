@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2017 ARM Limited
+ * Copyright 2015-2018 ARM Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #define SPIRV_CROSS_GLSL_HPP
 
 #include "spirv_cross.hpp"
+#include <limits>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -134,11 +135,28 @@ public:
 		init();
 	}
 
+	// Deprecate this interface because it doesn't overload properly with subclasses.
+	// Requires awkward static casting, which was a mistake.
+	SPIRV_CROSS_DEPRECATED("get_options() is obsolete, use get_common_options() instead.")
 	const Options &get_options() const
 	{
 		return options;
 	}
+
+	const Options &get_common_options() const
+	{
+		return options;
+	}
+
+	// Deprecate this interface because it doesn't overload properly with subclasses.
+	// Requires awkward static casting, which was a mistake.
+	SPIRV_CROSS_DEPRECATED("set_options() is obsolete, use set_common_options() instead.")
 	void set_options(Options &opts)
+	{
+		options = opts;
+	}
+
+	void set_common_options(const Options &opts)
 	{
 		options = opts;
 	}
@@ -174,18 +192,18 @@ public:
 
 protected:
 	void reset();
-	void emit_function(SPIRFunction &func, uint64_t return_flags);
+	void emit_function(SPIRFunction &func, const Bitset &return_flags);
 
 	bool has_extension(const std::string &ext) const;
+	void require_extension_internal(const std::string &ext);
 
 	// Virtualize methods which need to be overridden by subclass targets like C++ and such.
-	virtual void emit_function_prototype(SPIRFunction &func, uint64_t return_flags);
+	virtual void emit_function_prototype(SPIRFunction &func, const Bitset &return_flags);
 
-	// Kinda ugly way to let opcodes peek at their neighbor instructions for trivial peephole scenarios.
-	const SPIRBlock *current_emitting_block = nullptr;
+	SPIRBlock *current_emitting_block = nullptr;
 
 	virtual void emit_instruction(const Instruction &instr);
-	void emit_block_instructions(const SPIRBlock &block);
+	void emit_block_instructions(SPIRBlock &block);
 	virtual void emit_glsl_op(uint32_t result_type, uint32_t result_id, uint32_t op, const uint32_t *args,
 	                          uint32_t count);
 	virtual void emit_spv_amd_shader_ballot_op(uint32_t result_type, uint32_t result_id, uint32_t op,
@@ -199,10 +217,11 @@ protected:
 	virtual void emit_header();
 	virtual void emit_sampled_image_op(uint32_t result_type, uint32_t result_id, uint32_t image_id, uint32_t samp_id);
 	virtual void emit_texture_op(const Instruction &i);
+	virtual void emit_subgroup_op(const Instruction &i);
 	virtual std::string type_to_glsl(const SPIRType &type, uint32_t id = 0);
 	virtual std::string builtin_to_glsl(spv::BuiltIn builtin, spv::StorageClass storage);
 	virtual void emit_struct_member(const SPIRType &type, uint32_t member_type_id, uint32_t index,
-	                                const std::string &qualifier = "");
+	                                const std::string &qualifier = "", uint32_t base_offset = 0);
 	virtual std::string image_type_glsl(const SPIRType &type, uint32_t id = 0);
 	virtual std::string constant_expression(const SPIRConstant &c);
 	std::string constant_op_expression(const SPIRConstantOp &cop);
@@ -294,14 +313,16 @@ protected:
 	void add_local_variable_name(uint32_t id);
 	void add_resource_name(uint32_t id);
 	void add_member_name(SPIRType &type, uint32_t name);
+	void add_function_overload(const SPIRFunction &func);
 
 	virtual bool is_non_native_row_major_matrix(uint32_t id);
 	virtual bool member_is_non_native_row_major_matrix(const SPIRType &type, uint32_t index);
 	bool member_is_packed_type(const SPIRType &type, uint32_t index) const;
-	virtual std::string convert_row_major_matrix(std::string exp_str, const SPIRType &exp_type);
+	virtual std::string convert_row_major_matrix(std::string exp_str, const SPIRType &exp_type, bool is_packed);
 
 	std::unordered_set<std::string> local_variable_names;
 	std::unordered_set<std::string> resource_names;
+	std::unordered_map<std::string, std::unordered_set<uint64_t>> function_overloads;
 
 	bool processing_entry_point = false;
 
@@ -316,6 +337,7 @@ protected:
 		bool long_long_literal_suffix = false;
 		const char *basic_int_type = "int";
 		const char *basic_uint_type = "uint";
+		const char *half_literal_suffix = "hf";
 		bool swizzle_is_function = false;
 		bool shared_is_implied = false;
 		bool flexible_member_array_supported = true;
@@ -323,12 +345,17 @@ protected:
 		bool use_initializer_list = false;
 		bool use_typed_initializer_list = false;
 		bool can_declare_struct_inline = true;
+		bool can_declare_arrays_inline = true;
 		bool native_row_major_matrix = true;
 		bool use_constructor_splatting = true;
 		bool boolean_mix_support = true;
 		bool allow_precision_qualifiers = false;
 		bool can_swizzle_scalar = false;
 		bool force_gl_in_out_block = false;
+		bool can_return_array = true;
+		bool allow_truncated_access_chain = false;
+		bool supports_extensions = false;
+		bool supports_empty_struct = false;
 	} backend;
 
 	void emit_struct(SPIRType &type);
@@ -342,12 +369,14 @@ protected:
 	void emit_interface_block(const SPIRVariable &type);
 	void emit_flattened_io_block(const SPIRVariable &var, const char *qual);
 	void emit_block_chain(SPIRBlock &block);
+	void emit_hoisted_temporaries(std::vector<std::pair<uint32_t, uint32_t>> &temporaries);
 	void emit_specialization_constant(const SPIRConstant &constant);
 	std::string emit_continue_block(uint32_t continue_block);
 	bool attempt_emit_loop_header(SPIRBlock &block, SPIRBlock::Method method);
 	void propagate_loop_dominators(const SPIRBlock &block);
 
 	void branch(uint32_t from, uint32_t to);
+	void branch_to_continue(uint32_t from, uint32_t to);
 	void branch(uint32_t from, uint32_t cond, uint32_t true_block, uint32_t false_block);
 	void flush_phi(uint32_t from, uint32_t to);
 	bool flush_phi_required(uint32_t from, uint32_t to);
@@ -414,20 +443,22 @@ protected:
 	virtual std::string to_qualifiers_glsl(uint32_t id);
 	const char *to_precision_qualifiers_glsl(uint32_t id);
 	virtual const char *to_storage_qualifiers_glsl(const SPIRVariable &var);
-	const char *flags_to_precision_qualifiers_glsl(const SPIRType &type, uint64_t flags);
+	const char *flags_to_precision_qualifiers_glsl(const SPIRType &type, const Bitset &flags);
 	const char *format_to_glsl(spv::ImageFormat format);
 	virtual std::string layout_for_member(const SPIRType &type, uint32_t index);
-	virtual std::string to_interpolation_qualifiers(uint64_t flags);
-	uint64_t combined_decoration_for_member(const SPIRType &type, uint32_t index);
+	virtual std::string to_interpolation_qualifiers(const Bitset &flags);
+	Bitset combined_decoration_for_member(const SPIRType &type, uint32_t index);
 	std::string layout_for_variable(const SPIRVariable &variable);
 	std::string to_combined_image_sampler(uint32_t image_id, uint32_t samp_id);
 	virtual bool skip_argument(uint32_t id) const;
+	virtual void emit_array_copy(const std::string &lhs, uint32_t rhs_id);
 
-	bool buffer_is_packing_standard(const SPIRType &type, BufferPackingStandard packing);
+	bool buffer_is_packing_standard(const SPIRType &type, BufferPackingStandard packing, uint32_t start_offset = 0,
+	                                uint32_t end_offset = std::numeric_limits<uint32_t>::max());
 	uint32_t type_to_packed_base_size(const SPIRType &type, BufferPackingStandard packing);
-	uint32_t type_to_packed_alignment(const SPIRType &type, uint64_t flags, BufferPackingStandard packing);
-	uint32_t type_to_packed_array_stride(const SPIRType &type, uint64_t flags, BufferPackingStandard packing);
-	uint32_t type_to_packed_size(const SPIRType &type, uint64_t flags, BufferPackingStandard packing);
+	uint32_t type_to_packed_alignment(const SPIRType &type, const Bitset &flags, BufferPackingStandard packing);
+	uint32_t type_to_packed_array_stride(const SPIRType &type, const Bitset &flags, BufferPackingStandard packing);
+	uint32_t type_to_packed_size(const SPIRType &type, const Bitset &flags, BufferPackingStandard packing);
 
 	std::string bitcast_glsl(const SPIRType &result_type, uint32_t arg);
 	virtual std::string bitcast_glsl_op(const SPIRType &result_type, const SPIRType &argument_type);
@@ -489,6 +520,7 @@ protected:
 	bool args_will_forward(uint32_t id, const uint32_t *args, uint32_t num_args, bool pure);
 	void register_call_out_argument(uint32_t id);
 	void register_impure_function_call();
+	void register_control_dependent_expression(uint32_t expr);
 
 	// GL_EXT_shader_pixel_local_storage support.
 	std::vector<PlsRemap> pls_inputs;
@@ -519,6 +551,10 @@ protected:
 	const Instruction *get_next_instruction_in_block(const Instruction &instr);
 	static uint32_t mask_relevant_memory_semantics(uint32_t semantics);
 
+	std::string convert_half_to_string(const SPIRConstant &value, uint32_t col, uint32_t row);
+	std::string convert_float_to_string(const SPIRConstant &value, uint32_t col, uint32_t row);
+	std::string convert_double_to_string(const SPIRConstant &value, uint32_t col, uint32_t row);
+
 private:
 	void init()
 	{
@@ -529,6 +565,6 @@ private:
 		}
 	}
 };
-}
+} // namespace spirv_cross
 
 #endif
