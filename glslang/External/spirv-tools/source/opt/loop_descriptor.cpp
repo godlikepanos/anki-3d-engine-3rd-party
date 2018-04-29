@@ -142,6 +142,25 @@ int64_t Loop::GetResidualConditionValue(SpvOp condition, int64_t initial_value,
   return remainder;
 }
 
+ir::Instruction* Loop::GetConditionInst() const {
+  ir::BasicBlock* condition_block = FindConditionBlock();
+  if (!condition_block) {
+    return nullptr;
+  }
+  ir::Instruction* branch_conditional = &*condition_block->tail();
+  if (!branch_conditional ||
+      branch_conditional->opcode() != SpvOpBranchConditional) {
+    return nullptr;
+  }
+  ir::Instruction* condition_inst = context_->get_def_use_mgr()->GetDef(
+      branch_conditional->GetSingleWordInOperand(0));
+  if (IsSupportedCondition(condition_inst->opcode())) {
+    return condition_inst;
+  }
+
+  return nullptr;
+}
+
 // Extract the initial value from the |induction| OpPhi instruction and store it
 // in |value|. If the function couldn't find the initial value of |induction|
 // return false.
@@ -533,12 +552,27 @@ void LoopDescriptor::PopulateList(const Function* f) {
 }
 
 ir::BasicBlock* Loop::FindConditionBlock() const {
-  const ir::Function& function = *loop_merge_->GetParent();
+  if (!loop_merge_) {
+    return nullptr;
+  }
   ir::BasicBlock* condition_block = nullptr;
 
-  const opt::DominatorAnalysis* dom_analysis =
-      context_->GetDominatorAnalysis(&function, *context_->cfg());
-  ir::BasicBlock* bb = dom_analysis->ImmediateDominator(loop_merge_);
+  uint32_t in_loop_pred = 0;
+  for (uint32_t p : context_->cfg()->preds(loop_merge_->id())) {
+    if (IsInsideLoop(p)) {
+      if (in_loop_pred) {
+        // 2 in-loop predecessors.
+        return nullptr;
+      }
+      in_loop_pred = p;
+    }
+  }
+  if (!in_loop_pred) {
+    // Merge block is unreachable.
+    return nullptr;
+  }
+
+  ir::BasicBlock* bb = context_->cfg()->block(in_loop_pred);
 
   if (!bb) return nullptr;
 
@@ -584,6 +618,10 @@ bool Loop::FindNumberOfIterations(const ir::Instruction* induction,
 
   const opt::analysis::Integer* type =
       upper_bound->AsIntConstant()->type()->AsInteger();
+
+  if (type->width() > 32) {
+    return false;
+  }
 
   if (type->IsSigned()) {
     condition_value = upper_bound->AsIntConstant()->GetS32BitValue();
@@ -792,10 +830,10 @@ ir::Instruction* Loop::FindConditionVariable(
         uint32_t operand_label_2 = 3;
 
         // Make sure one of them is the preheader.
-        if (variable_inst->GetSingleWordInOperand(operand_label_1) !=
-                loop_preheader_->id() &&
-            variable_inst->GetSingleWordInOperand(operand_label_2) !=
-                loop_preheader_->id()) {
+        if (!IsInsideLoop(
+                variable_inst->GetSingleWordInOperand(operand_label_1)) &&
+            !IsInsideLoop(
+                variable_inst->GetSingleWordInOperand(operand_label_2))) {
           return nullptr;
         }
 

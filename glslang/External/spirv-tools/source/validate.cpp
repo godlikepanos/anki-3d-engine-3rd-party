@@ -35,6 +35,7 @@
 #include "spirv-tools/libspirv.h"
 #include "spirv_constant.h"
 #include "spirv_endian.h"
+#include "spirv_target_env.h"
 #include "spirv_validator_options.h"
 #include "val/construct.h"
 #include "val/function.h"
@@ -255,6 +256,16 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
            << "Invalid SPIR-V header.";
   }
 
+  if (header.version > spvVersionForTargetEnv(context.target_env)) {
+    return libspirv::DiagnosticStream(position, context.consumer,
+                                      SPV_ERROR_WRONG_VERSION)
+           << "Invalid SPIR-V binary version "
+           << SPV_SPIRV_VERSION_MAJOR_PART(header.version) << "."
+           << SPV_SPIRV_VERSION_MINOR_PART(header.version)
+           << " for target environment "
+           << spvTargetEnvDescription(context.target_env) << ".";
+  }
+
   // Look for OpExtension instructions and register extensions.
   // Diagnostics if any will be produced in the next pass (ProcessInstruction).
   spvBinaryParse(&context, vstate, words, num_words,
@@ -286,6 +297,8 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
            << "The following forward referenced IDs have not been defined:\n"
            << id_str.substr(0, id_str.size() - 1);
   }
+
+  vstate->ComputeFunctionToEntryPointMapping();
 
   // Validate the preconditions involving adjacent instructions. e.g. SpvOpPhi
   // must only be preceeded by SpvOpLabel, SpvOpPhi, or SpvOpLine.
