@@ -20,6 +20,17 @@ namespace opt {
 namespace {
 const uint32_t kExtractCompositeIdInIdx = 0;
 
+// Returns true if |type| is Float or a vector of Float.
+bool HasFloatingPoint(const analysis::Type* type) {
+  if (type->AsFloat()) {
+    return true;
+  } else if (const analysis::Vector* vec_type = type->AsVector()) {
+    return vec_type->element_type()->AsFloat() != nullptr;
+  }
+
+  return false;
+}
+
 // Folds an OpcompositeExtract where input is a composite constant.
 ConstantFoldingRule FoldExtractWithConstants() {
   return [](ir::Instruction* inst,
@@ -100,7 +111,84 @@ ConstantFoldingRule FoldVectorShuffleWithConstants() {
     analysis::TypeManager* type_mgr = context->get_type_mgr();
     return const_mgr->GetConstant(type_mgr->GetType(inst->type_id()), ids);
   };
-}  // namespace
+}
+
+ConstantFoldingRule FoldVectorTimesScalar() {
+  return [](ir::Instruction* inst,
+            const std::vector<const analysis::Constant*>& constants)
+             -> const analysis::Constant* {
+    assert(inst->opcode() == SpvOpVectorTimesScalar);
+    ir::IRContext* context = inst->context();
+    analysis::ConstantManager* const_mgr = context->get_constant_mgr();
+    analysis::TypeManager* type_mgr = context->get_type_mgr();
+
+    if (!inst->IsFloatingPointFoldingAllowed()) {
+      if (HasFloatingPoint(type_mgr->GetType(inst->type_id()))) {
+        return nullptr;
+      }
+    }
+
+    const analysis::Constant* c1 = constants[0];
+    const analysis::Constant* c2 = constants[1];
+
+    if (c1 && c1->IsZero()) {
+      return c1;
+    }
+
+    if (c2 && c2->IsZero()) {
+      // Get or create the NullConstant for this type.
+      std::vector<uint32_t> ids;
+      return const_mgr->GetConstant(type_mgr->GetType(inst->type_id()), ids);
+    }
+
+    if (c1 == nullptr || c2 == nullptr) {
+      return nullptr;
+    }
+
+    // Check result type.
+    const analysis::Type* result_type = type_mgr->GetType(inst->type_id());
+    const analysis::Vector* vector_type = result_type->AsVector();
+    assert(vector_type != nullptr);
+    const analysis::Type* element_type = vector_type->element_type();
+    assert(element_type != nullptr);
+    const analysis::Float* float_type = element_type->AsFloat();
+    assert(float_type != nullptr);
+
+    // Check types of c1 and c2.
+    assert(c1->type()->AsVector() == vector_type);
+    assert(c1->type()->AsVector()->element_type() == element_type &&
+           c2->type() == element_type);
+
+    // Get a float vector that is the result of vector-times-scalar.
+    std::vector<const analysis::Constant*> c1_components =
+        c1->GetVectorComponents(const_mgr);
+    std::vector<uint32_t> ids;
+    if (float_type->width() == 32) {
+      float scalar = c2->GetFloat();
+      for (uint32_t i = 0; i < c1_components.size(); ++i) {
+        spvutils::FloatProxy<float> result(c1_components[i]->GetFloat() *
+                                           scalar);
+        std::vector<uint32_t> words = result.GetWords();
+        const analysis::Constant* new_elem =
+            const_mgr->GetConstant(float_type, words);
+        ids.push_back(const_mgr->GetDefiningInstruction(new_elem)->result_id());
+      }
+      return const_mgr->GetConstant(vector_type, ids);
+    } else if (float_type->width() == 64) {
+      double scalar = c2->GetDouble();
+      for (uint32_t i = 0; i < c1_components.size(); ++i) {
+        spvutils::FloatProxy<double> result(c1_components[i]->GetDouble() *
+                                            scalar);
+        std::vector<uint32_t> words = result.GetWords();
+        const analysis::Constant* new_elem =
+            const_mgr->GetConstant(float_type, words);
+        ids.push_back(const_mgr->GetDefiningInstruction(new_elem)->result_id());
+      }
+      return const_mgr->GetConstant(vector_type, ids);
+    }
+    return nullptr;
+  };
+}
 
 ConstantFoldingRule FoldCompositeWithConstants() {
   // Folds an OpCompositeConstruct where all of the inputs are constants to a
@@ -560,6 +648,7 @@ spvtools::opt::ConstantFoldingRules::ConstantFoldingRules() {
   rules_[SpvOpFUnordGreaterThanEqual].push_back(FoldFUnordGreaterThanEqual());
 
   rules_[SpvOpVectorShuffle].push_back(FoldVectorShuffleWithConstants());
+  rules_[SpvOpVectorTimesScalar].push_back(FoldVectorTimesScalar());
 
   rules_[SpvOpFNegate].push_back(FoldFNegate());
 }

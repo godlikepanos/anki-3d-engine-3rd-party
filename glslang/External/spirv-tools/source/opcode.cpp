@@ -454,3 +454,132 @@ bool spvOpcodeIsBaseOpaqueType(SpvOp opcode) {
       return false;
   }
 }
+
+bool spvOpcodeIsNonUniformGroupOperation(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpGroupNonUniformElect:
+    case SpvOpGroupNonUniformAll:
+    case SpvOpGroupNonUniformAny:
+    case SpvOpGroupNonUniformAllEqual:
+    case SpvOpGroupNonUniformBroadcast:
+    case SpvOpGroupNonUniformBroadcastFirst:
+    case SpvOpGroupNonUniformBallot:
+    case SpvOpGroupNonUniformInverseBallot:
+    case SpvOpGroupNonUniformBallotBitExtract:
+    case SpvOpGroupNonUniformBallotBitCount:
+    case SpvOpGroupNonUniformBallotFindLSB:
+    case SpvOpGroupNonUniformBallotFindMSB:
+    case SpvOpGroupNonUniformShuffle:
+    case SpvOpGroupNonUniformShuffleXor:
+    case SpvOpGroupNonUniformShuffleUp:
+    case SpvOpGroupNonUniformShuffleDown:
+    case SpvOpGroupNonUniformIAdd:
+    case SpvOpGroupNonUniformFAdd:
+    case SpvOpGroupNonUniformIMul:
+    case SpvOpGroupNonUniformFMul:
+    case SpvOpGroupNonUniformSMin:
+    case SpvOpGroupNonUniformUMin:
+    case SpvOpGroupNonUniformFMin:
+    case SpvOpGroupNonUniformSMax:
+    case SpvOpGroupNonUniformUMax:
+    case SpvOpGroupNonUniformFMax:
+    case SpvOpGroupNonUniformBitwiseAnd:
+    case SpvOpGroupNonUniformBitwiseOr:
+    case SpvOpGroupNonUniformBitwiseXor:
+    case SpvOpGroupNonUniformLogicalAnd:
+    case SpvOpGroupNonUniformLogicalOr:
+    case SpvOpGroupNonUniformLogicalXor:
+    case SpvOpGroupNonUniformQuadBroadcast:
+    case SpvOpGroupNonUniformQuadSwap:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool spvOpcodeIsScalarizable(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpPhi:
+    case SpvOpCopyObject:
+    case SpvOpConvertFToU:
+    case SpvOpConvertFToS:
+    case SpvOpConvertSToF:
+    case SpvOpConvertUToF:
+    case SpvOpUConvert:
+    case SpvOpSConvert:
+    case SpvOpFConvert:
+    case SpvOpQuantizeToF16:
+    case SpvOpVectorInsertDynamic:
+    case SpvOpSNegate:
+    case SpvOpFNegate:
+    case SpvOpIAdd:
+    case SpvOpFAdd:
+    case SpvOpISub:
+    case SpvOpFSub:
+    case SpvOpIMul:
+    case SpvOpFMul:
+    case SpvOpUDiv:
+    case SpvOpSDiv:
+    case SpvOpFDiv:
+    case SpvOpUMod:
+    case SpvOpSRem:
+    case SpvOpSMod:
+    case SpvOpFRem:
+    case SpvOpFMod:
+    case SpvOpVectorTimesScalar:
+    case SpvOpIAddCarry:
+    case SpvOpISubBorrow:
+    case SpvOpUMulExtended:
+    case SpvOpSMulExtended:
+    case SpvOpShiftRightLogical:
+    case SpvOpShiftRightArithmetic:
+    case SpvOpShiftLeftLogical:
+    case SpvOpBitwiseOr:
+    case SpvOpBitwiseAnd:
+    case SpvOpNot:
+    case SpvOpBitFieldInsert:
+    case SpvOpBitFieldSExtract:
+    case SpvOpBitFieldUExtract:
+    case SpvOpBitReverse:
+    case SpvOpBitCount:
+    case SpvOpIsNan:
+    case SpvOpIsInf:
+    case SpvOpIsFinite:
+    case SpvOpIsNormal:
+    case SpvOpSignBitSet:
+    case SpvOpLessOrGreater:
+    case SpvOpOrdered:
+    case SpvOpUnordered:
+    case SpvOpLogicalEqual:
+    case SpvOpLogicalNotEqual:
+    case SpvOpLogicalOr:
+    case SpvOpLogicalAnd:
+    case SpvOpLogicalNot:
+    case SpvOpSelect:
+    case SpvOpIEqual:
+    case SpvOpINotEqual:
+    case SpvOpUGreaterThan:
+    case SpvOpSGreaterThan:
+    case SpvOpUGreaterThanEqual:
+    case SpvOpSGreaterThanEqual:
+    case SpvOpULessThan:
+    case SpvOpSLessThan:
+    case SpvOpULessThanEqual:
+    case SpvOpSLessThanEqual:
+    case SpvOpFOrdEqual:
+    case SpvOpFUnordEqual:
+    case SpvOpFOrdNotEqual:
+    case SpvOpFUnordNotEqual:
+    case SpvOpFOrdLessThan:
+    case SpvOpFUnordLessThan:
+    case SpvOpFOrdGreaterThan:
+    case SpvOpFUnordGreaterThan:
+    case SpvOpFOrdLessThanEqual:
+    case SpvOpFUnordLessThanEqual:
+    case SpvOpFOrdGreaterThanEqual:
+    case SpvOpFUnordGreaterThanEqual:
+      return true;
+    default:
+      return false;
+  }
+}

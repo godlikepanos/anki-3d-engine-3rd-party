@@ -76,6 +76,7 @@ add_library(SPIRV-Tools-opt
   propagator.h
   redundancy_elimination.h
   reflect.h
+  register_pressure.h
   remove_duplicates_pass.h
   replace_invalid_opc.h
   scalar_analysis.h
@@ -92,6 +93,7 @@ add_library(SPIRV-Tools-opt
   types.h
   unify_const_pass.h
   value_number_table.h
+  vector_dce.h
   workaround1209.h
 
   aggressive_dead_code_elim_pass.cpp
@@ -154,6 +156,7 @@ add_library(SPIRV-Tools-opt
   private_to_local_pass.cpp
   propagator.cpp
   redundancy_elimination.cpp
+  register_pressure.cpp
   remove_duplicates_pass.cpp
   replace_invalid_opc.cpp
   scalar_analysis.cpp
@@ -169,6 +172,7 @@ add_library(SPIRV-Tools-opt
   types.cpp
   unify_const_pass.cpp
   value_number_table.cpp
+  vector_dce.cpp
   workaround1209.cpp
 )
 

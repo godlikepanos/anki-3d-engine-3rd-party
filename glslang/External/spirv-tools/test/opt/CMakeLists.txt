@@ -297,6 +297,11 @@ add_spvtools_unittest(TARGET replace_invalid_opc
   LIBS SPIRV-Tools-opt
 )
 
+add_spvtools_unittest(TARGET register_liveness
+  SRCS register_liveness.cpp
+  LIBS SPIRV-Tools-opt
+)
+
 add_spvtools_unittest(TARGET simplification
   SRCS simplification_test.cpp pass_utils.cpp
   LIBS SPIRV-Tools-opt
@@ -309,6 +314,11 @@ add_spvtools_unittest(TARGET copy_prop_array
 
 add_spvtools_unittest(TARGET scalar_analysis
   SRCS scalar_analysis.cpp pass_utils.cpp
+  LIBS SPIRV-Tools-opt
+)
+
+add_spvtools_unittest(TARGET vector_dce
+  SRCS vector_dce_test.cpp pass_utils.cpp
   LIBS SPIRV-Tools-opt
 )
 
