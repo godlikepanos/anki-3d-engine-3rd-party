@@ -1268,8 +1268,9 @@ void ColladaParser::ReadEffectProfileCommon( Collada::Effect& pEffect)
 			// AnKi extensions
 			// -------------------------------------------------------
 			else if( IsElement( "roughness"))	{
-				aiColor4D dummy;
-				ReadEffectColor( dummy,pEffect.mTexRoughness);
+				const char* txt = GetTextContent();
+				pEffect.mParameters["roughness"] = txt;
+				TestClosing( "roughness");
 			}
 			else if( IsElement( "metallic"))	{
 				const char* txt = GetTextContent();
