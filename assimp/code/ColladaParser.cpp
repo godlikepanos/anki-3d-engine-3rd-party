@@ -1272,6 +1272,10 @@ void ColladaParser::ReadEffectProfileCommon( Collada::Effect& pEffect)
 				pEffect.mParameters["roughness"] = txt;
 				TestClosing( "roughness");
 			}
+			else if( IsElement( "roughness_tex"))	{
+				aiColor4D dummy;
+				ReadEffectColor( dummy,pEffect.mTexRoughness);
+			}
 			else if( IsElement( "metallic"))	{
 				const char* txt = GetTextContent();
 				pEffect.mParameters["metallic"] = txt;
