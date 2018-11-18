@@ -25,56 +25,48 @@
 #include "gmock/gmock.h"
 
 #include "source/diagnostic.h"
-#include "source/validate.h"
-#include "test_fixture.h"
-#include "unit_spirv.h"
-#include "val_fixtures.h"
+#include "source/val/validate.h"
+#include "test/test_fixture.h"
+#include "test/unit_spirv.h"
+#include "test/val/val_fixtures.h"
 
-using std::array;
-using std::make_pair;
-using std::pair;
-using std::string;
-using std::stringstream;
-using std::vector;
+namespace spvtools {
+namespace val {
+namespace {
 
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
-using libspirv::BasicBlock;
-using libspirv::ValidationState_t;
-
 using ValidateCFG = spvtest::ValidateBase<SpvCapability>;
 using spvtest::ScopedContext;
 
-namespace {
-
-string nameOps() { return ""; }
+std::string nameOps() { return ""; }
 
 template <typename... Args>
-string nameOps(pair<string, string> head, Args... names) {
+std::string nameOps(std::pair<std::string, std::string> head, Args... names) {
   return "OpName %" + head.first + " \"" + head.second + "\"\n" +
          nameOps(names...);
 }
 
 template <typename... Args>
-string nameOps(string head, Args... names) {
+std::string nameOps(std::string head, Args... names) {
   return "OpName %" + head + " \"" + head + "\"\n" + nameOps(names...);
 }
 
 /// This class allows the easy creation of complex control flow without writing
 /// SPIR-V. This class is used in the test cases below.
 class Block {
-  string label_;
-  string body_;
+  std::string label_;
+  std::string body_;
   SpvOp type_;
-  vector<Block> successors_;
+  std::vector<Block> successors_;
 
  public:
   /// Creates a Block with a given label
   ///
   /// @param[in]: label the label id of the block
   /// @param[in]: type the branch instruciton that ends the block
-  explicit Block(string label, SpvOp type = SpvOpBranch)
+  explicit Block(std::string label, SpvOp type = SpvOpBranch)
       : label_(label), body_(), type_(type), successors_() {}
 
   /// Sets the instructions which will appear in the body of the block
@@ -89,8 +81,8 @@ class Block {
   }
 
   /// Converts the block into a SPIR-V string
-  operator string() {
-    stringstream out;
+  operator std::string() {
+    std::stringstream out;
     out << std::setw(8) << "%" + label_ + "  = OpLabel \n";
     if (!body_.empty()) {
       out << body_;
@@ -105,7 +97,7 @@ class Block {
         break;
       case SpvOpSwitch: {
         out << "OpSwitch %one %" + successors_.front().label_;
-        stringstream ss;
+        std::stringstream ss;
         for (size_t i = 1; i < successors_.size(); i++) {
           ss << " " << i << " %" << successors_[i].label_;
         }
@@ -130,12 +122,12 @@ class Block {
 
     return out.str();
   }
-  friend Block& operator>>(Block& curr, vector<Block> successors);
+  friend Block& operator>>(Block& curr, std::vector<Block> successors);
   friend Block& operator>>(Block& lhs, Block& successor);
 };
 
 /// Assigns the successors for the Block on the lhs
-Block& operator>>(Block& lhs, vector<Block> successors) {
+Block& operator>>(Block& lhs, std::vector<Block> successors) {
   if (lhs.type_ == SpvOpBranchConditional) {
     assert(successors.size() == 2);
   } else if (lhs.type_ == SpvOpSwitch) {
@@ -193,7 +185,7 @@ TEST_P(ValidateCFG, LoopReachableFromEntryButNeverLeadingToReturn) {
   //
   // For more motivation, see
   // https://github.com/KhronosGroup/SPIRV-Tools/issues/279
-  string str = R"(
+  std::string str = R"(
            OpCapability Shader
            OpCapability Linkage
            OpMemoryModel Logical GLSL450
@@ -231,7 +223,7 @@ TEST_P(ValidateCFG, LoopUnreachableFromEntryButLeadingToReturn) {
   // https://github.com/KhronosGroup/SPIRV-Tools/issues/279
   // Before that fix, we'd have an infinite loop when calculating
   // post-dominators.
-  string str = R"(
+  std::string str = R"(
            OpCapability Shader
            OpCapability Linkage
            OpMemoryModel Logical GLSL450
@@ -278,13 +270,14 @@ TEST_P(ValidateCFG, Simple) {
     loop.SetBody("OpLoopMerge %merge %cont None\n");
   }
 
-  string str =
-      header(GetParam()) +
-      nameOps("loop", "entry", "cont", "merge", make_pair("func", "Main")) +
-      types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("loop", "entry", "cont", "merge",
+                            std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({cont, merge});
+  str += loop >> std::vector<Block>({cont, merge});
   str += cont >> loop;
   str += merge;
   str += "OpFunctionEnd\n";
@@ -300,8 +293,9 @@ TEST_P(ValidateCFG, Variable) {
 
   entry.SetBody("%var = OpVariable %ptrt Function\n");
 
-  string str = header(GetParam()) + nameOps(make_pair("func", "Main")) +
-               types_consts() + " %func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps(std::make_pair("func", "Main")) + types_consts() +
+                    " %func    = OpFunction %voidt None %funct\n";
   str += entry >> cont;
   str += cont >> exit;
   str += exit;
@@ -319,8 +313,9 @@ TEST_P(ValidateCFG, VariableNotInFirstBlockBad) {
   // This operation should only be performed in the entry block
   cont.SetBody("%var = OpVariable %ptrt Function\n");
 
-  string str = header(GetParam()) + nameOps(make_pair("func", "Main")) +
-               types_consts() + " %func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps(std::make_pair("func", "Main")) + types_consts() +
+                    " %func    = OpFunction %voidt None %funct\n";
 
   str += entry >> cont;
   str += cont >> exit;
@@ -344,13 +339,14 @@ TEST_P(ValidateCFG, BlockSelfLoopIsOk) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) loop.SetBody("OpLoopMerge %merge %loop None\n");
 
-  string str = header(GetParam()) +
-               nameOps("loop", "merge", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("loop", "merge", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
   // loop branches to itself, but does not trigger an error.
-  str += loop >> vector<Block>({merge, loop});
+  str += loop >> std::vector<Block>({merge, loop});
   str += merge;
   str += "OpFunctionEnd\n";
 
@@ -368,13 +364,14 @@ TEST_P(ValidateCFG, BlockAppearsBeforeDominatorBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) branch.SetBody("OpSelectionMerge %merge None\n");
 
-  string str = header(GetParam()) +
-               nameOps("cont", "branch", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("cont", "branch", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> branch;
   str += cont >> merge;  // cont appears before its dominator
-  str += branch >> vector<Block>({cont, merge});
+  str += branch >> std::vector<Block>({cont, merge});
   str += merge;
   str += "OpFunctionEnd\n";
 
@@ -382,7 +379,8 @@ TEST_P(ValidateCFG, BlockAppearsBeforeDominatorBad) {
   ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               MatchesRegex("Block .\\[cont\\] appears in the binary "
-                           "before its dominator .\\[branch\\]"));
+                           "before its dominator .\\[branch\\]\n"
+                           "  %branch = OpLabel\n"));
 }
 
 TEST_P(ValidateCFG, MergeBlockTargetedByMultipleHeaderBlocksBad) {
@@ -398,13 +396,13 @@ TEST_P(ValidateCFG, MergeBlockTargetedByMultipleHeaderBlocksBad) {
   // cannot share the same merge
   if (is_shader) selection.SetBody("OpSelectionMerge %merge None\n");
 
-  string str = header(GetParam()) +
-               nameOps("merge", make_pair("func", "Main")) + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) + nameOps("merge", std::make_pair("func", "Main")) +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
   str += loop >> selection;
-  str += selection >> vector<Block>({loop, merge});
+  str += selection >> std::vector<Block>({loop, merge});
   str += merge;
   str += "OpFunctionEnd\n";
 
@@ -413,7 +411,8 @@ TEST_P(ValidateCFG, MergeBlockTargetedByMultipleHeaderBlocksBad) {
     ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex("Block .\\[merge\\] is already a merge block "
-                             "for another header"));
+                             "for another header\n"
+                             "  %Main = OpFunction %void None %9\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -432,13 +431,13 @@ TEST_P(ValidateCFG, MergeBlockTargetedByMultipleHeaderBlocksSelectionBad) {
   // cannot share the same merge
   if (is_shader) loop.SetBody(" OpLoopMerge %merge %loop None\n");
 
-  string str = header(GetParam()) +
-               nameOps("merge", make_pair("func", "Main")) + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) + nameOps("merge", std::make_pair("func", "Main")) +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> selection;
-  str += selection >> vector<Block>({merge, loop});
-  str += loop >> vector<Block>({loop, merge});
+  str += selection >> std::vector<Block>({merge, loop});
+  str += loop >> std::vector<Block>({loop, merge});
   str += merge;
   str += "OpFunctionEnd\n";
 
@@ -447,7 +446,8 @@ TEST_P(ValidateCFG, MergeBlockTargetedByMultipleHeaderBlocksSelectionBad) {
     ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex("Block .\\[merge\\] is already a merge block "
-                             "for another header"));
+                             "for another header\n"
+                             "  %Main = OpFunction %void None %9\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -457,9 +457,10 @@ TEST_P(ValidateCFG, BranchTargetFirstBlockBadSinceEntryBlock) {
   Block entry("entry");
   Block bad("bad");
   Block end("end", SpvOpReturn);
-  string str = header(GetParam()) +
-               nameOps("entry", "bad", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("entry", "bad", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> bad;
   str += bad >> entry;  // Cannot target entry block
@@ -470,17 +471,20 @@ TEST_P(ValidateCFG, BranchTargetFirstBlockBadSinceEntryBlock) {
   ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               MatchesRegex("First block .\\[entry\\] of function .\\[Main\\] "
-                           "is targeted by block .\\[bad\\]"));
+                           "is targeted by block .\\[bad\\]\n"
+                           "  %Main = OpFunction %void None %10\n"));
 }
 
 TEST_P(ValidateCFG, BranchTargetFirstBlockBadSinceValue) {
   Block entry("entry");
+  entry.SetBody("%undef = OpUndef %voidt\n");
   Block bad("bad");
   Block end("end", SpvOpReturn);
-  Block badvalue("func");  // This referenes the function name.
-  string str = header(GetParam()) +
-               nameOps("entry", "bad", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  Block badvalue("undef");  // This referenes the OpUndef.
+  std::string str = header(GetParam()) +
+                    nameOps("entry", "bad", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> bad;
   str +=
@@ -490,10 +494,10 @@ TEST_P(ValidateCFG, BranchTargetFirstBlockBadSinceValue) {
 
   CompileSuccessfully(str);
   ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      MatchesRegex("Block\\(s\\) \\{.\\[Main\\]\\} are referenced but not "
-                   "defined in function .\\[Main\\]"))
+  EXPECT_THAT(getDiagnosticString(),
+              MatchesRegex("Block\\(s\\) \\{..\\} are referenced but not "
+                           "defined in function .\\[Main\\]\n"
+                           "  %Main = OpFunction %void None %10\n"))
       << str;
 }
 
@@ -505,12 +509,13 @@ TEST_P(ValidateCFG, BranchConditionalTrueTargetFirstBlockBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   bad.SetBody(" OpLoopMerge %entry %exit None\n");
 
-  string str = header(GetParam()) +
-               nameOps("entry", "bad", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("entry", "bad", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> bad;
-  str += bad >> vector<Block>({entry, exit});  // cannot target entry block
+  str += bad >> std::vector<Block>({entry, exit});  // cannot target entry block
   str += exit;
   str += "OpFunctionEnd\n";
 
@@ -518,7 +523,8 @@ TEST_P(ValidateCFG, BranchConditionalTrueTargetFirstBlockBad) {
   ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               MatchesRegex("First block .\\[entry\\] of function .\\[Main\\] "
-                           "is targeted by block .\\[bad\\]"));
+                           "is targeted by block .\\[bad\\]\n"
+                           "  %Main = OpFunction %void None %10\n"));
 }
 
 TEST_P(ValidateCFG, BranchConditionalFalseTargetFirstBlockBad) {
@@ -531,12 +537,13 @@ TEST_P(ValidateCFG, BranchConditionalFalseTargetFirstBlockBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   bad.SetBody("OpLoopMerge %merge %cont None\n");
 
-  string str = header(GetParam()) +
-               nameOps("entry", "bad", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("entry", "bad", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> bad;
-  str += bad >> vector<Block>({t, entry});
+  str += bad >> std::vector<Block>({t, entry});
   str += merge >> end;
   str += end;
   str += "OpFunctionEnd\n";
@@ -545,7 +552,8 @@ TEST_P(ValidateCFG, BranchConditionalFalseTargetFirstBlockBad) {
   ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               MatchesRegex("First block .\\[entry\\] of function .\\[Main\\] "
-                           "is targeted by block .\\[bad\\]"));
+                           "is targeted by block .\\[bad\\]\n"
+                           "  %Main = OpFunction %void None %10\n"));
 }
 
 TEST_P(ValidateCFG, SwitchTargetFirstBlockBad) {
@@ -561,12 +569,13 @@ TEST_P(ValidateCFG, SwitchTargetFirstBlockBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   bad.SetBody("OpSelectionMerge %merge None\n");
 
-  string str = header(GetParam()) +
-               nameOps("entry", "bad", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("entry", "bad", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> bad;
-  str += bad >> vector<Block>({def, block1, block2, block3, entry});
+  str += bad >> std::vector<Block>({def, block1, block2, block3, entry});
   str += def >> merge;
   str += block1 >> merge;
   str += block2 >> merge;
@@ -579,7 +588,8 @@ TEST_P(ValidateCFG, SwitchTargetFirstBlockBad) {
   ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               MatchesRegex("First block .\\[entry\\] of function .\\[Main\\] "
-                           "is targeted by block .\\[bad\\]"));
+                           "is targeted by block .\\[bad\\]\n"
+                           "  %Main = OpFunction %void None %10\n"));
 }
 
 TEST_P(ValidateCFG, BranchToBlockInOtherFunctionBad) {
@@ -594,12 +604,12 @@ TEST_P(ValidateCFG, BranchToBlockInOtherFunctionBad) {
   Block middle2("middle2");
   Block end2("end2", SpvOpReturn);
 
-  string str = header(GetParam()) +
-               nameOps("middle2", make_pair("func", "Main")) + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) + nameOps("middle2", std::make_pair("func", "Main")) +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> middle;
-  str += middle >> vector<Block>({end, middle2});
+  str += middle >> std::vector<Block>({end, middle2});
   str += end;
   str += "OpFunctionEnd\n";
 
@@ -614,7 +624,8 @@ TEST_P(ValidateCFG, BranchToBlockInOtherFunctionBad) {
   EXPECT_THAT(
       getDiagnosticString(),
       MatchesRegex("Block\\(s\\) \\{.\\[middle2\\]\\} are referenced but not "
-                   "defined in function .\\[Main\\]"));
+                   "defined in function .\\[Main\\]\n"
+                   "  %Main = OpFunction %void None %9\n"));
 }
 
 TEST_P(ValidateCFG, HeaderDoesntDominatesMergeBad) {
@@ -628,12 +639,13 @@ TEST_P(ValidateCFG, HeaderDoesntDominatesMergeBad) {
 
   if (is_shader) head.AppendBody("OpSelectionMerge %merge None\n");
 
-  string str = header(GetParam()) +
-               nameOps("head", "merge", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("head", "merge", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> merge;
-  str += head >> vector<Block>({merge, f});
+  str += head >> std::vector<Block>({merge, f});
   str += f >> merge;
   str += merge;
   str += "OpFunctionEnd\n";
@@ -645,7 +657,7 @@ TEST_P(ValidateCFG, HeaderDoesntDominatesMergeBad) {
         getDiagnosticString(),
         MatchesRegex("The selection construct with the selection header "
                      ".\\[head\\] does not dominate the merge block "
-                     ".\\[merge\\]"));
+                     ".\\[merge\\]\n  %merge = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -662,11 +674,12 @@ TEST_P(ValidateCFG, HeaderDoesntStrictlyDominateMergeBad) {
 
   if (is_shader) head.AppendBody("OpSelectionMerge %head None\n");
 
-  string str = header(GetParam()) +
-               nameOps("head", "exit", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("head", "exit", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
-  str += head >> vector<Block>({exit, exit});
+  str += head >> std::vector<Block>({exit, exit});
   str += exit;
   str += "OpFunctionEnd\n";
 
@@ -677,7 +690,7 @@ TEST_P(ValidateCFG, HeaderDoesntStrictlyDominateMergeBad) {
         getDiagnosticString(),
         MatchesRegex("The selection construct with the selection header "
                      ".\\[head\\] does not strictly dominate the merge block "
-                     ".\\[head\\]"));
+                     ".\\[head\\]\n  %head = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions()) << str;
   }
@@ -694,12 +707,13 @@ TEST_P(ValidateCFG, UnreachableMerge) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) branch.AppendBody("OpSelectionMerge %merge None\n");
 
-  string str = header(GetParam()) +
-               nameOps("branch", "merge", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("branch", "merge", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> branch;
-  str += branch >> vector<Block>({t, f});
+  str += branch >> std::vector<Block>({t, f});
   str += t;
   str += f;
   str += merge;
@@ -720,12 +734,13 @@ TEST_P(ValidateCFG, UnreachableMergeDefinedByOpUnreachable) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) branch.AppendBody("OpSelectionMerge %merge None\n");
 
-  string str = header(GetParam()) +
-               nameOps("branch", "merge", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("branch", "merge", std::make_pair("func", "Main")) +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> branch;
-  str += branch >> vector<Block>({t, f});
+  str += branch >> std::vector<Block>({t, f});
   str += t;
   str += f;
   str += merge;
@@ -740,9 +755,10 @@ TEST_P(ValidateCFG, UnreachableBlock) {
   Block unreachable("unreachable");
   Block exit("exit", SpvOpReturn);
 
-  string str = header(GetParam()) +
-               nameOps("unreachable", "exit", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) +
+      nameOps("unreachable", "exit", std::make_pair("func", "Main")) +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> exit;
   str += unreachable >> exit;
@@ -764,12 +780,14 @@ TEST_P(ValidateCFG, UnreachableBranch) {
 
   unreachable.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) unreachable.AppendBody("OpSelectionMerge %merge None\n");
-  string str = header(GetParam()) +
-               nameOps("unreachable", "exit", make_pair("func", "Main")) +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) +
+      nameOps("unreachable", "exit", std::make_pair("func", "Main")) +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> exit;
-  str += unreachable >> vector<Block>({unreachablechildt, unreachablechildf});
+  str +=
+      unreachable >> std::vector<Block>({unreachablechildt, unreachablechildf});
   str += unreachablechildt >> merge;
   str += unreachablechildf >> merge;
   str += merge >> exit;
@@ -781,8 +799,8 @@ TEST_P(ValidateCFG, UnreachableBranch) {
 }
 
 TEST_P(ValidateCFG, EmptyFunction) {
-  string str = header(GetParam()) + string(types_consts()) +
-               R"(%func    = OpFunction %voidt None %funct
+  std::string str = header(GetParam()) + std::string(types_consts()) +
+                    R"(%func    = OpFunction %voidt None %funct
                   %l = OpLabel
                   OpReturn
                   OpFunctionEnd)";
@@ -800,11 +818,11 @@ TEST_P(ValidateCFG, SingleBlockLoop) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) loop.AppendBody("OpLoopMerge %exit %loop None\n");
 
-  string str = header(GetParam()) + string(types_consts()) +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + std::string(types_consts()) +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({loop, exit});
+  str += loop >> std::vector<Block>({loop, exit});
   str += exit;
   str += "OpFunctionEnd";
 
@@ -829,13 +847,14 @@ TEST_P(ValidateCFG, NestedLoops) {
     loop2.SetBody("OpLoopMerge %loop2_merge %loop2 None\n");
   }
 
-  string str = header(GetParam()) + nameOps("loop2", "loop2_merge") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("loop2", "loop2_merge") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop1;
   str += loop1 >> loop1_cont_break_block;
-  str += loop1_cont_break_block >> vector<Block>({loop1_merge, loop2});
-  str += loop2 >> vector<Block>({loop2, loop2_merge});
+  str += loop1_cont_break_block >> std::vector<Block>({loop1_merge, loop2});
+  str += loop2 >> std::vector<Block>({loop2, loop2_merge});
   str += loop2_merge >> loop1;
   str += loop1_merge >> exit;
   str += exit;
@@ -849,8 +868,8 @@ TEST_P(ValidateCFG, NestedSelection) {
   bool is_shader = GetParam() == SpvCapabilityShader;
   Block entry("entry");
   const int N = 256;
-  vector<Block> if_blocks;
-  vector<Block> merge_blocks;
+  std::vector<Block> if_blocks;
+  std::vector<Block> merge_blocks;
   Block inner("inner");
 
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
@@ -861,21 +880,22 @@ TEST_P(ValidateCFG, NestedSelection) {
   merge_blocks.emplace_back("if_merge0", SpvOpReturn);
 
   for (int i = 1; i < N; i++) {
-    stringstream ss;
+    std::stringstream ss;
     ss << i;
     if_blocks.emplace_back("if" + ss.str(), SpvOpBranchConditional);
     if (is_shader)
       if_blocks[i].SetBody("OpSelectionMerge %if_merge" + ss.str() + " None\n");
     merge_blocks.emplace_back("if_merge" + ss.str(), SpvOpBranch);
   }
-  string str = header(GetParam()) + string(types_consts()) +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + std::string(types_consts()) +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> if_blocks[0];
   for (int i = 0; i < N - 1; i++) {
-    str += if_blocks[i] >> vector<Block>({if_blocks[i + 1], merge_blocks[i]});
+    str +=
+        if_blocks[i] >> std::vector<Block>({if_blocks[i + 1], merge_blocks[i]});
   }
-  str += if_blocks.back() >> vector<Block>({inner, merge_blocks.back()});
+  str += if_blocks.back() >> std::vector<Block>({inner, merge_blocks.back()});
   str += inner >> merge_blocks.back();
   for (int i = N - 1; i > 0; i--) {
     str += merge_blocks[i] >> merge_blocks[i - 1];
@@ -902,14 +922,15 @@ TEST_P(ValidateCFG, BackEdgeBlockDoesntPostDominateContinueTargetBad) {
     loop2.SetBody("OpLoopMerge %loop2_merge %loop2 None\n");
   }
 
-  string str = header(GetParam()) +
-               nameOps("loop1", "loop2", "be_block", "loop2_merge") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("loop1", "loop2", "be_block", "loop2_merge") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop1;
-  str += loop1 >> vector<Block>({loop2, exit});
-  str += loop2 >> vector<Block>({loop2, loop2_merge});
-  str += loop2_merge >> vector<Block>({be_block, exit});
+  str += loop1 >> std::vector<Block>({loop2, exit});
+  str += loop2 >> std::vector<Block>({loop2, loop2_merge});
+  str += loop2_merge >> std::vector<Block>({be_block, exit});
   str += be_block >> loop1;
   str += exit;
   str += "OpFunctionEnd";
@@ -920,7 +941,8 @@ TEST_P(ValidateCFG, BackEdgeBlockDoesntPostDominateContinueTargetBad) {
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex("The continue construct with the continue target "
                              ".\\[loop2_merge\\] is not post dominated by the "
-                             "back-edge block .\\[be_block\\]"));
+                             "back-edge block .\\[be_block\\]\n"
+                             "  %be_block = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -937,11 +959,12 @@ TEST_P(ValidateCFG, BranchingToNonLoopHeaderBlockBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) split.SetBody("OpSelectionMerge %exit None\n");
 
-  string str = header(GetParam()) + nameOps("split", "f") + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("split", "f") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> split;
-  str += split >> vector<Block>({t, f});
+  str += split >> std::vector<Block>({t, f});
   str += t >> exit;
   str += f >> split;
   str += exit;
@@ -953,7 +976,8 @@ TEST_P(ValidateCFG, BranchingToNonLoopHeaderBlockBad) {
     EXPECT_THAT(
         getDiagnosticString(),
         MatchesRegex("Back-edges \\(.\\[f\\] -> .\\[split\\]\\) can only "
-                     "be formed between a block and a loop header."));
+                     "be formed between a block and a loop header.\n"
+                     "  %f = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -968,11 +992,11 @@ TEST_P(ValidateCFG, BranchingToSameNonLoopHeaderBlockBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) split.SetBody("OpSelectionMerge %exit None\n");
 
-  string str = header(GetParam()) + nameOps("split") + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("split") + types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> split;
-  str += split >> vector<Block>({split, exit});
+  str += split >> std::vector<Block>({split, exit});
   str += exit;
   str += "OpFunctionEnd";
 
@@ -982,7 +1006,8 @@ TEST_P(ValidateCFG, BranchingToSameNonLoopHeaderBlockBad) {
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex(
                     "Back-edges \\(.\\[split\\] -> .\\[split\\]\\) can only be "
-                    "formed between a block and a loop header."));
+                    "formed between a block and a loop header.\n"
+                    "  %split = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -999,11 +1024,12 @@ TEST_P(ValidateCFG, MultipleBackEdgeBlocksToLoopHeaderBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) loop.SetBody("OpLoopMerge %merge %back0 None\n");
 
-  string str = header(GetParam()) + nameOps("loop", "back0", "back1") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("loop", "back0", "back1") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({back0, back1});
+  str += loop >> std::vector<Block>({back0, back1});
   str += back0 >> loop;
   str += back1 >> loop;
   str += merge;
@@ -1015,7 +1041,8 @@ TEST_P(ValidateCFG, MultipleBackEdgeBlocksToLoopHeaderBad) {
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex(
                     "Loop header .\\[loop\\] is targeted by 2 back-edge blocks "
-                    "but the standard requires exactly one"))
+                    "but the standard requires exactly one\n"
+                    "  %loop = OpLabel\n"))
         << str;
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
@@ -1034,12 +1061,13 @@ TEST_P(ValidateCFG, ContinueTargetMustBePostDominatedByBackEdge) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) loop.SetBody("OpLoopMerge %merge %cheader None\n");
 
-  string str = header(GetParam()) + nameOps("cheader", "be_block") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("cheader", "be_block") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({cheader, merge});
-  str += cheader >> vector<Block>({exit, be_block});
+  str += loop >> std::vector<Block>({cheader, merge});
+  str += cheader >> std::vector<Block>({exit, be_block});
   str += exit;  //  Branches out of a continue construct
   str += be_block >> loop;
   str += merge;
@@ -1051,7 +1079,8 @@ TEST_P(ValidateCFG, ContinueTargetMustBePostDominatedByBackEdge) {
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex("The continue construct with the continue target "
                              ".\\[cheader\\] is not post dominated by the "
-                             "back-edge block .\\[be_block\\]"));
+                             "back-edge block .\\[be_block\\]\n"
+                             "  %be_block = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -1067,12 +1096,13 @@ TEST_P(ValidateCFG, BranchOutOfConstructToMergeBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) loop.SetBody("OpLoopMerge %merge %loop None\n");
 
-  string str = header(GetParam()) + nameOps("cont", "loop") + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("cont", "loop") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({cont, merge});
-  str += cont >> vector<Block>({loop, merge});
+  str += loop >> std::vector<Block>({cont, merge});
+  str += cont >> std::vector<Block>({loop, merge});
   str += merge;
   str += "OpFunctionEnd";
 
@@ -1082,7 +1112,8 @@ TEST_P(ValidateCFG, BranchOutOfConstructToMergeBad) {
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex("The continue construct with the continue target "
                              ".\\[loop\\] is not post dominated by the "
-                             "back-edge block .\\[cont\\]"))
+                             "back-edge block .\\[cont\\]\n"
+                             "  %cont = OpLabel\n"))
         << str;
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
@@ -1100,12 +1131,13 @@ TEST_P(ValidateCFG, BranchOutOfConstructBad) {
   entry.SetBody("%cond    = OpSLessThan %boolt %one %two\n");
   if (is_shader) loop.SetBody("OpLoopMerge %merge %loop None\n");
 
-  string str = header(GetParam()) + nameOps("cont", "loop") + types_consts() +
-               "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) + nameOps("cont", "loop") +
+                    types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({cont, merge});
-  str += cont >> vector<Block>({loop, exit});
+  str += loop >> std::vector<Block>({cont, merge});
+  str += cont >> std::vector<Block>({loop, exit});
   str += merge >> exit;
   str += exit;
   str += "OpFunctionEnd";
@@ -1116,7 +1148,8 @@ TEST_P(ValidateCFG, BranchOutOfConstructBad) {
     EXPECT_THAT(getDiagnosticString(),
                 MatchesRegex("The continue construct with the continue target "
                              ".\\[loop\\] is not post dominated by the "
-                             "back-edge block .\\[cont\\]"));
+                             "back-edge block .\\[cont\\]\n"
+                             "  %cont = OpLabel\n"));
   } else {
     ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
   }
@@ -1130,7 +1163,7 @@ TEST_F(ValidateCFG, OpSwitchToUnreachableBlock) {
   Block def("default", SpvOpUnreachable);
   Block phi("phi", SpvOpReturn);
 
-  string str = R"(
+  std::string str = R"(
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint GLCompute %main "main" %id
@@ -1156,7 +1189,7 @@ OpDecorate %id BuiltIn GlobalInvocationId
       "%x        = OpCompositeExtract %u32 %idval 0\n"
       "%selector = OpUMod %u32 %x %three\n"
       "OpSelectionMerge %phi None\n");
-  str += entry >> vector<Block>({def, case0, case1, case2});
+  str += entry >> std::vector<Block>({def, case0, case1, case2});
   str += case1 >> phi;
   str += def;
   str += phi;
@@ -1169,10 +1202,11 @@ OpDecorate %id BuiltIn GlobalInvocationId
 }
 
 TEST_F(ValidateCFG, LoopWithZeroBackEdgesBad) {
-  string str = R"(
+  std::string str = R"(
            OpCapability Shader
            OpMemoryModel Logical GLSL450
            OpEntryPoint Fragment %main "main"
+           OpExecutionMode %main OriginUpperLeft
            OpName %loop "loop"
 %voidt   = OpTypeVoid
 %funct   = OpTypeFunction %voidt
@@ -1190,14 +1224,15 @@ TEST_F(ValidateCFG, LoopWithZeroBackEdgesBad) {
       getDiagnosticString(),
       MatchesRegex("Loop header .\\[loop\\] is targeted by "
                    "0 back-edge blocks but the standard requires exactly "
-                   "one"));
+                   "one\n  %loop = OpLabel\n"));
 }
 
 TEST_F(ValidateCFG, LoopWithBackEdgeFromUnreachableContinueConstructGood) {
-  string str = R"(
+  std::string str = R"(
            OpCapability Shader
            OpMemoryModel Logical GLSL450
            OpEntryPoint Fragment %main "main"
+           OpExecutionMode %main OriginUpperLeft
            OpName %loop "loop"
 %voidt   = OpTypeVoid
 %funct   = OpTypeFunction %voidt
@@ -1247,11 +1282,12 @@ TEST_P(ValidateCFG,
     inner_head.SetBody("OpSelectionMerge %inner_merge None\n");
   }
 
-  string str = header(GetParam()) + nameOps("entry", "inner_merge", "exit") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str = header(GetParam()) +
+                    nameOps("entry", "inner_merge", "exit") + types_consts() +
+                    "%func    = OpFunction %voidt None %funct\n";
 
-  str += entry >> vector<Block>({inner_head, exit});
-  str += inner_head >> vector<Block>({inner_true, inner_false});
+  str += entry >> std::vector<Block>({inner_head, exit});
+  str += inner_head >> std::vector<Block>({inner_true, inner_false});
   str += inner_true;
   str += inner_false;
   str += inner_merge >> exit;
@@ -1283,16 +1319,16 @@ TEST_P(ValidateCFG, ContinueTargetCanBeMergeBlockForNestedStructureGood) {
     if_head.SetBody("OpSelectionMerge %if_merge None\n");
   }
 
-  string str =
+  std::string str =
       header(GetParam()) +
       nameOps("entry", "loop", "if_head", "if_true", "if_merge", "merge") +
       types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
   str += loop >> if_head;
-  str += if_head >> vector<Block>({if_true, if_merge});
+  str += if_head >> std::vector<Block>({if_true, if_merge});
   str += if_true >> if_merge;
-  str += if_merge >> vector<Block>({loop, merge});
+  str += if_merge >> std::vector<Block>({loop, merge});
   str += merge;
   str += "OpFunctionEnd";
 
@@ -1314,12 +1350,13 @@ TEST_P(ValidateCFG, SingleLatchBlockMultipleBranchesToLoopHeader) {
     loop.SetBody("OpLoopMerge %merge %latch None\n");
   }
 
-  string str = header(GetParam()) + nameOps("entry", "loop", "latch", "merge") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) + nameOps("entry", "loop", "latch", "merge") +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
-  str += loop >> vector<Block>({latch, merge});
-  str += latch >> vector<Block>({loop, loop});  // This is the key
+  str += loop >> std::vector<Block>({latch, merge});
+  str += latch >> std::vector<Block>({loop, loop});  // This is the key
   str += merge;
   str += "OpFunctionEnd";
 
@@ -1346,8 +1383,9 @@ TEST_P(ValidateCFG, SingleLatchBlockHeaderContinueTargetIsItselfGood) {
     loop.SetBody("OpLoopMerge %merge %loop None\n");
   }
 
-  string str = header(GetParam()) + nameOps("entry", "loop", "latch", "merge") +
-               types_consts() + "%func    = OpFunction %voidt None %funct\n";
+  std::string str =
+      header(GetParam()) + nameOps("entry", "loop", "latch", "merge") +
+      types_consts() + "%func    = OpFunction %voidt None %funct\n";
 
   str += entry >> loop;
   str += loop >> latch;
@@ -1420,9 +1458,608 @@ TEST_F(ValidateCFG, OpReturnInNonVoidFunc) {
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
-          "OpReturn can only be called from a function with void return type"));
+          "OpReturn can only be called from a function with void return type.\n"
+          "  OpReturn"));
 }
 
-/// TODO(umar): Switch instructions
+TEST_F(ValidateCFG, StructuredCFGBranchIntoSelectionBody) {
+  std::string spirv = R"(
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %func "func"
+OpExecutionMode %func OriginUpperLeft
+%void = OpTypeVoid
+%bool = OpTypeBool
+%true = OpConstantTrue %bool
+%functy = OpTypeFunction %void
+%func = OpFunction %void None %functy
+%entry = OpLabel
+OpSelectionMerge %merge None
+OpBranchConditional %true %then %merge
+%merge = OpLabel
+OpBranch %then
+%then = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(spirv);
+  EXPECT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("branches to the selection construct, but not to the "
+                        "selection header <ID> 6\n  %7 = OpLabel"));
+}
+
+TEST_F(ValidateCFG, SwitchDefaultOnly) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpFunction %1 None %4
+%6 = OpLabel
+OpSelectionMerge %7 None
+OpSwitch %3 %7
+%7 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, SwitchSingleCase) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpFunction %1 None %4
+%6 = OpLabel
+OpSelectionMerge %7 None
+OpSwitch %3 %7 0 %8
+%8 = OpLabel
+OpBranch %7
+%7 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, MultipleFallThroughBlocks) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %11 1 %12
+%10 = OpLabel
+OpBranchConditional %6 %11 %12
+%11 = OpLabel
+OpBranch %9
+%12 = OpLabel
+OpBranch %9
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr(
+          "Case construct that targets 10 has branches to multiple other case "
+          "construct targets 12 and 11\n  %10 = OpLabel"));
+}
+
+TEST_F(ValidateCFG, MultipleFallThroughToDefault) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %11 1 %12
+%10 = OpLabel
+OpBranch %9
+%11 = OpLabel
+OpBranch %10
+%12 = OpLabel
+OpBranch %10
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Multiple case constructs have branches to the case construct "
+                "that targets 10\n  %10 = OpLabel"));
+}
+
+TEST_F(ValidateCFG, MultipleFallThroughToNonDefault) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %11 1 %12
+%10 = OpLabel
+OpBranch %12
+%11 = OpLabel
+OpBranch %12
+%12 = OpLabel
+OpBranch %9
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Multiple case constructs have branches to the case construct "
+                "that targets 12\n  %12 = OpLabel"));
+}
+
+TEST_F(ValidateCFG, DuplicateTargetWithFallThrough) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %10 1 %11
+%10 = OpLabel
+OpBranch %11
+%11 = OpLabel
+OpBranch %9
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, WrongOperandList) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %11 1 %12
+%10 = OpLabel
+OpBranch %9
+%12 = OpLabel
+OpBranch %11
+%11 = OpLabel
+OpBranch %9
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Case construct that targets 12 has branches to the case "
+                "construct that targets 11, but does not immediately "
+                "precede it in the OpSwitch's target list\n"
+                "  OpSwitch %uint_0 %10 0 %11 1 %12"));
+}
+
+TEST_F(ValidateCFG, WrongOperandListThroughDefault) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %11 1 %12
+%10 = OpLabel
+OpBranch %11
+%12 = OpLabel
+OpBranch %10
+%11 = OpLabel
+OpBranch %9
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Case construct that targets 12 has branches to the case "
+                "construct that targets 11, but does not immediately "
+                "precede it in the OpSwitch's target list\n"
+                "  OpSwitch %uint_0 %10 0 %11 1 %12"));
+}
+
+TEST_F(ValidateCFG, WrongOperandListNotLast) {
+  std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+%1 = OpTypeVoid
+%2 = OpTypeInt 32 0
+%3 = OpConstant %2 0
+%4 = OpTypeFunction %1
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpFunction %1 None %4
+%8 = OpLabel
+OpSelectionMerge %9 None
+OpSwitch %3 %10 0 %11 1 %12 2 %13
+%10 = OpLabel
+OpBranch %9
+%12 = OpLabel
+OpBranch %11
+%11 = OpLabel
+OpBranch %9
+%13 = OpLabel
+OpBranch %9
+%9 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Case construct that targets 12 has branches to the case "
+                "construct that targets 11, but does not immediately "
+                "precede it in the OpSwitch's target list\n"
+                "  OpSwitch %uint_0 %10 0 %11 1 %12 2 %13"));
+}
+
+TEST_F(ValidateCFG, GoodUnreachableSwitch) {
+  const std::string text = R"(
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %2 "main"
+OpExecutionMode %2 OriginUpperLeft
+%3 = OpTypeVoid
+%4 = OpTypeFunction %3
+%5 = OpTypeBool
+%6 = OpConstantTrue %5
+%7 = OpTypeInt 32 1
+%9 = OpConstant %7 0
+%2 = OpFunction %3 None %4
+%10 = OpLabel
+OpSelectionMerge %11 None
+OpBranchConditional %6 %12 %13
+%12 = OpLabel
+OpReturn
+%13 = OpLabel
+OpReturn
+%11 = OpLabel
+OpSelectionMerge %14 None
+OpSwitch %9 %14 0 %15
+%15 = OpLabel
+OpBranch %14
+%14 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_THAT(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, InvalidCaseExit) {
+  const std::string text = R"(
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %1 "func"
+OpExecutionMode %1 OriginUpperLeft
+%2 = OpTypeVoid
+%3 = OpTypeInt 32 0
+%4 = OpTypeFunction %2
+%5 = OpConstant %3 0
+%1 = OpFunction %2 None %4
+%6 = OpLabel
+OpSelectionMerge %7 None
+OpSwitch %5 %7 0 %8 1 %9
+%8 = OpLabel
+OpBranch %10
+%9 = OpLabel
+OpBranch %10
+%10 = OpLabel
+OpReturn
+%7 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("Case construct that targets 8 has invalid branch to "
+                        "block 10 (not another case construct, corresponding "
+                        "merge, outer loop merge or outer loop continue"));
+}
+
+TEST_F(ValidateCFG, GoodCaseExitsToOuterConstructs) {
+  const std::string text = R"(
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %func "func"
+OpExecutionMode %func OriginUpperLeft
+%void = OpTypeVoid
+%bool = OpTypeBool
+%true = OpConstantTrue %bool
+%int = OpTypeInt 32 0
+%int0 = OpConstant %int 0
+%func_ty = OpTypeFunction %void
+%func = OpFunction %void None %func_ty
+%1 = OpLabel
+OpBranch %2
+%2 = OpLabel
+OpLoopMerge %7 %6 None
+OpBranch %3
+%3 = OpLabel
+OpSelectionMerge %5 None
+OpSwitch %int0 %5 0 %4
+%4 = OpLabel
+OpBranchConditional %true %6 %7
+%5 = OpLabel
+OpBranchConditional %true %6 %7
+%6 = OpLabel
+OpBranch %2
+%7 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, GoodUnreachableSelection) {
+  const std::string text = R"(
+OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+%void = OpTypeVoid
+%8 = OpTypeFunction %void
+%bool = OpTypeBool
+%false = OpConstantFalse %bool
+%main = OpFunction %void None %8
+%15 = OpLabel
+OpBranch %16
+%16 = OpLabel
+OpLoopMerge %17 %18 None
+OpBranch %19
+%19 = OpLabel
+OpBranchConditional %false %21 %17
+%21 = OpLabel
+OpSelectionMerge %22 None
+OpBranchConditional %false %23 %22
+%23 = OpLabel
+OpBranch %24
+%24 = OpLabel
+OpLoopMerge %25 %26 None
+OpBranch %27
+%27 = OpLabel
+OpReturn
+%26 = OpLabel
+OpBranchConditional %false %24 %25
+%25 = OpLabel
+OpSelectionMerge %28 None
+OpBranchConditional %false %18 %28
+%28 = OpLabel
+OpBranch %22
+%22 = OpLabel
+OpBranch %18
+%18 = OpLabel
+OpBranch %16
+%17 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, ShaderWithPhiPtr) {
+  const std::string text = R"(
+               OpCapability Shader
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %1 "main"
+               OpExecutionMode %1 LocalSize 1 1 1
+               OpSource HLSL 600
+       %bool = OpTypeBool
+%_ptr_Function_bool = OpTypePointer Function %bool
+       %void = OpTypeVoid
+          %5 = OpTypeFunction %void
+          %1 = OpFunction %void None %5
+          %6 = OpLabel
+          %7 = OpVariable %_ptr_Function_bool Function
+          %8 = OpVariable %_ptr_Function_bool Function
+          %9 = OpUndef %bool
+               OpSelectionMerge %10 None
+               OpBranchConditional %9 %11 %10
+         %11 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+         %12 = OpPhi %_ptr_Function_bool %7 %6 %8 %11
+               OpReturn
+               OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("Using pointers with OpPhi requires capability "
+                        "VariablePointers or VariablePointersStorageBuffer"));
+}
+
+TEST_F(ValidateCFG, VarPtrShaderWithPhiPtr) {
+  const std::string text = R"(
+               OpCapability Shader
+               OpCapability VariablePointers
+               OpExtension "SPV_KHR_variable_pointers"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %1 "main"
+               OpExecutionMode %1 LocalSize 1 1 1
+               OpSource HLSL 600
+       %bool = OpTypeBool
+%_ptr_Function_bool = OpTypePointer Function %bool
+       %void = OpTypeVoid
+          %5 = OpTypeFunction %void
+          %1 = OpFunction %void None %5
+          %6 = OpLabel
+          %7 = OpVariable %_ptr_Function_bool Function
+          %8 = OpVariable %_ptr_Function_bool Function
+          %9 = OpUndef %bool
+               OpSelectionMerge %10 None
+               OpBranchConditional %9 %11 %10
+         %11 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+         %12 = OpPhi %_ptr_Function_bool %7 %6 %8 %11
+               OpReturn
+               OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, VarPtrStgBufShaderWithPhiStgBufPtr) {
+  const std::string text = R"(
+               OpCapability Shader
+               OpCapability VariablePointersStorageBuffer
+               OpExtension "SPV_KHR_variable_pointers"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %1 "main"
+               OpExecutionMode %1 LocalSize 1 1 1
+               OpSource HLSL 600
+       %bool = OpTypeBool
+       %float = OpTypeFloat 32
+%_ptr_StorageBuffer_float = OpTypePointer StorageBuffer %float
+          %7 = OpVariable %_ptr_StorageBuffer_float StorageBuffer
+          %8 = OpVariable %_ptr_StorageBuffer_float StorageBuffer
+       %void = OpTypeVoid
+          %5 = OpTypeFunction %void
+          %1 = OpFunction %void None %5
+          %6 = OpLabel
+          %9 = OpUndef %bool
+               OpSelectionMerge %10 None
+               OpBranchConditional %9 %11 %10
+         %11 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+         %12 = OpPhi %_ptr_StorageBuffer_float %7 %6 %8 %11
+               OpReturn
+               OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateCFG, KernelWithPhiPtr) {
+  const std::string text = R"(
+               OpCapability Kernel
+               OpCapability Addresses
+               OpMemoryModel Physical32 OpenCL
+               OpEntryPoint Kernel %1 "main"
+               OpExecutionMode %1 LocalSize 1 1 1
+               OpSource HLSL 600
+       %bool = OpTypeBool
+%_ptr_Function_bool = OpTypePointer Function %bool
+       %void = OpTypeVoid
+          %5 = OpTypeFunction %void
+          %1 = OpFunction %void None %5
+          %6 = OpLabel
+          %7 = OpVariable %_ptr_Function_bool Function
+          %8 = OpVariable %_ptr_Function_bool Function
+          %9 = OpUndef %bool
+               OpSelectionMerge %10 None
+               OpBranchConditional %9 %11 %10
+         %11 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+         %12 = OpPhi %_ptr_Function_bool %7 %6 %8 %11
+               OpReturn
+               OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
 /// TODO(umar): Nested CFG constructs
+
 }  // namespace
+}  // namespace val
+}  // namespace spvtools

@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pass_fixture.h"
-#include "pass_utils.h"
+#include <string>
 
+#include "test/opt/pass_fixture.h"
+#include "test/opt/pass_utils.h"
+
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using StripLineReflectInfoTest = PassTest<::testing::Test>;
 
@@ -40,7 +42,7 @@ OpMemoryModel Logical Simple
 %float = OpTypeFloat 32
 )";
 
-  SinglePassRunAndCheck<opt::StripReflectInfoPass>(before, after, false);
+  SinglePassRunAndCheck<StripReflectInfoPass>(before, after, false);
 }
 
 TEST_F(StripLineReflectInfoTest, StripHlslCounterBuffer) {
@@ -59,7 +61,30 @@ OpMemoryModel Logical Simple
 %float = OpTypeFloat 32
 )";
 
-  SinglePassRunAndCheck<opt::StripReflectInfoPass>(before, after, false);
+  SinglePassRunAndCheck<StripReflectInfoPass>(before, after, false);
 }
 
-}  // anonymous namespace
+TEST_F(StripLineReflectInfoTest, StripHlslSemanticOnMember) {
+  // This is a non-sensical example, but exercises the instructions.
+  std::string before = R"(OpCapability Shader
+OpCapability Linkage
+OpExtension "SPV_GOOGLE_decorate_string"
+OpExtension "SPV_GOOGLE_hlsl_functionality1"
+OpMemoryModel Logical Simple
+OpMemberDecorateStringGOOGLE %struct 0 HlslSemanticGOOGLE "foobar"
+%float = OpTypeFloat 32
+%_struct_3 = OpTypeStruct %float
+)";
+  std::string after = R"(OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical Simple
+%float = OpTypeFloat 32
+%_struct_3 = OpTypeStruct %float
+)";
+
+  SinglePassRunAndCheck<StripReflectInfoPass>(before, after, false);
+}
+
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

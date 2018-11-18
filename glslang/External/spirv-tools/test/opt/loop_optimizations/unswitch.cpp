@@ -12,21 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gmock/gmock.h>
+#include <string>
 
-#ifdef SPIRV_EFFCEE
 #include "effcee/effcee.h"
-#endif
+#include "gmock/gmock.h"
+#include "test/opt/pass_fixture.h"
 
-#include "../pass_fixture.h"
-
+namespace spvtools {
+namespace opt {
 namespace {
 
-using namespace spvtools;
-
 using UnswitchTest = PassTest<::testing::Test>;
-
-#ifdef SPIRV_EFFCEE
 
 /*
 Generated from the following GLSL + --eliminate-local-multi-store
@@ -151,7 +147,7 @@ TEST_F(UnswitchTest, SimpleUnswitch) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::LoopUnswitchPass>(text, true);
+  SinglePassRunAndMatch<LoopUnswitchPass>(text, true);
 }
 
 /*
@@ -257,7 +253,7 @@ TEST_F(UnswitchTest, UnswitchExit) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::LoopUnswitchPass>(text, true);
+  SinglePassRunAndMatch<LoopUnswitchPass>(text, true);
 }
 
 /*
@@ -373,7 +369,7 @@ TEST_F(UnswitchTest, UnswitchContinue) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::LoopUnswitchPass>(text, true);
+  SinglePassRunAndMatch<LoopUnswitchPass>(text, true);
 }
 
 /*
@@ -479,7 +475,7 @@ TEST_F(UnswitchTest, UnswitchKillLoop) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::LoopUnswitchPass>(text, true);
+  SinglePassRunAndMatch<LoopUnswitchPass>(text, true);
 }
 
 /*
@@ -605,7 +601,7 @@ TEST_F(UnswitchTest, UnswitchSwitch) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::LoopUnswitchPass>(text, true);
+  SinglePassRunAndMatch<LoopUnswitchPass>(text, true);
 }
 
 /*
@@ -806,9 +802,8 @@ TEST_F(UnswitchTest, UnSwitchNested) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::LoopUnswitchPass>(text, true);
+  SinglePassRunAndMatch<LoopUnswitchPass>(text, true);
 }
-#endif  // SPIRV_EFFCEE
 
 /*
 Generated from the following GLSL + --eliminate-local-multi-store
@@ -906,9 +901,11 @@ TEST_F(UnswitchTest, UnswitchNotUniform) {
   )";
 
   auto result =
-      SinglePassRunAndDisassemble<opt::LoopUnswitchPass>(text, true, false);
+      SinglePassRunAndDisassemble<LoopUnswitchPass>(text, true, false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 }  // namespace
+}  // namespace opt
+}  // namespace spvtools

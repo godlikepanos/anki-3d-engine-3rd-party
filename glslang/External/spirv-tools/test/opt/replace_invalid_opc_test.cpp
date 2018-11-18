@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "assembly_builder.h"
-#include "gmock/gmock.h"
-#include "pass_fixture.h"
-
 #include <cstdarg>
+#include <string>
+#include <vector>
 
+#include "gmock/gmock.h"
+#include "pass_utils.h"
+#include "test/opt/assembly_builder.h"
+#include "test/opt/pass_fixture.h"
+
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using ReplaceInvalidOpcodeTest = PassTest<::testing::Test>;
 
-#ifdef SPIRV_EFFCEE
 TEST_F(ReplaceInvalidOpcodeTest, ReplaceInstruction) {
   const std::string text = R"(
 ; CHECK: [[special_const:%\w+]] = OpConstant %float -6.2598534e+18
@@ -77,7 +79,7 @@ TEST_F(ReplaceInvalidOpcodeTest, ReplaceInstruction) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::ReplaceInvalidOpcodePass>(text, false);
+  SinglePassRunAndMatch<ReplaceInvalidOpcodePass>(text, false);
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, ReplaceInstructionInNonEntryPoint) {
@@ -137,7 +139,7 @@ TEST_F(ReplaceInvalidOpcodeTest, ReplaceInstructionInNonEntryPoint) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::ReplaceInvalidOpcodePass>(text, false);
+  SinglePassRunAndMatch<ReplaceInvalidOpcodePass>(text, false);
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, ReplaceInstructionMultipleEntryPoints) {
@@ -206,7 +208,7 @@ TEST_F(ReplaceInvalidOpcodeTest, ReplaceInstructionMultipleEntryPoints) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::ReplaceInvalidOpcodePass>(text, false);
+  SinglePassRunAndMatch<ReplaceInvalidOpcodePass>(text, false);
 }
 TEST_F(ReplaceInvalidOpcodeTest, DontReplaceInstruction) {
   const std::string text = R"(
@@ -256,9 +258,9 @@ TEST_F(ReplaceInvalidOpcodeTest, DontReplaceInstruction) {
                OpReturn
                OpFunctionEnd)";
 
-  auto result = SinglePassRunAndDisassemble<opt::ReplaceInvalidOpcodePass>(
+  auto result = SinglePassRunAndDisassemble<ReplaceInvalidOpcodePass>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, MultipleEntryPointsDifferentStage) {
@@ -321,9 +323,9 @@ TEST_F(ReplaceInvalidOpcodeTest, MultipleEntryPointsDifferentStage) {
                OpReturn
                OpFunctionEnd)";
 
-  auto result = SinglePassRunAndDisassemble<opt::ReplaceInvalidOpcodePass>(
+  auto result = SinglePassRunAndDisassemble<ReplaceInvalidOpcodePass>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, DontReplaceLinkage) {
@@ -375,9 +377,9 @@ TEST_F(ReplaceInvalidOpcodeTest, DontReplaceLinkage) {
                OpReturn
                OpFunctionEnd)";
 
-  auto result = SinglePassRunAndDisassemble<opt::ReplaceInvalidOpcodePass>(
+  auto result = SinglePassRunAndDisassemble<ReplaceInvalidOpcodePass>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, BarrierDontReplace) {
@@ -402,9 +404,9 @@ TEST_F(ReplaceInvalidOpcodeTest, BarrierDontReplace) {
             OpReturn
             OpFunctionEnd)";
 
-  auto result = SinglePassRunAndDisassemble<opt::ReplaceInvalidOpcodePass>(
+  auto result = SinglePassRunAndDisassemble<ReplaceInvalidOpcodePass>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, BarrierReplace) {
@@ -430,35 +432,7 @@ TEST_F(ReplaceInvalidOpcodeTest, BarrierReplace) {
             OpReturn
             OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::ReplaceInvalidOpcodePass>(text, false);
-}
-
-struct Message {
-  spv_message_level_t level;
-  const char* source_file;
-  uint32_t line_number;
-  uint32_t column_number;
-  const char* message;
-};
-
-MessageConsumer GetTestMessageConsumer(
-    std::vector<Message>& expected_messages) {
-  return [&expected_messages](spv_message_level_t level, const char* source,
-                              const spv_position_t& position,
-                              const char* message) {
-    EXPECT_TRUE(!expected_messages.empty());
-    if (expected_messages.empty()) {
-      return;
-    }
-
-    EXPECT_EQ(expected_messages[0].level, level);
-    EXPECT_EQ(expected_messages[0].line_number, position.line);
-    EXPECT_EQ(expected_messages[0].column_number, position.column);
-    EXPECT_STREQ(expected_messages[0].source_file, source);
-    EXPECT_STREQ(expected_messages[0].message, message);
-
-    expected_messages.erase(expected_messages.begin());
-  };
+  SinglePassRunAndMatch<ReplaceInvalidOpcodePass>(text, false);
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, MessageTest) {
@@ -516,9 +490,9 @@ TEST_F(ReplaceInvalidOpcodeTest, MessageTest) {
        "Removing ImageSampleImplicitLod instruction because of incompatible "
        "execution model."}};
   SetMessageConsumer(GetTestMessageConsumer(messages));
-  auto result = SinglePassRunAndDisassemble<opt::ReplaceInvalidOpcodePass>(
+  auto result = SinglePassRunAndDisassemble<ReplaceInvalidOpcodePass>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
-  EXPECT_EQ(opt::Pass::Status::SuccessWithChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithChange, std::get<1>(result));
 }
 
 TEST_F(ReplaceInvalidOpcodeTest, MultipleMessageTest) {
@@ -582,9 +556,11 @@ TEST_F(ReplaceInvalidOpcodeTest, MultipleMessageTest) {
        "incompatible "
        "execution model."}};
   SetMessageConsumer(GetTestMessageConsumer(messages));
-  auto result = SinglePassRunAndDisassemble<opt::ReplaceInvalidOpcodePass>(
+  auto result = SinglePassRunAndDisassemble<ReplaceInvalidOpcodePass>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
-  EXPECT_EQ(opt::Pass::Status::SuccessWithChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithChange, std::get<1>(result));
 }
-#endif
-}  // anonymous namespace
+
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

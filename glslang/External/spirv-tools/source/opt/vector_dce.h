@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef LIBSPIRV_OPT_VECTOR_DCE_H_
-#define LIBSPIRV_OPT_VECTOR_DCE_H_
+#ifndef SOURCE_OPT_VECTOR_DCE_H_
+#define SOURCE_OPT_VECTOR_DCE_H_
 
-#include <util/bit_vector.h>
-#include "mem_pass.h"
+#include <unordered_map>
+#include <vector>
+
+#include "source/opt/mem_pass.h"
+#include "source/util/bit_vector.h"
 
 namespace spvtools {
 namespace opt {
@@ -32,47 +35,63 @@ class VectorDCE : public MemPass {
   struct WorkListItem {
     WorkListItem() : instruction(nullptr), components(kMaxVectorSize) {}
 
-    ir::Instruction* instruction;
+    Instruction* instruction;
     utils::BitVector components;
   };
 
  public:
-  const char* name() const override { return "vector-dce"; }
-  Status Process(ir::IRContext*) override;
-
   VectorDCE() : all_components_live_(kMaxVectorSize) {
     for (uint32_t i = 0; i < kMaxVectorSize; i++) {
       all_components_live_.Set(i);
     }
   }
 
-  ir::IRContext::Analysis GetPreservedAnalyses() override {
-    return ir::IRContext::kAnalysisDefUse | ir::IRContext::kAnalysisCFG |
-           ir::IRContext::kAnalysisInstrToBlockMapping |
-           ir::IRContext::kAnalysisLoopAnalysis |
-           ir::IRContext::kAnalysisDecorations |
-           ir::IRContext::kAnalysisDominatorAnalysis |
-           ir::IRContext::kAnalysisNameMap;
+  const char* name() const override { return "vector-dce"; }
+  Status Process() override;
+
+  IRContext::Analysis GetPreservedAnalyses() override {
+    return IRContext::kAnalysisDefUse | IRContext::kAnalysisCFG |
+           IRContext::kAnalysisInstrToBlockMapping |
+           IRContext::kAnalysisLoopAnalysis | IRContext::kAnalysisDecorations |
+           IRContext::kAnalysisDominatorAnalysis | IRContext::kAnalysisNameMap;
   }
 
  private:
   // Runs the vector dce pass on |function|.  Returns true if |function| was
   // modified.
-  bool VectorDCEFunction(ir::Function* function);
+  bool VectorDCEFunction(Function* function);
 
   // Identifies the live components of the vectors that are results of
   // instructions in |function|.  The results are stored in |live_components|.
-  void FindLiveComponents(ir::Function* function,
+  void FindLiveComponents(Function* function,
                           LiveComponentMap* live_components);
 
   // Rewrites instructions in |function| that are dead or partially dead.  If an
   // instruction does not have an entry in |live_components|, then it is not
   // changed.  Returns true if |function| was modified.
-  bool RewriteInstructions(ir::Function* function,
+  bool RewriteInstructions(Function* function,
                            const LiveComponentMap& live_components);
 
+  // Rewrites the OpCompositeInsert instruction |current_inst| to avoid
+  // unnecessary computes given that the only components of the result that are
+  // live are |live_components|.
+  //
+  // If the value being inserted is not live, then the result of |current_inst|
+  // is replaced by the composite input to |current_inst|.
+  //
+  // If the composite input to |current_inst| is not live, then it is replaced
+  // by and OpUndef in |current_inst|.
+  bool RewriteInsertInstruction(Instruction* current_inst,
+                                const utils::BitVector& live_components);
+
+  // Returns true if the result of |inst| is a vector or a scalar.
+  bool HasVectorOrScalarResult(const Instruction* inst) const;
+
+  // Returns true if the result of |inst| is a scalar.
+  bool HasVectorResult(const Instruction* inst) const;
+
   // Returns true if the result of |inst| is a vector.
-  bool HasVectorResult(const ir::Instruction* inst) const;
+  bool HasScalarResult(const Instruction* inst) const;
 
   // Adds |work_item| to |work_list| if it is not already live according to
   // |live_components|.  |live_components| is updated to indicate that
@@ -84,7 +103,7 @@ class VectorDCE : public MemPass {
   // Marks the components |live_elements| of the uses in |current_inst| as live
   // according to |live_components|. If they were not live before, then they are
   // added to |work_list|.
-  void MarkUsesAsLive(ir::Instruction* current_inst,
+  void MarkUsesAsLive(Instruction* current_inst,
                       const utils::BitVector& live_elements,
                       LiveComponentMap* live_components,
                       std::vector<WorkListItem>* work_list);
@@ -108,9 +127,16 @@ class VectorDCE : public MemPass {
   // Marks the uses in the OpCompositeExtract instruction |current_inst| as
   // live. If anything becomes live they are added to |work_list| and
   // |live_components| is updated accordingly.
-  void MarkExtractUseAsLive(const ir::Instruction* current_inst,
+  void MarkExtractUseAsLive(const Instruction* current_inst,
                             LiveComponentMap* live_components,
                             std::vector<WorkListItem>* work_list);
+
+  // Marks the uses in the OpCompositeConstruct instruction |current_inst| as
+  // live. If anything becomes live they are added to |work_list| and
+  // |live_components| is updated accordingly.
+  void MarkCompositeContructUsesAsLive(WorkListItem work_item,
+                                       LiveComponentMap* live_components,
+                                       std::vector<WorkListItem>* work_list);
 
   // A BitVector that can always be used to say that all components of a vector
   // are live.
@@ -120,4 +146,4 @@ class VectorDCE : public MemPass {
 }  // namespace opt
 }  // namespace spvtools
 
-#endif  // LIBSPIRV_OPT_VECTOR_DCE_H_
+#endif  // SOURCE_OPT_VECTOR_DCE_H_

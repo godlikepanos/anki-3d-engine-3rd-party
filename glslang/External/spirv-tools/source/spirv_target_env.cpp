@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cassert>
+#include "source/spirv_target_env.h"
+
 #include <cstring>
 
+#include "source/spirv_constant.h"
 #include "spirv-tools/libspirv.h"
-#include "spirv_constant.h"
 
 const char* spvTargetEnvDescription(spv_target_env env) {
   switch (env) {
@@ -58,8 +59,9 @@ const char* spvTargetEnvDescription(spv_target_env env) {
       return "SPIR-V 1.3";
     case SPV_ENV_VULKAN_1_1:
       return "SPIR-V 1.3 (under Vulkan 1.1 semantics)";
+    case SPV_ENV_WEBGPU_0:
+      return "SPIR-V 1.3 (under WIP WebGPU semantics)";
   }
-  assert(0 && "Unhandled SPIR-V target environment");
   return "";
 }
 
@@ -87,9 +89,9 @@ uint32_t spvVersionForTargetEnv(spv_target_env env) {
       return SPV_SPIRV_VERSION_WORD(1, 2);
     case SPV_ENV_UNIVERSAL_1_3:
     case SPV_ENV_VULKAN_1_1:
+    case SPV_ENV_WEBGPU_0:
       return SPV_SPIRV_VERSION_WORD(1, 3);
   }
-  assert(0 && "Unhandled SPIR-V target environment");
   return SPV_SPIRV_VERSION_WORD(0, 0);
 }
 
@@ -154,6 +156,9 @@ bool spvParseTargetEnv(const char* s, spv_target_env* env) {
   } else if (match("opengl4.5")) {
     if (env) *env = SPV_ENV_OPENGL_4_5;
     return true;
+  } else if (match("webgpu0")) {
+    if (env) *env = SPV_ENV_WEBGPU_0;
+    return true;
   } else {
     if (env) *env = SPV_ENV_UNIVERSAL_1_0;
     return false;
@@ -179,9 +184,38 @@ bool spvIsVulkanEnv(spv_target_env env) {
     case SPV_ENV_OPENCL_2_2:
     case SPV_ENV_OPENCL_EMBEDDED_2_2:
     case SPV_ENV_UNIVERSAL_1_3:
+    case SPV_ENV_WEBGPU_0:
       return false;
     case SPV_ENV_VULKAN_1_0:
     case SPV_ENV_VULKAN_1_1:
+      return true;
+  }
+  return false;
+}
+
+bool spvIsOpenCLEnv(spv_target_env env) {
+  switch (env) {
+    case SPV_ENV_UNIVERSAL_1_0:
+    case SPV_ENV_VULKAN_1_0:
+    case SPV_ENV_UNIVERSAL_1_1:
+    case SPV_ENV_OPENGL_4_0:
+    case SPV_ENV_OPENGL_4_1:
+    case SPV_ENV_OPENGL_4_2:
+    case SPV_ENV_OPENGL_4_3:
+    case SPV_ENV_OPENGL_4_5:
+    case SPV_ENV_UNIVERSAL_1_2:
+    case SPV_ENV_UNIVERSAL_1_3:
+    case SPV_ENV_VULKAN_1_1:
+    case SPV_ENV_WEBGPU_0:
+      return false;
+    case SPV_ENV_OPENCL_1_2:
+    case SPV_ENV_OPENCL_EMBEDDED_1_2:
+    case SPV_ENV_OPENCL_2_0:
+    case SPV_ENV_OPENCL_EMBEDDED_2_0:
+    case SPV_ENV_OPENCL_EMBEDDED_2_1:
+    case SPV_ENV_OPENCL_EMBEDDED_2_2:
+    case SPV_ENV_OPENCL_2_1:
+    case SPV_ENV_OPENCL_2_2:
       return true;
   }
   return false;

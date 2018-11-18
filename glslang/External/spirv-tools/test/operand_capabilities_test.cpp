@@ -15,18 +15,16 @@
 // Test capability dependencies for enums.
 
 #include <tuple>
+#include <vector>
 
 #include "gmock/gmock.h"
+#include "source/enum_set.h"
+#include "test/unit_spirv.h"
 
-#include "enum_set.h"
-#include "unit_spirv.h"
-
+namespace spvtools {
 namespace {
 
-using libspirv::CapabilitySet;
 using spvtest::ElementsIn;
-using std::get;
-using std::tuple;
 using ::testing::Combine;
 using ::testing::Eq;
 using ::testing::TestWithParam;
@@ -42,23 +40,24 @@ struct EnumCapabilityCase {
 
 // Test fixture for testing EnumCapabilityCases.
 using EnumCapabilityTest =
-    TestWithParam<tuple<spv_target_env, EnumCapabilityCase>>;
+    TestWithParam<std::tuple<spv_target_env, EnumCapabilityCase>>;
 
 TEST_P(EnumCapabilityTest, Sample) {
-  const auto env = get<0>(GetParam());
+  const auto env = std::get<0>(GetParam());
   const auto context = spvContextCreate(env);
-  const libspirv::AssemblyGrammar grammar(context);
+  const AssemblyGrammar grammar(context);
   spv_operand_desc entry;
 
   ASSERT_EQ(SPV_SUCCESS,
-            grammar.lookupOperand(get<1>(GetParam()).type,
-                                  get<1>(GetParam()).value, &entry));
+            grammar.lookupOperand(std::get<1>(GetParam()).type,
+                                  std::get<1>(GetParam()).value, &entry));
   const auto cap_set = grammar.filterCapsAgainstTargetEnv(
       entry->capabilities, entry->numCapabilities);
 
   EXPECT_THAT(ElementsIn(cap_set),
-              Eq(ElementsIn(get<1>(GetParam()).expected_capabilities)))
-      << " capability value " << get<1>(GetParam()).value;
+              Eq(ElementsIn(std::get<1>(GetParam()).expected_capabilities)))
+      << " capability value " << std::get<1>(GetParam()).value;
+  spvContextDestroy(context);
 }
 
 #define CASE0(TYPE, VALUE)                            \
@@ -76,6 +75,12 @@ TEST_P(EnumCapabilityTest, Sample) {
     SPV_OPERAND_TYPE_##TYPE, uint32_t(Spv##VALUE), CapabilitySet { \
       SpvCapability##CAP1, SpvCapability##CAP2                     \
     }                                                              \
+  }
+#define CASE3(TYPE, VALUE, CAP1, CAP2, CAP3)                        \
+  {                                                                 \
+    SPV_OPERAND_TYPE_##TYPE, uint32_t(Spv##VALUE), CapabilitySet {  \
+      SpvCapability##CAP1, SpvCapability##CAP2, SpvCapability##CAP3 \
+    }                                                               \
   }
 #define CASE5(TYPE, VALUE, CAP1, CAP2, CAP3, CAP4, CAP5)             \
   {                                                                  \
@@ -156,9 +161,10 @@ INSTANTIATE_TEST_CASE_P(
                   Geometry),
             CASE1(EXECUTION_MODE, ExecutionModeQuads, Tessellation),
             CASE1(EXECUTION_MODE, ExecutionModeIsolines, Tessellation),
-            CASE2(EXECUTION_MODE, ExecutionModeOutputVertices, Geometry,
-                  Tessellation),
-            CASE1(EXECUTION_MODE, ExecutionModeOutputPoints, Geometry),
+            CASE3(EXECUTION_MODE, ExecutionModeOutputVertices, Geometry,
+                  Tessellation, MeshShadingNV),
+            CASE2(EXECUTION_MODE, ExecutionModeOutputPoints, Geometry,
+                  MeshShadingNV),
             CASE1(EXECUTION_MODE, ExecutionModeOutputLineStrip, Geometry),
             CASE1(EXECUTION_MODE, ExecutionModeOutputTriangleStrip, Geometry),
             CASE1(EXECUTION_MODE, ExecutionModeVecTypeHint, Kernel),
@@ -200,12 +206,12 @@ INSTANTIATE_TEST_CASE_P(
     Dim, EnumCapabilityTest,
     Combine(Values(SPV_ENV_UNIVERSAL_1_0, SPV_ENV_UNIVERSAL_1_1),
             ValuesIn(std::vector<EnumCapabilityCase>{
-                CASE1(DIMENSIONALITY, Dim1D, Sampled1D),
-                CASE0(DIMENSIONALITY, Dim2D),
+                CASE2(DIMENSIONALITY, Dim1D, Sampled1D, Image1D),
+                CASE3(DIMENSIONALITY, Dim2D, Kernel, Shader, ImageMSArray),
                 CASE0(DIMENSIONALITY, Dim3D),
-                CASE1(DIMENSIONALITY, DimCube, Shader),
-                CASE1(DIMENSIONALITY, DimRect, SampledRect),
-                CASE1(DIMENSIONALITY, DimBuffer, SampledBuffer),
+                CASE2(DIMENSIONALITY, DimCube, Shader, ImageCubeArray),
+                CASE2(DIMENSIONALITY, DimRect, SampledRect, ImageRect),
+                CASE2(DIMENSIONALITY, DimBuffer, SampledBuffer, ImageBuffer),
                 CASE1(DIMENSIONALITY, DimSubpassData, InputAttachment),
             })), );
 
@@ -348,7 +354,7 @@ INSTANTIATE_TEST_CASE_P(
                 CASE0(OPTIONAL_IMAGE, ImageOperandsGradMask),
                 CASE0(OPTIONAL_IMAGE, ImageOperandsConstOffsetMask),
                 CASE1(OPTIONAL_IMAGE, ImageOperandsOffsetMask, ImageGatherExtended),
-                CASE0(OPTIONAL_IMAGE, ImageOperandsConstOffsetsMask),
+                CASE1(OPTIONAL_IMAGE, ImageOperandsConstOffsetsMask, ImageGatherExtended),
                 CASE0(OPTIONAL_IMAGE, ImageOperandsSampleMask),
                 CASE1(OPTIONAL_IMAGE, ImageOperandsMinLodMask, MinLod),
                 // clang-format on
@@ -485,7 +491,8 @@ INSTANTIATE_TEST_CASE_P(
             CASE1(BUILT_IN, BuiltInCullDistance, CullDistance),  // Bug 1407, 15234
             CASE1(BUILT_IN, BuiltInVertexId, Shader),
             CASE1(BUILT_IN, BuiltInInstanceId, Shader),
-            CASE2(BUILT_IN, BuiltInPrimitiveId, Geometry, Tessellation),
+            CASE3(BUILT_IN, BuiltInPrimitiveId, Geometry, Tessellation,
+                  RayTracingNV),
             CASE2(BUILT_IN, BuiltInInvocationId, Geometry, Tessellation),
             CASE1(BUILT_IN, BuiltInLayer, Geometry),
             CASE1(BUILT_IN, BuiltInViewportIndex, MultiViewport),  // Bug 15234
@@ -599,25 +606,30 @@ INSTANTIATE_TEST_CASE_P(
             })), );
 
 // See SPIR-V Section 3.27 Scope <id>
-INSTANTIATE_TEST_CASE_P(Scope, EnumCapabilityTest,
-                        Combine(Values(SPV_ENV_UNIVERSAL_1_0,
-                                       SPV_ENV_UNIVERSAL_1_1),
-                                ValuesIn(std::vector<EnumCapabilityCase>{
-                                    CASE0(SCOPE_ID, ScopeCrossDevice),
-                                    CASE0(SCOPE_ID, ScopeDevice),
-                                    CASE0(SCOPE_ID, ScopeWorkgroup),
-                                    CASE0(SCOPE_ID, ScopeSubgroup),
-                                    CASE0(SCOPE_ID, ScopeInvocation),
-                                })), );
+INSTANTIATE_TEST_CASE_P(
+    Scope, EnumCapabilityTest,
+    Combine(Values(SPV_ENV_UNIVERSAL_1_0, SPV_ENV_UNIVERSAL_1_1,
+                   SPV_ENV_UNIVERSAL_1_2, SPV_ENV_UNIVERSAL_1_3),
+            ValuesIn(std::vector<EnumCapabilityCase>{
+                CASE0(SCOPE_ID, ScopeCrossDevice),
+                CASE0(SCOPE_ID, ScopeDevice),
+                CASE0(SCOPE_ID, ScopeWorkgroup),
+                CASE0(SCOPE_ID, ScopeSubgroup),
+                CASE0(SCOPE_ID, ScopeInvocation),
+                CASE1(SCOPE_ID, ScopeQueueFamilyKHR, VulkanMemoryModelKHR),
+            })), );
 
 // See SPIR-V Section 3.28 Group Operation
 INSTANTIATE_TEST_CASE_P(
     GroupOperation, EnumCapabilityTest,
     Combine(Values(SPV_ENV_UNIVERSAL_1_0, SPV_ENV_UNIVERSAL_1_1),
             ValuesIn(std::vector<EnumCapabilityCase>{
-                CASE1(GROUP_OPERATION, GroupOperationReduce, Kernel),
-                CASE1(GROUP_OPERATION, GroupOperationInclusiveScan, Kernel),
-                CASE1(GROUP_OPERATION, GroupOperationExclusiveScan, Kernel),
+                CASE3(GROUP_OPERATION, GroupOperationReduce, Kernel,
+                      GroupNonUniformArithmetic, GroupNonUniformBallot),
+                CASE3(GROUP_OPERATION, GroupOperationInclusiveScan, Kernel,
+                      GroupNonUniformArithmetic, GroupNonUniformBallot),
+                CASE3(GROUP_OPERATION, GroupOperationExclusiveScan, Kernel,
+                      GroupNonUniformArithmetic, GroupNonUniformBallot),
             })), );
 
 // See SPIR-V Section 3.29 Kernel Enqueue Flags
@@ -687,7 +699,7 @@ INSTANTIATE_TEST_CASE_P(
             CASE1(CAPABILITY, CapabilityImageRect, SampledRect),
             CASE1(CAPABILITY, CapabilitySampledRect, Shader),
             CASE1(CAPABILITY, CapabilityGenericPointer, Addresses),
-            CASE1(CAPABILITY, CapabilityInt8, Kernel),
+            CASE0(CAPABILITY, CapabilityInt8),
             CASE1(CAPABILITY, CapabilityInputAttachment, Shader),
             CASE1(CAPABILITY, CapabilitySparseResidency, Shader),
             CASE1(CAPABILITY, CapabilityMinLod, Shader),
@@ -720,4 +732,5 @@ INSTANTIATE_TEST_CASE_P(
 #undef CASE1
 #undef CASE2
 
-}  // anonymous namespace
+}  // namespace
+}  // namespace spvtools

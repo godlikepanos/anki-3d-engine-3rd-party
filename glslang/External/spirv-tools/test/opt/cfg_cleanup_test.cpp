@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pass_fixture.h"
-#include "pass_utils.h"
+#include <string>
 
+#include "test/opt/pass_fixture.h"
+#include "test/opt/pass_utils.h"
+
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using CFGCleanupTest = PassTest<::testing::Test>;
 
@@ -79,8 +81,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::CFGCleanupPass>(
-      declarations + body_before, declarations + body_after, true, true);
+  SinglePassRunAndCheck<CFGCleanupPass>(declarations + body_before,
+                                        declarations + body_after, true, true);
 }
 
 TEST_F(CFGCleanupTest, RemoveDecorations) {
@@ -89,6 +91,7 @@ TEST_F(CFGCleanupTest, RemoveDecorations) {
                   %1 = OpExtInstImport "GLSL.std.450"
                        OpMemoryModel Logical GLSL450
                        OpEntryPoint Fragment %main "main"
+                       OpExecutionMode %main OriginUpperLeft
                        OpName %main "main"
                        OpName %x "x"
                        OpName %dead "dead"
@@ -121,6 +124,7 @@ TEST_F(CFGCleanupTest, RemoveDecorations) {
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
 OpName %main "main"
 OpName %x "x"
 OpDecorate %x RelaxedPrecision
@@ -142,7 +146,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::CFGCleanupPass>(before, after, true, true);
+  SinglePassRunAndCheck<CFGCleanupPass>(before, after, true, true);
 }
 
 TEST_F(CFGCleanupTest, UpdatePhis) {
@@ -151,6 +155,7 @@ TEST_F(CFGCleanupTest, UpdatePhis) {
           %1 = OpExtInstImport "GLSL.std.450"
                OpMemoryModel Logical GLSL450
                OpEntryPoint Fragment %main "main" %y %outparm
+               OpExecutionMode %main OriginUpperLeft
                OpName %main "main"
                OpName %y "y"
                OpName %outparm "outparm"
@@ -192,6 +197,7 @@ TEST_F(CFGCleanupTest, UpdatePhis) {
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %main "main" %y %outparm
+OpExecutionMode %main OriginUpperLeft
 OpName %main "main"
 OpName %y "y"
 OpName %outparm "outparm"
@@ -226,7 +232,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::CFGCleanupPass>(before, after, true, true);
+  SinglePassRunAndCheck<CFGCleanupPass>(before, after, true, true);
 }
 
 TEST_F(CFGCleanupTest, RemoveNamedLabels) {
@@ -261,7 +267,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::CFGCleanupPass>(before, after, true, true);
+  SinglePassRunAndCheck<CFGCleanupPass>(before, after, true, true);
 }
 
 TEST_F(CFGCleanupTest, RemovePhiArgsFromFarBlocks) {
@@ -270,6 +276,7 @@ TEST_F(CFGCleanupTest, RemovePhiArgsFromFarBlocks) {
           %1 = OpExtInstImport "GLSL.std.450"
                OpMemoryModel Logical GLSL450
                OpEntryPoint Fragment %main "main" %y %outparm
+               OpExecutionMode %main OriginUpperLeft
                OpName %main "main"
                OpName %y "y"
                OpName %outparm "outparm"
@@ -317,6 +324,7 @@ TEST_F(CFGCleanupTest, RemovePhiArgsFromFarBlocks) {
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %main "main" %y %outparm
+OpExecutionMode %main OriginUpperLeft
 OpName %main "main"
 OpName %y "y"
 OpName %outparm "outparm"
@@ -359,7 +367,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::CFGCleanupPass>(before, after, true, true);
+  SinglePassRunAndCheck<CFGCleanupPass>(before, after, true, true);
 }
 
 TEST_F(CFGCleanupTest, RemovePhiConstantArgs) {
@@ -368,6 +376,7 @@ TEST_F(CFGCleanupTest, RemovePhiConstantArgs) {
           %1 = OpExtInstImport "GLSL.std.450"
                OpMemoryModel Logical GLSL450
                OpEntryPoint Fragment %main "main" %y %outparm
+               OpExecutionMode %main OriginUpperLeft
                OpName %main "main"
                OpName %y "y"
                OpName %outparm "outparm"
@@ -408,6 +417,7 @@ TEST_F(CFGCleanupTest, RemovePhiConstantArgs) {
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %main "main" %y %outparm
+OpExecutionMode %main OriginUpperLeft
 OpName %main "main"
 OpName %y "y"
 OpName %outparm "outparm"
@@ -438,6 +448,9 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::CFGCleanupPass>(before, after, true, true);
+  SinglePassRunAndCheck<CFGCleanupPass>(before, after, true, true);
 }
-}  // anonymous namespace
+
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

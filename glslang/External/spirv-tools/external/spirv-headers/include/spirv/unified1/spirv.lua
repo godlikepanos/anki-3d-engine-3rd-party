@@ -26,13 +26,14 @@
 -- the Binary Section of the SPIR-V specification.
 
 -- Enumeration tokens for SPIR-V, in various styles:
---   C, C++, C++11, JSON, Lua, Python
+--   C, C++, C++11, JSON, Lua, Python, C#
 -- 
 -- - C will have tokens with a "Spv" prefix, e.g.: SpvSourceLanguageGLSL
 -- - C++ will have tokens in the "spv" name space, e.g.: spv::SourceLanguageGLSL
 -- - C++11 will use enum classes in the spv namespace, e.g.: spv::SourceLanguage::GLSL
 -- - Lua will use tables, e.g.: spv.SourceLanguage.GLSL
 -- - Python will use dictionaries, e.g.: spv['SourceLanguage']['GLSL']
+-- - C# will use enum classes in the Specification class located in the "Spv" namespace, e.g.: Spv.Specification.SourceLanguage.GLSL
 -- 
 -- Some tokens act like mask values, which can be OR'd together,
 -- while others are mutually exclusive.  The mask-like ones have
@@ -63,6 +64,14 @@ spv = {
         Fragment = 4,
         GLCompute = 5,
         Kernel = 6,
+        TaskNV = 5267,
+        MeshNV = 5268,
+        RayGenerationNV = 5313,
+        IntersectionNV = 5314,
+        AnyHitNV = 5315,
+        ClosestHitNV = 5316,
+        MissNV = 5317,
+        CallableNV = 5318,
     },
 
     AddressingModel = {
@@ -75,6 +84,7 @@ spv = {
         Simple = 0,
         GLSL450 = 1,
         OpenCL = 2,
+        VulkanKHR = 3,
     },
 
     ExecutionMode = {
@@ -118,6 +128,11 @@ spv = {
         LocalSizeHintId = 39,
         PostDepthCoverage = 4446,
         StencilRefReplacingEXT = 5027,
+        OutputLinesNV = 5269,
+        OutputPrimitivesNV = 5270,
+        DerivativeGroupQuadsNV = 5289,
+        DerivativeGroupLinearNV = 5290,
+        OutputTrianglesNV = 5298,
     },
 
     StorageClass = {
@@ -134,6 +149,12 @@ spv = {
         AtomicCounter = 10,
         Image = 11,
         StorageBuffer = 12,
+        CallableDataNV = 5328,
+        IncomingCallableDataNV = 5329,
+        RayPayloadNV = 5338,
+        HitAttributeNV = 5339,
+        IncomingRayPayloadNV = 5342,
+        ShaderRecordBufferNV = 5343,
     },
 
     Dim = {
@@ -254,6 +275,10 @@ spv = {
         ConstOffsets = 5,
         Sample = 6,
         MinLod = 7,
+        MakeTexelAvailableKHR = 8,
+        MakeTexelVisibleKHR = 9,
+        NonPrivateTexelKHR = 10,
+        VolatileTexelKHR = 11,
     },
 
     ImageOperandsMask = {
@@ -266,6 +291,10 @@ spv = {
         ConstOffsets = 0x00000020,
         Sample = 0x00000040,
         MinLod = 0x00000080,
+        MakeTexelAvailableKHR = 0x00000100,
+        MakeTexelVisibleKHR = 0x00000200,
+        NonPrivateTexelKHR = 0x00000400,
+        VolatileTexelKHR = 0x00000800,
     },
 
     FPFastMathModeShift = {
@@ -366,6 +395,10 @@ spv = {
         PassthroughNV = 5250,
         ViewportRelativeNV = 5252,
         SecondaryViewportRelativeNV = 5256,
+        PerPrimitiveNV = 5271,
+        PerViewNV = 5272,
+        PerTaskNV = 5273,
+        PerVertexNV = 5285,
         NonUniformEXT = 5300,
         HlslCounterBufferGOOGLE = 5634,
         HlslSemanticGOOGLE = 5635,
@@ -442,6 +475,32 @@ spv = {
         PositionPerViewNV = 5261,
         ViewportMaskPerViewNV = 5262,
         FullyCoveredEXT = 5264,
+        TaskCountNV = 5274,
+        PrimitiveCountNV = 5275,
+        PrimitiveIndicesNV = 5276,
+        ClipDistancePerViewNV = 5277,
+        CullDistancePerViewNV = 5278,
+        LayerPerViewNV = 5279,
+        MeshViewCountNV = 5280,
+        MeshViewIndicesNV = 5281,
+        BaryCoordNV = 5286,
+        BaryCoordNoPerspNV = 5287,
+        FragmentSizeNV = 5292,
+        InvocationsPerPixelNV = 5293,
+        LaunchIdNV = 5319,
+        LaunchSizeNV = 5320,
+        WorldRayOriginNV = 5321,
+        WorldRayDirectionNV = 5322,
+        ObjectRayOriginNV = 5323,
+        ObjectRayDirectionNV = 5324,
+        RayTminNV = 5325,
+        RayTmaxNV = 5326,
+        InstanceCustomIndexNV = 5327,
+        ObjectToWorldNV = 5330,
+        WorldToObjectNV = 5331,
+        HitTNV = 5332,
+        HitKindNV = 5333,
+        IncomingRayFlagsNV = 5351,
     },
 
     SelectionControlShift = {
@@ -496,6 +555,9 @@ spv = {
         CrossWorkgroupMemory = 9,
         AtomicCounterMemory = 10,
         ImageMemory = 11,
+        OutputMemoryKHR = 12,
+        MakeAvailableKHR = 13,
+        MakeVisibleKHR = 14,
     },
 
     MemorySemanticsMask = {
@@ -510,12 +572,18 @@ spv = {
         CrossWorkgroupMemory = 0x00000200,
         AtomicCounterMemory = 0x00000400,
         ImageMemory = 0x00000800,
+        OutputMemoryKHR = 0x00001000,
+        MakeAvailableKHR = 0x00002000,
+        MakeVisibleKHR = 0x00004000,
     },
 
     MemoryAccessShift = {
         Volatile = 0,
         Aligned = 1,
         Nontemporal = 2,
+        MakePointerAvailableKHR = 3,
+        MakePointerVisibleKHR = 4,
+        NonPrivatePointerKHR = 5,
     },
 
     MemoryAccessMask = {
@@ -523,6 +591,9 @@ spv = {
         Volatile = 0x00000001,
         Aligned = 0x00000002,
         Nontemporal = 0x00000004,
+        MakePointerAvailableKHR = 0x00000008,
+        MakePointerVisibleKHR = 0x00000010,
+        NonPrivatePointerKHR = 0x00000020,
     },
 
     Scope = {
@@ -531,6 +602,7 @@ spv = {
         Workgroup = 2,
         Subgroup = 3,
         Invocation = 4,
+        QueueFamilyKHR = 5,
     },
 
     GroupOperation = {
@@ -641,6 +713,9 @@ spv = {
         VariablePointers = 4442,
         AtomicStorageOps = 4445,
         SampleMaskPostDepthCoverage = 4447,
+        StorageBuffer8BitAccess = 4448,
+        UniformAndStorageBuffer8BitAccess = 4449,
+        StoragePushConstant8 = 4450,
         Float16ImageAMD = 5008,
         ImageGatherBiasLodAMD = 5009,
         FragmentMaskAMD = 5010,
@@ -654,6 +729,11 @@ spv = {
         ShaderStereoViewNV = 5259,
         PerViewAttributesNV = 5260,
         FragmentFullyCoveredEXT = 5265,
+        MeshShadingNV = 5266,
+        ImageFootprintNV = 5282,
+        FragmentBarycentricNV = 5284,
+        ComputeDerivativeGroupQuadsNV = 5288,
+        ShadingRateNV = 5291,
         GroupNonUniformPartitionedNV = 5297,
         ShaderNonUniformEXT = 5301,
         RuntimeDescriptorArrayEXT = 5302,
@@ -667,6 +747,10 @@ spv = {
         InputAttachmentArrayNonUniformIndexingEXT = 5310,
         UniformTexelBufferArrayNonUniformIndexingEXT = 5311,
         StorageTexelBufferArrayNonUniformIndexingEXT = 5312,
+        RayTracingNV = 5340,
+        VulkanMemoryModelKHR = 5345,
+        VulkanMemoryModelDeviceScopeKHR = 5346,
+        ComputeDerivativeGroupLinearNV = 5350,
         SubgroupShuffleINTEL = 5568,
         SubgroupBufferBlockIOINTEL = 5569,
         SubgroupImageBlockIOINTEL = 5570,
@@ -1029,7 +1113,15 @@ spv = {
         OpGroupSMaxNonUniformAMD = 5007,
         OpFragmentMaskFetchAMD = 5011,
         OpFragmentFetchAMD = 5012,
+        OpImageSampleFootprintNV = 5283,
         OpGroupNonUniformPartitionNV = 5296,
+        OpWritePackedPrimitiveIndices4x8NV = 5299,
+        OpReportIntersectionNV = 5334,
+        OpIgnoreIntersectionNV = 5335,
+        OpTerminateRayNV = 5336,
+        OpTraceNV = 5337,
+        OpTypeAccelerationStructureNV = 5341,
+        OpExecuteCallableNV = 5344,
         OpSubgroupShuffleINTEL = 5571,
         OpSubgroupShuffleDownINTEL = 5572,
         OpSubgroupShuffleUpINTEL = 5573,

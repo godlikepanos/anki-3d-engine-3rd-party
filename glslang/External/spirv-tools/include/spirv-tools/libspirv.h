@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SPIRV_TOOLS_LIBSPIRV_H_
-#define SPIRV_TOOLS_LIBSPIRV_H_
+#ifndef INCLUDE_SPIRV_TOOLS_LIBSPIRV_H_
+#define INCLUDE_SPIRV_TOOLS_LIBSPIRV_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -288,6 +288,12 @@ typedef enum spv_binary_to_text_options_t {
   SPV_FORCE_32_BIT_ENUM(spv_binary_to_text_options_t)
 } spv_binary_to_text_options_t;
 
+// Constants
+
+// The default id bound is to the minimum value for the id limit
+// in the spir-v specification under the section "Universal Limits".
+const uint32_t kDefaultMaxIdBound = 0x3FFFFF;
+
 // Structures
 
 // Information about an operand parsed from a binary SPIR-V module.
@@ -360,6 +366,8 @@ typedef struct spv_context_t spv_context_t;
 
 typedef struct spv_validator_options_t spv_validator_options_t;
 
+typedef struct spv_optimizer_options_t spv_optimizer_options_t;
+
 // Type Definitions
 
 typedef spv_const_binary_t* spv_const_binary;
@@ -371,6 +379,8 @@ typedef const spv_context_t* spv_const_context;
 typedef spv_context_t* spv_context;
 typedef spv_validator_options_t* spv_validator_options;
 typedef const spv_validator_options_t* spv_const_validator_options;
+typedef spv_optimizer_options_t* spv_optimizer_options;
+typedef const spv_optimizer_options_t* spv_const_optimizer_options;
 
 // Platform API
 
@@ -412,6 +422,7 @@ typedef enum {
   SPV_ENV_OPENCL_EMBEDDED_2_2,  // OpenCL Embedded Profile 2.2 latest revision.
   SPV_ENV_UNIVERSAL_1_3,  // SPIR-V 1.3 latest revision, no other restrictions.
   SPV_ENV_VULKAN_1_1,     // Vulkan 1.1 latest revision.
+  SPV_ENV_WEBGPU_0,       // Work in progress WebGPU 1.0.
 } spv_target_env;
 
 // SPIR-V Validator can be parameterized with the following Universal Limits.
@@ -424,6 +435,7 @@ typedef enum {
   spv_validator_limit_max_function_args,
   spv_validator_limit_max_control_flow_nesting_depth,
   spv_validator_limit_max_access_chain_indexes,
+  spv_validator_limit_max_id_bound,
 } spv_validator_limit;
 
 // Returns a string describing the given SPIR-V target environment.
@@ -471,6 +483,63 @@ SPIRV_TOOLS_EXPORT void spvValidatorOptionsSetRelaxStoreStruct(
 // 2) OpReturnValue returning a pointer value
 SPIRV_TOOLS_EXPORT void spvValidatorOptionsSetRelaxLogicalPointer(
     spv_validator_options options, bool val);
+
+// Records whether the validator should use "relaxed" block layout rules.
+// Relaxed layout rules are described by Vulkan extension
+// VK_KHR_relaxed_block_layout, and they affect uniform blocks, storage blocks,
+// and push constants.
+//
+// This is enabled by default when targeting Vulkan 1.1 or later.
+// Relaxed layout is more permissive than the default rules in Vulkan 1.0.
+SPIRV_TOOLS_EXPORT void spvValidatorOptionsSetRelaxBlockLayout(
+    spv_validator_options options, bool val);
+
+// Records whether the validator should use "scalar" block layout rules.
+// Scalar layout rules are more permissive than relaxed block layout.
+//
+// See Vulkan extnesion VK_EXT_scalar_block_layout.  The scalar alignment is
+// defined as follows:
+// - scalar alignment of a scalar is the scalar size
+// - scalar alignment of a vector is the scalar alignment of its component
+// - scalar alignment of a matrix is the scalar alignment of its component
+// - scalar alignment of an array is the scalar alignment of its element
+// - scalar alignment of a struct is the max scalar alignment among its
+//   members
+//
+// For a struct in Uniform, StorageClass, or PushConstant:
+// - a member Offset must be a multiple of the member's scalar alignment
+// - ArrayStride or MatrixStride must be a multiple of the array or matrix
+//   scalar alignment
+SPIRV_TOOLS_EXPORT void spvValidatorOptionsSetScalarBlockLayout(
+    spv_validator_options options, bool val);
+
+// Records whether or not the validator should skip validating standard
+// uniform/storage block layout.
+SPIRV_TOOLS_EXPORT void spvValidatorOptionsSetSkipBlockLayout(
+    spv_validator_options options, bool val);
+
+// Creates an optimizer options object with default options. Returns a valid
+// options object. The object remains valid until it is passed into
+// |spvOptimizerOptionsDestroy|.
+SPIRV_TOOLS_EXPORT spv_optimizer_options spvOptimizerOptionsCreate(void);
+
+// Destroys the given optimizer options object.
+SPIRV_TOOLS_EXPORT void spvOptimizerOptionsDestroy(
+    spv_optimizer_options options);
+
+// Records whether or not the optimizer should run the validator before
+// optimizing.  If |val| is true, the validator will be run.
+SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetRunValidator(
+    spv_optimizer_options options, bool val);
+
+// Records the validator options that should be passed to the validator if it is
+// run.
+SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetValidatorOptions(
+    spv_optimizer_options options, spv_validator_options val);
+
+// Records the maximum possible value for the id bound.
+SPIRV_TOOLS_EXPORT void spvOptimizerOptionsSetMaxIdBound(
+    spv_optimizer_options options, uint32_t val);
 
 // Encodes the given SPIR-V assembly text to its binary representation. The
 // length parameter specifies the number of bytes for text. Encoded binary will
@@ -583,4 +652,4 @@ SPIRV_TOOLS_EXPORT spv_result_t spvBinaryParse(
 }
 #endif
 
-#endif  // SPIRV_TOOLS_LIBSPIRV_H_
+#endif  // INCLUDE_SPIRV_TOOLS_LIBSPIRV_H_

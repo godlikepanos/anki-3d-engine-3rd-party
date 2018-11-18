@@ -12,21 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <string>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "pass_fixture.h"
-#include "pass_utils.h"
+#include "source/opt/ccp_pass.h"
+#include "test/opt/pass_fixture.h"
+#include "test/opt/pass_utils.h"
 
-#include "opt/ccp_pass.h"
-
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using CCPTest = PassTest<::testing::Test>;
 
-// TODO(dneto): Add Effcee as required dependency, and make this unconditional.
-#ifdef SPIRV_EFFCEE
 TEST_F(CCPTest, PropagateThroughPhis) {
   const std::string spv_asm = R"(
                OpCapability Shader
@@ -82,7 +81,7 @@ TEST_F(CCPTest, PropagateThroughPhis) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, SimplifyConditionals) {
@@ -139,7 +138,7 @@ TEST_F(CCPTest, SimplifyConditionals) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, SimplifySwitches) {
@@ -188,7 +187,7 @@ TEST_F(CCPTest, SimplifySwitches) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, SimplifySwitchesDefaultBranch) {
@@ -237,7 +236,7 @@ TEST_F(CCPTest, SimplifySwitchesDefaultBranch) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, SimplifyIntVector) {
@@ -288,7 +287,7 @@ TEST_F(CCPTest, SimplifyIntVector) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, BadSimplifyFloatVector) {
@@ -341,7 +340,7 @@ TEST_F(CCPTest, BadSimplifyFloatVector) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, NoLoadStorePropagation) {
@@ -383,7 +382,7 @@ TEST_F(CCPTest, NoLoadStorePropagation) {
                OpFunctionEnd
                )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, HandleAbortInstructions) {
@@ -416,7 +415,7 @@ TEST_F(CCPTest, HandleAbortInstructions) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, SSAWebCycles) {
@@ -467,7 +466,7 @@ TEST_F(CCPTest, SSAWebCycles) {
   )";
 
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, LoopInductionVariables) {
@@ -521,7 +520,7 @@ TEST_F(CCPTest, LoopInductionVariables) {
                OpFunctionEnd
   )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(spv_asm, true);
+  SinglePassRunAndMatch<CCPPass>(spv_asm, true);
 }
 
 TEST_F(CCPTest, HandleCompositeWithUndef) {
@@ -552,8 +551,8 @@ TEST_F(CCPTest, HandleCompositeWithUndef) {
                OpFunctionEnd
   )";
 
-  auto res = SinglePassRunToBinary<opt::CCPPass>(spv_asm, true);
-  EXPECT_EQ(std::get<1>(res), opt::Pass::Status::SuccessWithoutChange);
+  auto res = SinglePassRunToBinary<CCPPass>(spv_asm, true);
+  EXPECT_EQ(std::get<1>(res), Pass::Status::SuccessWithoutChange);
 }
 
 TEST_F(CCPTest, SkipSpecConstantInstrucitons) {
@@ -579,8 +578,8 @@ TEST_F(CCPTest, SkipSpecConstantInstrucitons) {
                OpFunctionEnd
   )";
 
-  auto res = SinglePassRunToBinary<opt::CCPPass>(spv_asm, true);
-  EXPECT_EQ(std::get<1>(res), opt::Pass::Status::SuccessWithoutChange);
+  auto res = SinglePassRunToBinary<CCPPass>(spv_asm, true);
+  EXPECT_EQ(std::get<1>(res), Pass::Status::SuccessWithoutChange);
 }
 
 TEST_F(CCPTest, UpdateSubsequentPhisToVarying) {
@@ -588,6 +587,7 @@ TEST_F(CCPTest, UpdateSubsequentPhisToVarying) {
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %func "func" %in
+OpExecutionMode %func OriginUpperLeft
 %void = OpTypeVoid
 %bool = OpTypeBool
 %int = OpTypeInt 32 1
@@ -639,8 +639,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  auto res = SinglePassRunToBinary<opt::CCPPass>(text, true);
-  EXPECT_EQ(std::get<1>(res), opt::Pass::Status::SuccessWithoutChange);
+  auto res = SinglePassRunToBinary<CCPPass>(text, true);
+  EXPECT_EQ(std::get<1>(res), Pass::Status::SuccessWithoutChange);
 }
 
 TEST_F(CCPTest, UndefInPhi) {
@@ -678,7 +678,7 @@ TEST_F(CCPTest, UndefInPhi) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
 
 // Just test to make sure the constant fold rules are being used.  Will rely on
@@ -704,7 +704,7 @@ TEST_F(CCPTest, UseConstantFoldingRules) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
 
 // Test for #1300. Previously value for %5 would not settle during simulation.
@@ -731,7 +731,7 @@ OpFunctionEnd
 )";
 
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
-  SinglePassRunToBinary<opt::CCPPass>(text, true);
+  SinglePassRunToBinary<CCPPass>(text, true);
 }
 
 TEST_F(CCPTest, NullBranchCondition) {
@@ -742,6 +742,7 @@ TEST_F(CCPTest, NullBranchCondition) {
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %func "func"
+OpExecutionMode %func OriginUpperLeft
 %void = OpTypeVoid
 %bool = OpTypeBool
 %int = OpTypeInt 32 1
@@ -762,7 +763,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
 
 TEST_F(CCPTest, UndefBranchCondition) {
@@ -773,6 +774,7 @@ TEST_F(CCPTest, UndefBranchCondition) {
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %func "func"
+OpExecutionMode %func OriginUpperLeft
 %void = OpTypeVoid
 %bool = OpTypeBool
 %int = OpTypeInt 32 1
@@ -793,7 +795,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
 
 TEST_F(CCPTest, NullSwitchCondition) {
@@ -804,6 +806,7 @@ TEST_F(CCPTest, NullSwitchCondition) {
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %func "func"
+OpExecutionMode %func OriginUpperLeft
 %void = OpTypeVoid
 %int = OpTypeInt 32 1
 %null = OpConstantNull %int
@@ -823,7 +826,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
 
 TEST_F(CCPTest, UndefSwitchCondition) {
@@ -834,6 +837,7 @@ TEST_F(CCPTest, UndefSwitchCondition) {
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %func "func"
+OpExecutionMode %func OriginUpperLeft
 %void = OpTypeVoid
 %int = OpTypeInt 32 1
 %undef = OpUndef %int
@@ -853,7 +857,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
 
 // Test for #1361.
@@ -864,6 +868,7 @@ TEST_F(CCPTest, CompositeConstructOfGlobalValue) {
 OpCapability Shader
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %func "func" %in
+OpExecutionMode %func OriginUpperLeft
 %void = OpTypeVoid
 %int = OpTypeInt 32 1
 %bool = OpTypeBool
@@ -888,8 +893,9 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::CCPPass>(text, true);
+  SinglePassRunAndMatch<CCPPass>(text, true);
 }
-#endif
 
 }  // namespace
+}  // namespace opt
+}  // namespace spvtools

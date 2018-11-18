@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "assembly_builder.h"
-#include "gmock/gmock.h"
-#include "pass_fixture.h"
-#include "pass_utils.h"
-
 #include <algorithm>
 #include <cstdarg>
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <unordered_set>
 
-namespace {
+#include "gmock/gmock.h"
+#include "test/opt/assembly_builder.h"
+#include "test/opt/pass_fixture.h"
+#include "test/opt/pass_utils.h"
 
-using namespace spvtools;
+namespace spvtools {
+namespace opt {
+namespace {
 
 using Workaround1209Test = PassTest<::testing::Test>;
 
-#ifdef SPIRV_EFFCEE
 TEST_F(Workaround1209Test, RemoveOpUnreachableInLoop) {
   const std::string text = R"(
                OpCapability Shader
@@ -119,7 +119,7 @@ TEST_F(Workaround1209Test, RemoveOpUnreachableInLoop) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::Workaround1209>(text, false);
+  SinglePassRunAndMatch<Workaround1209>(text, false);
 }
 
 TEST_F(Workaround1209Test, RemoveOpUnreachableInNestedLoop) {
@@ -219,7 +219,7 @@ TEST_F(Workaround1209Test, RemoveOpUnreachableInNestedLoop) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::Workaround1209>(text, false);
+  SinglePassRunAndMatch<Workaround1209>(text, false);
 }
 
 TEST_F(Workaround1209Test, RemoveOpUnreachableInAdjacentLoops) {
@@ -333,7 +333,7 @@ TEST_F(Workaround1209Test, RemoveOpUnreachableInAdjacentLoops) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::Workaround1209>(text, false);
+  SinglePassRunAndMatch<Workaround1209>(text, false);
 }
 
 TEST_F(Workaround1209Test, LeaveUnreachableNotInLoop) {
@@ -415,7 +415,9 @@ TEST_F(Workaround1209Test, LeaveUnreachableNotInLoop) {
                OpUnreachable
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::Workaround1209>(text, false);
+  SinglePassRunAndMatch<Workaround1209>(text, false);
 }
-#endif
-}  // anonymous namespace
+
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

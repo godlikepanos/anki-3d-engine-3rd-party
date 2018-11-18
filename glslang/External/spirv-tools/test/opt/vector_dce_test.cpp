@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pass_fixture.h"
-#include "pass_utils.h"
+#include <string>
 
+#include "test/opt/pass_fixture.h"
+#include "test/opt/pass_utils.h"
+
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using VectorDCETest = PassTest<::testing::Test>;
 
@@ -167,8 +169,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::VectorDCE>(before_predefs + before,
-                                        after_predefs + after, true, true);
+  SinglePassRunAndCheck<VectorDCE>(before_predefs + before,
+                                   after_predefs + after, true, true);
 }
 
 TEST_F(VectorDCETest, DeadInsertInChainWithPhi) {
@@ -350,16 +352,268 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::VectorDCE>(before_predefs + before,
-                                        after_predefs + after, true, true);
+  SinglePassRunAndCheck<VectorDCE>(before_predefs + before,
+                                   after_predefs + after, true, true);
 }
 
-TEST_F(VectorDCETest, DeadInsertInCycleToDo) {
+TEST_F(VectorDCETest, DeadInsertWithScalars) {
+  // Dead insert which requires two passes to eliminate
+  //
+  // Note: The SPIR-V assembly has had store/load elimination
+  // performed to allow the inserts and extracts to directly
+  // reference each other.
+  //
+  // #version 450
+  //
+  // layout (location=0) in vec4 In0;
+  // layout (location=1) in float In1;
+  // layout (location=2) in float In2;
+  // layout (location=0) out vec4 OutColor;
+  //
+  // layout(std140, binding = 0 ) uniform _Globals_
+  // {
+  //     bool g_b;
+  //     bool g_b2;
+  // };
+  //
+  // void main()
+  // {
+  //     vec4 v1, v2;
+  //     v1 = In0;
+  //     v1.y = In1 + In2; // dead, second pass
+  //     if (g_b) v1.x = 1.0;
+  //     v2.x = v1.x;
+  //     v2.y = v1.y; // dead, first pass
+  //     if (g_b2) v2.x = 0.0;
+  //     OutColor = vec4(v2.x,v2.x,0.0,1.0);
+  // }
+
+  const std::string before_predefs =
+      R"(OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main" %In0 %In1 %In2 %OutColor
+OpExecutionMode %main OriginUpperLeft
+OpSource GLSL 450
+OpName %main "main"
+OpName %In0 "In0"
+OpName %In1 "In1"
+OpName %In2 "In2"
+OpName %_Globals_ "_Globals_"
+OpMemberName %_Globals_ 0 "g_b"
+OpMemberName %_Globals_ 1 "g_b2"
+OpName %_ ""
+OpName %OutColor "OutColor"
+OpDecorate %In0 Location 0
+OpDecorate %In1 Location 1
+OpDecorate %In2 Location 2
+OpMemberDecorate %_Globals_ 0 Offset 0
+OpMemberDecorate %_Globals_ 1 Offset 4
+OpDecorate %_Globals_ Block
+OpDecorate %_ DescriptorSet 0
+OpDecorate %_ Binding 0
+OpDecorate %OutColor Location 0
+%void = OpTypeVoid
+%10 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+%In0 = OpVariable %_ptr_Input_v4float Input
+%_ptr_Input_float = OpTypePointer Input %float
+%In1 = OpVariable %_ptr_Input_float Input
+%In2 = OpVariable %_ptr_Input_float Input
+%uint = OpTypeInt 32 0
+%_Globals_ = OpTypeStruct %uint %uint
+%_ptr_Uniform__Globals_ = OpTypePointer Uniform %_Globals_
+%_ = OpVariable %_ptr_Uniform__Globals_ Uniform
+%int = OpTypeInt 32 1
+%int_0 = OpConstant %int 0
+%_ptr_Uniform_uint = OpTypePointer Uniform %uint
+%bool = OpTypeBool
+%uint_0 = OpConstant %uint 0
+%float_1 = OpConstant %float 1
+%int_1 = OpConstant %int 1
+%float_0 = OpConstant %float 0
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%OutColor = OpVariable %_ptr_Output_v4float Output
+%27 = OpUndef %v4float
+)";
+
+  const std::string after_predefs =
+      R"(OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main" %In0 %In1 %In2 %OutColor
+OpExecutionMode %main OriginUpperLeft
+OpSource GLSL 450
+OpName %main "main"
+OpName %In0 "In0"
+OpName %In1 "In1"
+OpName %In2 "In2"
+OpName %_Globals_ "_Globals_"
+OpMemberName %_Globals_ 0 "g_b"
+OpMemberName %_Globals_ 1 "g_b2"
+OpName %_ ""
+OpName %OutColor "OutColor"
+OpDecorate %In0 Location 0
+OpDecorate %In1 Location 1
+OpDecorate %In2 Location 2
+OpMemberDecorate %_Globals_ 0 Offset 0
+OpMemberDecorate %_Globals_ 1 Offset 4
+OpDecorate %_Globals_ Block
+OpDecorate %_ DescriptorSet 0
+OpDecorate %_ Binding 0
+OpDecorate %OutColor Location 0
+%void = OpTypeVoid
+%10 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+%In0 = OpVariable %_ptr_Input_v4float Input
+%_ptr_Input_float = OpTypePointer Input %float
+%In1 = OpVariable %_ptr_Input_float Input
+%In2 = OpVariable %_ptr_Input_float Input
+%uint = OpTypeInt 32 0
+%_Globals_ = OpTypeStruct %uint %uint
+%_ptr_Uniform__Globals_ = OpTypePointer Uniform %_Globals_
+%_ = OpVariable %_ptr_Uniform__Globals_ Uniform
+%int = OpTypeInt 32 1
+%int_0 = OpConstant %int 0
+%_ptr_Uniform_uint = OpTypePointer Uniform %uint
+%bool = OpTypeBool
+%uint_0 = OpConstant %uint 0
+%float_1 = OpConstant %float 1
+%int_1 = OpConstant %int 1
+%float_0 = OpConstant %float 0
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%OutColor = OpVariable %_ptr_Output_v4float Output
+%27 = OpUndef %v4float
+)";
+
+  const std::string before =
+      R"(%main = OpFunction %void None %10
+%28 = OpLabel
+%29 = OpLoad %v4float %In0
+%30 = OpLoad %float %In1
+%31 = OpLoad %float %In2
+%32 = OpFAdd %float %30 %31
+%33 = OpCompositeInsert %v4float %32 %29 1
+%34 = OpAccessChain %_ptr_Uniform_uint %_ %int_0
+%35 = OpLoad %uint %34
+%36 = OpINotEqual %bool %35 %uint_0
+OpSelectionMerge %37 None
+OpBranchConditional %36 %38 %37
+%38 = OpLabel
+%39 = OpCompositeInsert %v4float %float_1 %33 0
+OpBranch %37
+%37 = OpLabel
+%40 = OpPhi %v4float %33 %28 %39 %38
+%41 = OpCompositeExtract %float %40 0
+%42 = OpCompositeInsert %v4float %41 %27 0
+%43 = OpCompositeExtract %float %40 1
+%44 = OpCompositeInsert %v4float %43 %42 1
+%45 = OpAccessChain %_ptr_Uniform_uint %_ %int_1
+%46 = OpLoad %uint %45
+%47 = OpINotEqual %bool %46 %uint_0
+OpSelectionMerge %48 None
+OpBranchConditional %47 %49 %48
+%49 = OpLabel
+%50 = OpCompositeInsert %v4float %float_0 %44 0
+OpBranch %48
+%48 = OpLabel
+%51 = OpPhi %v4float %44 %37 %50 %49
+%52 = OpCompositeExtract %float %51 0
+%53 = OpCompositeExtract %float %51 0
+%54 = OpCompositeConstruct %v4float %52 %53 %float_0 %float_1
+OpStore %OutColor %54
+OpReturn
+OpFunctionEnd
+)";
+
+  const std::string after =
+      R"(%main = OpFunction %void None %10
+%28 = OpLabel
+%29 = OpLoad %v4float %In0
+%34 = OpAccessChain %_ptr_Uniform_uint %_ %int_0
+%35 = OpLoad %uint %34
+%36 = OpINotEqual %bool %35 %uint_0
+OpSelectionMerge %37 None
+OpBranchConditional %36 %38 %37
+%38 = OpLabel
+%39 = OpCompositeInsert %v4float %float_1 %29 0
+OpBranch %37
+%37 = OpLabel
+%40 = OpPhi %v4float %29 %28 %39 %38
+%41 = OpCompositeExtract %float %40 0
+%42 = OpCompositeInsert %v4float %41 %27 0
+%45 = OpAccessChain %_ptr_Uniform_uint %_ %int_1
+%46 = OpLoad %uint %45
+%47 = OpINotEqual %bool %46 %uint_0
+OpSelectionMerge %48 None
+OpBranchConditional %47 %49 %48
+%49 = OpLabel
+%50 = OpCompositeInsert %v4float %float_0 %42 0
+OpBranch %48
+%48 = OpLabel
+%51 = OpPhi %v4float %42 %37 %50 %49
+%52 = OpCompositeExtract %float %51 0
+%53 = OpCompositeExtract %float %51 0
+%54 = OpCompositeConstruct %v4float %52 %53 %float_0 %float_1
+OpStore %OutColor %54
+OpReturn
+OpFunctionEnd
+)";
+
+  SinglePassRunAndCheck<DeadInsertElimPass>(before_predefs + before,
+                                            after_predefs + after, true, true);
+}
+
+TEST_F(VectorDCETest, InsertObjectLive) {
+  // Make sure that the object being inserted in an OpCompositeInsert
+  // is not removed when it is uses later on.
+  const std::string before =
+      R"(OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main" %In0 %In1 %OutColor
+OpExecutionMode %main OriginUpperLeft
+OpSource GLSL 450
+OpName %main "main"
+OpName %In0 "In0"
+OpName %In1 "In1"
+OpName %OutColor "OutColor"
+OpDecorate %In0 Location 0
+OpDecorate %In1 Location 1
+OpDecorate %OutColor Location 0
+%void = OpTypeVoid
+%10 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%_ptr_Input_v4float = OpTypePointer Input %v4float
+%In0 = OpVariable %_ptr_Input_v4float Input
+%_ptr_Input_float = OpTypePointer Input %float
+%In1 = OpVariable %_ptr_Input_float Input
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%OutColor = OpVariable %_ptr_Output_v4float Output
+%main = OpFunction %void None %10
+%28 = OpLabel
+%29 = OpLoad %v4float %In0
+%30 = OpLoad %float %In1
+%33 = OpCompositeInsert %v4float %30 %29 1
+OpStore %OutColor %33
+OpReturn
+OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndCheck<DeadInsertElimPass>(before, before, true, true);
+}
+
+TEST_F(VectorDCETest, DeadInsertInCycle) {
   // Dead insert in chain with cycle. Demonstrates analysis can handle
   // cycles in chains going through scalars intermediate values.
-  //
-  // TODO: Improve algorithm to remove dead insert into v.y.  Need to treat
-  //       scalars at if they are vectors with a single element.
   //
   // Note: The SPIR-V assembly has had store/load elimination
   // performed to allow the inserts and extracts to directly
@@ -388,7 +642,15 @@ TEST_F(VectorDCETest, DeadInsertInCycleToDo) {
   // }
 
   const std::string assembly =
-      R"(OpCapability Shader
+      R"(
+; CHECK: [[init_val:%\w+]] = OpConstantComposite %v2float %float_0 %float_1
+; CHECK: [[undef:%\w+]] = OpUndef %v2float
+; CHECK: OpFunction
+; CHECK: [[entry_lab:%\w+]] = OpLabel
+; CHECK: [[loop_header:%\w+]] = OpLabel
+; CHECK: OpPhi %v2float [[init_val]] [[entry_lab]] [[x_insert:%\w+]] {{%\w+}}
+; CHECK: [[x_insert:%\w+]] = OpCompositeInsert %v2float %43 [[undef]] 0
+OpCapability Shader
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %main "main" %OutColor %In0 %In1 %In2
@@ -468,7 +730,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::VectorDCE>(assembly, assembly, true, true);
+  SinglePassRunAndMatch<VectorDCE>(assembly, true);
 }
 
 TEST_F(VectorDCETest, DeadLoadFeedingCompositeConstruct) {
@@ -476,7 +738,12 @@ TEST_F(VectorDCETest, DeadLoadFeedingCompositeConstruct) {
   // TODO: Implement the rewrite for CompositeConstruct.
 
   const std::string assembly =
-      R"(OpCapability Shader
+      R"(
+; CHECK: [[undef:%\w+]] = OpUndef %float
+; CHECK: [[ac:%\w+]] = OpAccessChain %_ptr_Input_float %In0 %uint_2
+; CHECK: [[load:%\w+]] = OpLoad %float [[ac]]
+; CHECK: OpCompositeConstruct %v3float [[load]] [[undef]] [[undef]]
+OpCapability Shader
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Fragment %main "main" %In0 %OutColor
@@ -544,10 +811,9 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::VectorDCE>(assembly, assembly, true, true);
+  SinglePassRunAndMatch<VectorDCE>(assembly, true);
 }
 
-#ifdef SPIRV_EFFCEE
 TEST_F(VectorDCETest, DeadLoadFeedingVectorShuffle) {
   // Detach the loads feeding the CompositeConstruct for the unused elements.
   // TODO: Implement the rewrite for CompositeConstruct.
@@ -629,7 +895,7 @@ TEST_F(VectorDCETest, DeadLoadFeedingVectorShuffle) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::VectorDCE>(assembly, true);
+  SinglePassRunAndMatch<VectorDCE>(assembly, true);
 }
 
 TEST_F(VectorDCETest, DeadInstThroughShuffle) {
@@ -719,7 +985,7 @@ TEST_F(VectorDCETest, DeadInstThroughShuffle) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::VectorDCE>(assembly, true);
+  SinglePassRunAndMatch<VectorDCE>(assembly, true);
 }
 
 TEST_F(VectorDCETest, DeadInsertThroughOtherInst) {
@@ -809,8 +1075,82 @@ TEST_F(VectorDCETest, DeadInsertThroughOtherInst) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::VectorDCE>(assembly, true);
+  SinglePassRunAndMatch<VectorDCE>(assembly, true);
 }
-#endif
 
-}  // anonymous namespace
+TEST_F(VectorDCETest, VectorIntoCompositeConstruct) {
+  const std::string text = R"(OpCapability Linkage
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %1 "EntryPoint_Main" %2 %3
+OpExecutionMode %1 OriginUpperLeft
+OpDecorate %2 Location 0
+OpDecorate %_struct_4 Block
+OpDecorate %3 Location 0
+%float = OpTypeFloat 32
+%v2float = OpTypeVector %float 2
+%_ptr_Function_v2float = OpTypePointer Function %v2float
+%v4float = OpTypeVector %float 4
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%mat4v4float = OpTypeMatrix %v4float 4
+%_ptr_Function_mat4v4float = OpTypePointer Function %mat4v4float
+%v3float = OpTypeVector %float 3
+%_ptr_Function_v3float = OpTypePointer Function %v3float
+%_struct_14 = OpTypeStruct %v2float %mat4v4float %v3float %v2float %v4float
+%_ptr_Function__struct_14 = OpTypePointer Function %_struct_14
+%void = OpTypeVoid
+%int = OpTypeInt 32 1
+%int_2 = OpConstant %int 2
+%int_1 = OpConstant %int 1
+%int_4 = OpConstant %int 4
+%int_0 = OpConstant %int 0
+%int_3 = OpConstant %int 3
+%float_0 = OpConstant %float 0
+%float_1 = OpConstant %float 1
+%_ptr_Input_v2float = OpTypePointer Input %v2float
+%2 = OpVariable %_ptr_Input_v2float Input
+%_ptr_Output_v2float = OpTypePointer Output %v2float
+%_struct_4 = OpTypeStruct %v2float
+%_ptr_Output__struct_4 = OpTypePointer Output %_struct_4
+%3 = OpVariable %_ptr_Output__struct_4 Output
+%28 = OpTypeFunction %void
+%29 = OpConstantComposite %v2float %float_0 %float_0
+%30 = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
+%31 = OpConstantComposite %mat4v4float %30 %30 %30 %30
+%32 = OpConstantComposite %v3float %float_0 %float_0 %float_0
+%1 = OpFunction %void None %28
+%33 = OpLabel
+%34 = OpVariable %_ptr_Function_v4float Function
+%35 = OpVariable %_ptr_Function__struct_14 Function
+%36 = OpAccessChain %_ptr_Function_v2float %35 %int_0
+OpStore %36 %29
+%37 = OpAccessChain %_ptr_Function_mat4v4float %35 %int_1
+OpStore %37 %31
+%38 = OpAccessChain %_ptr_Function_v3float %35 %int_2
+OpStore %38 %32
+%39 = OpAccessChain %_ptr_Function_v2float %35 %int_3
+OpStore %39 %29
+%40 = OpAccessChain %_ptr_Function_v4float %35 %int_4
+OpStore %40 %30
+%41 = OpLoad %v2float %2
+OpStore %36 %41
+%42 = OpLoad %v3float %38
+%43 = OpCompositeConstruct %v4float %42 %float_1
+%44 = OpLoad %mat4v4float %37
+%45 = OpVectorTimesMatrix %v4float %43 %44
+OpStore %34 %45
+OpCopyMemory %40 %34
+OpCopyMemory %36 %39
+%46 = OpAccessChain %_ptr_Output_v2float %3 %int_0
+%47 = OpLoad %v2float %36
+OpStore %46 %47
+OpReturn
+OpFunctionEnd
+)";
+
+  SinglePassRunAndCheck<DeadInsertElimPass>(text, text, true, true);
+}
+
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

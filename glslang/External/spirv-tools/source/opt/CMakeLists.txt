@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(SPIRV-Tools-opt
+set(SPIRV_TOOLS_OPT_SOURCES
   aggressive_dead_code_elim_pass.h
   basic_block.h
   block_merge_pass.h
@@ -19,6 +19,7 @@ add_library(SPIRV-Tools-opt
   ccp_pass.h
   cfg_cleanup_pass.h
   cfg.h
+  combine_access_chains.h
   common_uniform_elim_pass.h
   compact_ids_pass.h
   composite.h
@@ -45,9 +46,10 @@ add_library(SPIRV-Tools-opt
   inline_exhaustive_pass.h
   inline_opaque_pass.h
   inline_pass.h
-  insert_extract_elim.h
+  inst_bindless_check_pass.h
   instruction.h
   instruction_list.h
+  instrument_pass.h
   ir_builder.h
   ir_context.h
   ir_loader.h
@@ -60,11 +62,13 @@ add_library(SPIRV-Tools-opt
   log.h
   loop_dependence.h
   loop_descriptor.h
+  loop_fission.h
+  loop_fusion.h
+  loop_fusion_pass.h
   loop_peeling.h
   loop_unroller.h
   loop_utils.h
   loop_unswitch_pass.h
-  make_unique.h
   mem_pass.h
   merge_return_pass.h
   module.h
@@ -73,7 +77,9 @@ add_library(SPIRV-Tools-opt
   pass.h
   pass_manager.h
   private_to_local_pass.h
+  process_lines_pass.h
   propagator.h
+  reduce_load_size.h
   redundancy_elimination.h
   reflect.h
   register_pressure.h
@@ -88,6 +94,7 @@ add_library(SPIRV-Tools-opt
   strength_reduction_pass.h
   strip_debug_info_pass.h
   strip_reflect_info_pass.h
+  struct_cfg_analysis.h
   tree_iterator.h
   type_manager.h
   types.h
@@ -103,6 +110,7 @@ add_library(SPIRV-Tools-opt
   ccp_pass.cpp
   cfg_cleanup_pass.cpp
   cfg.cpp
+  combine_access_chains.cpp
   common_uniform_elim_pass.cpp
   compact_ids_pass.cpp
   composite.cpp
@@ -129,9 +137,10 @@ add_library(SPIRV-Tools-opt
   inline_exhaustive_pass.cpp
   inline_opaque_pass.cpp
   inline_pass.cpp
-  insert_extract_elim.cpp
+  inst_bindless_check_pass.cpp
   instruction.cpp
   instruction_list.cpp
+  instrument_pass.cpp
   ir_context.cpp
   ir_loader.cpp
   licm_pass.cpp
@@ -143,6 +152,9 @@ add_library(SPIRV-Tools-opt
   loop_dependence.cpp
   loop_dependence_helpers.cpp
   loop_descriptor.cpp
+  loop_fission.cpp
+  loop_fusion.cpp
+  loop_fusion_pass.cpp
   loop_peeling.cpp
   loop_utils.cpp
   loop_unroller.cpp
@@ -154,7 +166,9 @@ add_library(SPIRV-Tools-opt
   pass.cpp
   pass_manager.cpp
   private_to_local_pass.cpp
+  process_lines_pass.cpp
   propagator.cpp
+  reduce_load_size.cpp
   redundancy_elimination.cpp
   register_pressure.cpp
   remove_duplicates_pass.cpp
@@ -168,6 +182,7 @@ add_library(SPIRV-Tools-opt
   strength_reduction_pass.cpp
   strip_debug_info_pass.cpp
   strip_reflect_info_pass.cpp
+  struct_cfg_analysis.cpp
   type_manager.cpp
   types.cpp
   unify_const_pass.cpp
@@ -175,6 +190,15 @@ add_library(SPIRV-Tools-opt
   vector_dce.cpp
   workaround1209.cpp
 )
+
+if(MSVC)
+  # Enable parallel builds across four cores for this lib
+  add_definitions(/MP4)
+endif()
+
+spvtools_pch(SPIRV_TOOLS_OPT_SOURCES pch_source_opt)
+
+add_library(SPIRV-Tools-opt ${SPIRV_TOOLS_OPT_SOURCES})
 
 spvtools_default_compile_options(SPIRV-Tools-opt)
 target_include_directories(SPIRV-Tools-opt
@@ -195,4 +219,3 @@ if(ENABLE_SPIRV_TOOLS_INSTALL)
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif(ENABLE_SPIRV_TOOLS_INSTALL)
-    

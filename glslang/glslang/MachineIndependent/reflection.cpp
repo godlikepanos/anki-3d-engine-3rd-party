@@ -131,11 +131,11 @@ public:
         for (int m = 0; m <= index; ++m) {
             // modify just the children's view of matrix layout, if there is one for this member
             TLayoutMatrix subMatrixLayout = memberList[m].type->getQualifier().layoutMatrix;
-            int memberAlignment = intermediate.getBaseAlignment(*memberList[m].type, memberSize, dummyStride,
-                                                                type.getQualifier().layoutPacking == ElpStd140,
-                                                                subMatrixLayout != ElmNone
-                                                                    ? subMatrixLayout == ElmRowMajor
-                                                                    : type.getQualifier().layoutMatrix == ElmRowMajor);
+            int memberAlignment = intermediate.getMemberAlignment(*memberList[m].type, memberSize, dummyStride,
+                                                                  type.getQualifier().layoutPacking,
+                                                                  subMatrixLayout != ElmNone
+                                                                      ? subMatrixLayout == ElmRowMajor
+                                                                      : type.getQualifier().layoutMatrix == ElmRowMajor);
             RoundToPow2(offset, memberAlignment);
             if (m < index)
                 offset += memberSize;
@@ -154,9 +154,9 @@ public:
 
         int lastMemberSize;
         int dummyStride;
-        intermediate.getBaseAlignment(*memberList[lastIndex].type, lastMemberSize, dummyStride,
-                                      blockType.getQualifier().layoutPacking == ElpStd140,
-                                      blockType.getQualifier().layoutMatrix == ElmRowMajor);
+        intermediate.getMemberAlignment(*memberList[lastIndex].type, lastMemberSize, dummyStride,
+                                        blockType.getQualifier().layoutPacking,
+                                        blockType.getQualifier().layoutMatrix == ElmRowMajor);
 
         return lastOffset + lastMemberSize;
     }
@@ -778,6 +778,14 @@ void TReflection::buildCounterIndices(const TIntermediate& intermediate)
     }
 }
 
+// build Shader Stages mask for all uniforms
+void TReflection::buildUniformStageMask(const TIntermediate& intermediate)
+{
+    for (int i = 0; i < int(indexToUniform.size()); ++i) {
+        indexToUniform[i].stages = static_cast<EShLanguageMask>(indexToUniform[i].stages | 1 << intermediate.getStage());
+    }
+}
+
 // Merge live symbols from 'intermediate' into the existing reflection database.
 //
 // Returns false if the input is too malformed to do this.
@@ -803,6 +811,7 @@ bool TReflection::addStage(EShLanguage stage, const TIntermediate& intermediate)
     }
 
     buildCounterIndices(intermediate);
+    buildUniformStageMask(intermediate);
 
     return true;
 }

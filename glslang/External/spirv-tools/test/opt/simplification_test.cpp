@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "opt/simplification_pass.h"
+#include <string>
 
-#include "assembly_builder.h"
 #include "gmock/gmock.h"
-#include "pass_fixture.h"
+#include "source/opt/simplification_pass.h"
+#include "test/opt/assembly_builder.h"
+#include "test/opt/pass_fixture.h"
 
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using SimplificationTest = PassTest<::testing::Test>;
 
-#ifdef SPIRV_EFFCEE
 TEST_F(SimplificationTest, StraightLineTest) {
   // Testing that folding rules are combined in simple straight line code.
   const std::string text = R"(OpCapability Shader
@@ -68,7 +68,7 @@ TEST_F(SimplificationTest, StraightLineTest) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::SimplificationPass>(text, false);
+  SinglePassRunAndMatch<SimplificationPass>(text, false);
 }
 
 TEST_F(SimplificationTest, AcrossBasicBlocks) {
@@ -132,7 +132,7 @@ TEST_F(SimplificationTest, AcrossBasicBlocks) {
 
 )";
 
-  SinglePassRunAndMatch<opt::SimplificationPass>(text, false);
+  SinglePassRunAndMatch<SimplificationPass>(text, false);
 }
 
 TEST_F(SimplificationTest, ThroughLoops) {
@@ -199,7 +199,9 @@ TEST_F(SimplificationTest, ThroughLoops) {
                OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::SimplificationPass>(text, false);
+  SinglePassRunAndMatch<SimplificationPass>(text, false);
 }
-#endif
-}  // anonymous namespace
+
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

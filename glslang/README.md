@@ -84,6 +84,15 @@ cd <the directory glslang was cloned to, "External" will be a subdirectory>
 git clone https://github.com/google/googletest.git External/googletest
 ```
 
+If you want to use googletest with Visual Studio 2013, you also need to check out an older version:
+
+```bash
+# to use googletest with Visual Studio 2013
+cd External/googletest
+git checkout 440527a61e1c91188195f7de212c63c77e8f0a45
+cd ../..
+```
+
 If you wish to assure that SPIR-V generated from HLSL is legal for Vulkan,
 or wish to invoke -Os to reduce SPIR-V size from HLSL or GLSL, install
 spirv-tools with this:
@@ -105,8 +114,8 @@ cd $BUILD_DIR
 For building on Linux:
 
 ```bash
-cmake -DCMAKE_BUILD_TYPE={Debug|Release|RelWithDebInfo} \
-      -DCMAKE_INSTALL_PREFIX="$(pwd)/install" $SOURCE_DIR
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/install" $SOURCE_DIR
+# "Release" (for CMAKE_BUILD_TYPE) could also be "Debug" or "RelWithDebInfo"
 ```
 
 For building on Windows:
@@ -125,8 +134,8 @@ The CMake GUI also works for Windows (version 3.4.1 tested).
 make -j4 install
 
 # for Windows:
-cmake --build . --config {Release|Debug|MinSizeRel|RelWithDebInfo} \
-      --target install
+cmake --build . --config Release --target install
+# "Release" (for --config) could also be "Debug", "MinSizeRel", or "RelWithDebInfo"
 ```
 
 If using MSVC, after running CMake to configure, use the

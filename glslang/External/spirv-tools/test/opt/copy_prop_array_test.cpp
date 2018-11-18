@@ -13,22 +13,18 @@
 // limitations under the License.
 
 #include <iostream>
+#include <string>
 
-#include <gmock/gmock.h>
+#include "gmock/gmock.h"
+#include "test/opt/assembly_builder.h"
+#include "test/opt/pass_fixture.h"
 
-#include "assembly_builder.h"
-#include "pass_fixture.h"
-
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
-using ir::Instruction;
-using ir::IRContext;
-using opt::PassManager;
 
 using CopyPropArrayPassTest = PassTest<::testing::Test>;
 
-#ifdef SPIRV_EFFCEE
 TEST_F(CopyPropArrayPassTest, BasicPropagateArray) {
   const std::string before =
       R"(
@@ -105,7 +101,7 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  SinglePassRunAndMatch<opt::CopyPropagateArrays>(before, false);
+  SinglePassRunAndMatch<CopyPropagateArrays>(before, false);
 }
 
 TEST_F(CopyPropArrayPassTest, BasicPropagateArrayWithName) {
@@ -185,10 +181,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  SinglePassRunAndMatch<opt::CopyPropagateArrays>(before, false);
+  SinglePassRunAndMatch<CopyPropagateArrays>(before, false);
 }
 
-// Propagate 2d array.  This test identifing a copy through multiple levels.
+// Propagate 2d array.  This test identifying a copy through multiple levels.
 // Also has to traverse multiple OpAccessChains.
 TEST_F(CopyPropArrayPassTest, Propagate2DArray) {
   const std::string text =
@@ -274,7 +270,94 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  SinglePassRunAndMatch<opt::CopyPropagateArrays>(text, false);
+  SinglePassRunAndMatch<CopyPropagateArrays>(text, false);
+}
+
+// Propagate 2d array.  This test identifying a copy through multiple levels.
+// Also has to traverse multiple OpAccessChains.
+TEST_F(CopyPropArrayPassTest, Propagate2DArrayWithMultiLevelExtract) {
+  const std::string text =
+      R"(OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main" %in_var_INDEX %out_var_SV_Target
+OpExecutionMode %main OriginUpperLeft
+OpSource HLSL 600
+OpName %type_MyCBuffer "type.MyCBuffer"
+OpMemberName %type_MyCBuffer 0 "Data"
+OpName %MyCBuffer "MyCBuffer"
+OpName %main "main"
+OpName %in_var_INDEX "in.var.INDEX"
+OpName %out_var_SV_Target "out.var.SV_Target"
+OpDecorate %_arr_v4float_uint_2 ArrayStride 16
+OpDecorate %_arr__arr_v4float_uint_2_uint_2 ArrayStride 32
+OpMemberDecorate %type_MyCBuffer 0 Offset 0
+OpDecorate %type_MyCBuffer Block
+OpDecorate %in_var_INDEX Flat
+OpDecorate %in_var_INDEX Location 0
+OpDecorate %out_var_SV_Target Location 0
+OpDecorate %MyCBuffer DescriptorSet 0
+OpDecorate %MyCBuffer Binding 0
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%uint = OpTypeInt 32 0
+%uint_2 = OpConstant %uint 2
+%_arr_v4float_uint_2 = OpTypeArray %v4float %uint_2
+%_arr__arr_v4float_uint_2_uint_2 = OpTypeArray %_arr_v4float_uint_2 %uint_2
+%type_MyCBuffer = OpTypeStruct %_arr__arr_v4float_uint_2_uint_2
+%_ptr_Uniform_type_MyCBuffer = OpTypePointer Uniform %type_MyCBuffer
+%void = OpTypeVoid
+%14 = OpTypeFunction %void
+%int = OpTypeInt 32 1
+%_ptr_Input_int = OpTypePointer Input %int
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%_arr_v4float_uint_2_0 = OpTypeArray %v4float %uint_2
+%_arr__arr_v4float_uint_2_0_uint_2 = OpTypeArray %_arr_v4float_uint_2_0 %uint_2
+%_ptr_Function__arr__arr_v4float_uint_2_0_uint_2 = OpTypePointer Function %_arr__arr_v4float_uint_2_0_uint_2
+%int_0 = OpConstant %int 0
+%_ptr_Uniform__arr__arr_v4float_uint_2_uint_2 = OpTypePointer Uniform %_arr__arr_v4float_uint_2_uint_2
+%_ptr_Function__arr_v4float_uint_2_0 = OpTypePointer Function %_arr_v4float_uint_2_0
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%MyCBuffer = OpVariable %_ptr_Uniform_type_MyCBuffer Uniform
+%in_var_INDEX = OpVariable %_ptr_Input_int Input
+%out_var_SV_Target = OpVariable %_ptr_Output_v4float Output
+; CHECK: OpFunction
+; CHECK: OpLabel
+; CHECK: OpVariable
+; CHECK: OpVariable
+; CHECK: OpAccessChain
+; CHECK: [[new_address:%\w+]] = OpAccessChain %_ptr_Uniform__arr__arr_v4float_uint_2_uint_2 %MyCBuffer %int_0
+%main = OpFunction %void None %14
+%25 = OpLabel
+%26 = OpVariable %_ptr_Function__arr_v4float_uint_2_0 Function
+%27 = OpVariable %_ptr_Function__arr__arr_v4float_uint_2_0_uint_2 Function
+%28 = OpLoad %int %in_var_INDEX
+%29 = OpAccessChain %_ptr_Uniform__arr__arr_v4float_uint_2_uint_2 %MyCBuffer %int_0
+%30 = OpLoad %_arr__arr_v4float_uint_2_uint_2 %29
+%32 = OpCompositeExtract %v4float %30 0 0
+%33 = OpCompositeExtract %v4float %30 0 1
+%34 = OpCompositeConstruct %_arr_v4float_uint_2_0 %32 %33
+%36 = OpCompositeExtract %v4float %30 1 0
+%37 = OpCompositeExtract %v4float %30 1 1
+%38 = OpCompositeConstruct %_arr_v4float_uint_2_0 %36 %37
+%39 = OpCompositeConstruct %_arr__arr_v4float_uint_2_0_uint_2 %34 %38
+; CHECK: OpStore
+OpStore %27 %39
+%40 = OpAccessChain %_ptr_Function__arr_v4float_uint_2_0 %27 %28
+%42 = OpAccessChain %_ptr_Function_v4float %40 %28
+%43 = OpLoad %v4float %42
+; CHECK: [[ac1:%\w+]] = OpAccessChain %_ptr_Uniform__arr_v4float_uint_2 [[new_address]] %28
+; CHECK: [[ac2:%\w+]] = OpAccessChain %_ptr_Uniform_v4float [[ac1]] %28
+; CHECK: [[load:%\w+]] = OpLoad %v4float [[ac2]]
+; CHECK: OpStore %out_var_SV_Target [[load]]
+OpStore %out_var_SV_Target %43
+OpReturn
+OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
+                        SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
+  SinglePassRunAndMatch<CopyPropagateArrays>(text, false);
 }
 
 // Test decomposing an object when we need to "rewrite" a store.
@@ -347,7 +430,7 @@ TEST_F(CopyPropArrayPassTest, DecomposeObjectForArrayStore) {
 ; CHECK: [[extract1:%\w+]] = OpCompositeExtract %v4float [[load]] 0
 ; CHECK: [[extract2:%\w+]] = OpCompositeExtract %v4float [[load]] 1
 ; CHECK: [[construct:%\w+]] = OpCompositeConstruct %_arr_v4float_uint_2_0 [[extract1]] [[extract2]]
-; CHEKC: OpStore %26 [[construct]]
+; CHECK: OpStore %26 [[construct]]
                OpStore %26 %41
          %42 = OpAccessChain %_ptr_Function_v4float %26 %28
          %43 = OpLoad %v4float %42
@@ -359,7 +442,7 @@ TEST_F(CopyPropArrayPassTest, DecomposeObjectForArrayStore) {
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  SinglePassRunAndMatch<opt::CopyPropagateArrays>(text, false);
+  SinglePassRunAndMatch<CopyPropagateArrays>(text, false);
 }
 
 // Test decomposing an object when we need to "rewrite" a store.
@@ -435,7 +518,7 @@ TEST_F(CopyPropArrayPassTest, DecomposeObjectForStructStore) {
 ; CHECK: [[extract1:%\w+]] = OpCompositeExtract %float [[load]] 0
 ; CHECK: [[extract2:%\w+]] = OpCompositeExtract %uint [[load]] 1
 ; CHECK: [[construct:%\w+]] = OpCompositeConstruct [[struct]] [[extract1]] [[extract2]]
-; CHEKC: OpStore %26 [[construct]]
+; CHECK: OpStore %26 [[construct]]
                OpStore %26 %41
          %42 = OpAccessChain %_ptr_Function_v4float %26 %28
          %43 = OpLoad %v4float %42
@@ -447,7 +530,7 @@ TEST_F(CopyPropArrayPassTest, DecomposeObjectForStructStore) {
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  SinglePassRunAndMatch<opt::CopyPropagateArrays>(text, false);
+  SinglePassRunAndMatch<CopyPropagateArrays>(text, false);
 }
 
 TEST_F(CopyPropArrayPassTest, CopyViaInserts) {
@@ -534,10 +617,316 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  SinglePassRunAndMatch<opt::CopyPropagateArrays>(before, false);
+  SinglePassRunAndMatch<CopyPropagateArrays>(before, false);
 }
-#endif  // SPIRV_EFFCEE
 
+TEST_F(CopyPropArrayPassTest, IsomorphicTypes1) {
+  const std::string before =
+      R"(
+; CHECK: [[int:%\w+]] = OpTypeInt 32 0
+; CHECK: [[s1:%\w+]] = OpTypeStruct [[int]]
+; CHECK: [[s2:%\w+]] = OpTypeStruct [[s1]]
+; CHECK: [[a1:%\w+]] = OpTypeArray [[s2]]
+; CHECK: [[s3:%\w+]] = OpTypeStruct [[a1]]
+; CHECK: [[p_s3:%\w+]] = OpTypePointer Uniform [[s3]]
+; CHECK: [[global_var:%\w+]] = OpVariable [[p_s3]] Uniform
+; CHECK: [[p_a1:%\w+]] = OpTypePointer Uniform [[a1]]
+; CHECK: [[p_s2:%\w+]] = OpTypePointer Uniform [[s2]]
+; CHECK: [[ac1:%\w+]] = OpAccessChain [[p_a1]] [[global_var]] %uint_0
+; CHECK: [[ac2:%\w+]] = OpAccessChain [[p_s2]] [[ac1]] %uint_0
+; CHECK: [[ld:%\w+]] = OpLoad [[s2]] [[ac2]]
+; CHECK: [[ex:%\w+]] = OpCompositeExtract [[s1]] [[ld]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "PS_main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource HLSL 600
+               OpDecorate %3 DescriptorSet 0
+               OpDecorate %3 Binding 101
+       %uint = OpTypeInt 32 0
+     %uint_1 = OpConstant %uint 1
+  %s1 = OpTypeStruct %uint
+  %s2 = OpTypeStruct %s1
+%a1 = OpTypeArray %s2 %uint_1
+  %s3 = OpTypeStruct %a1
+ %s1_1 = OpTypeStruct %uint
+%_ptr_Uniform_uint = OpTypePointer Uniform %uint
+       %void = OpTypeVoid
+         %13 = OpTypeFunction %void
+     %uint_0 = OpConstant %uint 0
+ %s1_0 = OpTypeStruct %uint
+ %s2_0 = OpTypeStruct %s1_0
+%a1_0 = OpTypeArray %s2_0 %uint_1
+ %s3_0 = OpTypeStruct %a1_0
+%p_s3 = OpTypePointer Uniform %s3
+%p_s3_0 = OpTypePointer Function %s3_0
+          %3 = OpVariable %p_s3 Uniform
+%p_a1_0 = OpTypePointer Function %a1_0
+%p_s2_0 = OpTypePointer Function %s2_0
+          %2 = OpFunction %void None %13
+         %20 = OpLabel
+         %21 = OpVariable %p_a1_0 Function
+         %22 = OpLoad %s3 %3
+         %23 = OpCompositeExtract %a1 %22 0
+         %24 = OpCompositeExtract %s2 %23 0
+         %25 = OpCompositeExtract %s1 %24 0
+         %26 = OpCompositeExtract %uint %25 0
+         %27 = OpCompositeConstruct %s1_0 %26
+         %32 = OpCompositeConstruct %s2_0 %27
+         %28 = OpCompositeConstruct %a1_0 %32
+               OpStore %21 %28
+         %29 = OpAccessChain %p_s2_0 %21 %uint_0
+         %30 = OpLoad %s2 %29
+         %31 = OpCompositeExtract %s1 %30 0
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
+                        SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
+  SinglePassRunAndMatch<CopyPropagateArrays>(before, false);
+}
+
+TEST_F(CopyPropArrayPassTest, IsomorphicTypes2) {
+  const std::string before =
+      R"(
+; CHECK: [[int:%\w+]] = OpTypeInt 32 0
+; CHECK: [[s1:%\w+]] = OpTypeStruct [[int]]
+; CHECK: [[s2:%\w+]] = OpTypeStruct [[s1]]
+; CHECK: [[a1:%\w+]] = OpTypeArray [[s2]]
+; CHECK: [[s3:%\w+]] = OpTypeStruct [[a1]]
+; CHECK: [[p_s3:%\w+]] = OpTypePointer Uniform [[s3]]
+; CHECK: [[global_var:%\w+]] = OpVariable [[p_s3]] Uniform
+; CHECK: [[p_s2:%\w+]] = OpTypePointer Uniform [[s2]]
+; CHECK: [[p_s1:%\w+]] = OpTypePointer Uniform [[s1]]
+; CHECK: [[ac1:%\w+]] = OpAccessChain [[p_s2]] [[global_var]] %uint_0 %uint_0
+; CHECK: [[ac2:%\w+]] = OpAccessChain [[p_s1]] [[ac1]] %uint_0
+; CHECK: [[ld:%\w+]] = OpLoad [[s1]] [[ac2]]
+; CHECK: [[ex:%\w+]] = OpCompositeExtract [[int]] [[ld]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "PS_main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource HLSL 600
+               OpDecorate %3 DescriptorSet 0
+               OpDecorate %3 Binding 101
+       %uint = OpTypeInt 32 0
+     %uint_1 = OpConstant %uint 1
+  %_struct_6 = OpTypeStruct %uint
+  %_struct_7 = OpTypeStruct %_struct_6
+%_arr__struct_7_uint_1 = OpTypeArray %_struct_7 %uint_1
+  %_struct_9 = OpTypeStruct %_arr__struct_7_uint_1
+ %_struct_10 = OpTypeStruct %uint
+%_ptr_Uniform_uint = OpTypePointer Uniform %uint
+       %void = OpTypeVoid
+         %13 = OpTypeFunction %void
+     %uint_0 = OpConstant %uint 0
+ %_struct_15 = OpTypeStruct %uint
+%_arr__struct_15_uint_1 = OpTypeArray %_struct_15 %uint_1
+%_ptr_Uniform__struct_9 = OpTypePointer Uniform %_struct_9
+%_ptr_Function__struct_15 = OpTypePointer Function %_struct_15
+          %3 = OpVariable %_ptr_Uniform__struct_9 Uniform
+%_ptr_Function__arr__struct_15_uint_1 = OpTypePointer Function %_arr__struct_15_uint_1
+          %2 = OpFunction %void None %13
+         %20 = OpLabel
+         %21 = OpVariable %_ptr_Function__arr__struct_15_uint_1 Function
+         %22 = OpLoad %_struct_9 %3
+         %23 = OpCompositeExtract %_arr__struct_7_uint_1 %22 0
+         %24 = OpCompositeExtract %_struct_7 %23 0
+         %25 = OpCompositeExtract %_struct_6 %24 0
+         %26 = OpCompositeExtract %uint %25 0
+         %27 = OpCompositeConstruct %_struct_15 %26
+         %28 = OpCompositeConstruct %_arr__struct_15_uint_1 %27
+               OpStore %21 %28
+         %29 = OpAccessChain %_ptr_Function__struct_15 %21 %uint_0
+         %30 = OpLoad %_struct_15 %29
+         %31 = OpCompositeExtract %uint %30 0
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
+                        SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
+  SinglePassRunAndMatch<CopyPropagateArrays>(before, false);
+}
+
+TEST_F(CopyPropArrayPassTest, IsomorphicTypes3) {
+  const std::string before =
+      R"(
+; CHECK: [[int:%\w+]] = OpTypeInt 32 0
+; CHECK: [[s1:%\w+]] = OpTypeStruct [[int]]
+; CHECK: [[s2:%\w+]] = OpTypeStruct [[s1]]
+; CHECK: [[a1:%\w+]] = OpTypeArray [[s2]]
+; CHECK: [[s3:%\w+]] = OpTypeStruct [[a1]]
+; CHECK: [[s1_1:%\w+]] = OpTypeStruct [[int]]
+; CHECK: [[p_s3:%\w+]] = OpTypePointer Uniform [[s3]]
+; CHECK: [[p_s1_1:%\w+]] = OpTypePointer Function [[s1_1]]
+; CHECK: [[global_var:%\w+]] = OpVariable [[p_s3]] Uniform
+; CHECK: [[p_s2:%\w+]] = OpTypePointer Uniform [[s2]]
+; CHECK: [[p_s1:%\w+]] = OpTypePointer Uniform [[s1]]
+; CHECK: [[var:%\w+]] = OpVariable [[p_s1_1]] Function
+; CHECK: [[ac1:%\w+]] = OpAccessChain [[p_s2]] [[global_var]] %uint_0 %uint_0
+; CHECK: [[ac2:%\w+]] = OpAccessChain [[p_s1]] [[ac1]] %uint_0
+; CHECK: [[ld:%\w+]] = OpLoad [[s1]] [[ac2]]
+; CHECK: [[ex:%\w+]] = OpCompositeExtract [[int]] [[ld]]
+; CHECK: [[copy:%\w+]] = OpCompositeConstruct [[s1_1]] [[ex]]
+; CHECK: OpStore [[var]] [[copy]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "PS_main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource HLSL 600
+               OpDecorate %3 DescriptorSet 0
+               OpDecorate %3 Binding 101
+       %uint = OpTypeInt 32 0
+     %uint_1 = OpConstant %uint 1
+  %_struct_6 = OpTypeStruct %uint
+  %_struct_7 = OpTypeStruct %_struct_6
+%_arr__struct_7_uint_1 = OpTypeArray %_struct_7 %uint_1
+  %_struct_9 = OpTypeStruct %_arr__struct_7_uint_1
+%_ptr_Uniform_uint = OpTypePointer Uniform %uint
+       %void = OpTypeVoid
+         %13 = OpTypeFunction %void
+     %uint_0 = OpConstant %uint 0
+ %_struct_15 = OpTypeStruct %uint
+ %_struct_10 = OpTypeStruct %uint
+%_arr__struct_15_uint_1 = OpTypeArray %_struct_15 %uint_1
+%_ptr_Uniform__struct_9 = OpTypePointer Uniform %_struct_9
+%_ptr_Function__struct_15 = OpTypePointer Function %_struct_15
+          %3 = OpVariable %_ptr_Uniform__struct_9 Uniform
+%_ptr_Function__arr__struct_15_uint_1 = OpTypePointer Function %_arr__struct_15_uint_1
+          %2 = OpFunction %void None %13
+         %20 = OpLabel
+         %21 = OpVariable %_ptr_Function__arr__struct_15_uint_1 Function
+        %var = OpVariable %_ptr_Function__struct_15 Function
+         %22 = OpLoad %_struct_9 %3
+         %23 = OpCompositeExtract %_arr__struct_7_uint_1 %22 0
+         %24 = OpCompositeExtract %_struct_7 %23 0
+         %25 = OpCompositeExtract %_struct_6 %24 0
+         %26 = OpCompositeExtract %uint %25 0
+         %27 = OpCompositeConstruct %_struct_15 %26
+         %28 = OpCompositeConstruct %_arr__struct_15_uint_1 %27
+               OpStore %21 %28
+         %29 = OpAccessChain %_ptr_Function__struct_15 %21 %uint_0
+         %30 = OpLoad %_struct_15 %29
+               OpStore %var %30
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
+                        SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
+  SinglePassRunAndMatch<CopyPropagateArrays>(before, false);
+}
+
+TEST_F(CopyPropArrayPassTest, BadMergingTwoObjects) {
+  // The second element in the |OpCompositeConstruct| is from a different
+  // object.
+  const std::string text =
+      R"(OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpName %type_ConstBuf "type.ConstBuf"
+OpMemberName %type_ConstBuf 0 "TexSizeU"
+OpMemberName %type_ConstBuf 1 "TexSizeV"
+OpName %ConstBuf "ConstBuf"
+OpName %main "main"
+OpMemberDecorate %type_ConstBuf 0 Offset 0
+OpMemberDecorate %type_ConstBuf 1 Offset 8
+OpDecorate %type_ConstBuf Block
+OpDecorate %ConstBuf DescriptorSet 0
+OpDecorate %ConstBuf Binding 2
+%float = OpTypeFloat 32
+%v2float = OpTypeVector %float 2
+%type_ConstBuf = OpTypeStruct %v2float %v2float
+%_ptr_Uniform_type_ConstBuf = OpTypePointer Uniform %type_ConstBuf
+%void = OpTypeVoid
+%9 = OpTypeFunction %void
+%uint = OpTypeInt 32 0
+%int_0 = OpConstant %uint 0
+%uint_2 = OpConstant %uint 2
+%_arr_v2float_uint_2 = OpTypeArray %v2float %uint_2
+%_ptr_Function__arr_v2float_uint_2 = OpTypePointer Function %_arr_v2float_uint_2
+%_ptr_Uniform_v2float = OpTypePointer Uniform %v2float
+%ConstBuf = OpVariable %_ptr_Uniform_type_ConstBuf Uniform
+%main = OpFunction %void None %9
+%24 = OpLabel
+%25 = OpVariable %_ptr_Function__arr_v2float_uint_2 Function
+%27 = OpAccessChain %_ptr_Uniform_v2float %ConstBuf %int_0
+%28 = OpLoad %v2float %27
+%29 = OpAccessChain %_ptr_Uniform_v2float %ConstBuf %int_0
+%30 = OpLoad %v2float %29
+%31 = OpFNegate %v2float %30
+%37 = OpCompositeConstruct %_arr_v2float_uint_2 %28 %31
+OpStore %25 %37
+OpReturn
+OpFunctionEnd
+)";
+
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
+      text, /* skip_nop = */ true, /* do_validation = */ false);
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
+}
+
+TEST_F(CopyPropArrayPassTest, SecondElementNotContained) {
+  // The second element in the |OpCompositeConstruct| is not a memory object.
+  // Make sure no change happends.
+  const std::string text =
+      R"(OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpName %type_ConstBuf "type.ConstBuf"
+OpMemberName %type_ConstBuf 0 "TexSizeU"
+OpMemberName %type_ConstBuf 1 "TexSizeV"
+OpName %ConstBuf "ConstBuf"
+OpName %main "main"
+OpMemberDecorate %type_ConstBuf 0 Offset 0
+OpMemberDecorate %type_ConstBuf 1 Offset 8
+OpDecorate %type_ConstBuf Block
+OpDecorate %ConstBuf DescriptorSet 0
+OpDecorate %ConstBuf Binding 2
+OpDecorate %ConstBuf2 DescriptorSet 1
+OpDecorate %ConstBuf2 Binding 2
+%float = OpTypeFloat 32
+%v2float = OpTypeVector %float 2
+%type_ConstBuf = OpTypeStruct %v2float %v2float
+%_ptr_Uniform_type_ConstBuf = OpTypePointer Uniform %type_ConstBuf
+%void = OpTypeVoid
+%9 = OpTypeFunction %void
+%uint = OpTypeInt 32 0
+%int_0 = OpConstant %uint 0
+%int_1 = OpConstant %uint 1
+%uint_2 = OpConstant %uint 2
+%_arr_v2float_uint_2 = OpTypeArray %v2float %uint_2
+%_ptr_Function__arr_v2float_uint_2 = OpTypePointer Function %_arr_v2float_uint_2
+%_ptr_Uniform_v2float = OpTypePointer Uniform %v2float
+%ConstBuf = OpVariable %_ptr_Uniform_type_ConstBuf Uniform
+%ConstBuf2 = OpVariable %_ptr_Uniform_type_ConstBuf Uniform
+%main = OpFunction %void None %9
+%24 = OpLabel
+%25 = OpVariable %_ptr_Function__arr_v2float_uint_2 Function
+%27 = OpAccessChain %_ptr_Uniform_v2float %ConstBuf %int_0
+%28 = OpLoad %v2float %27
+%29 = OpAccessChain %_ptr_Uniform_v2float %ConstBuf2 %int_1
+%30 = OpLoad %v2float %29
+%37 = OpCompositeConstruct %_arr_v2float_uint_2 %28 %30
+OpStore %25 %37
+OpReturn
+OpFunctionEnd
+)";
+
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
+      text, /* skip_nop = */ true, /* do_validation = */ false);
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
+}
 // This test will place a load before the store.  We cannot propagate in this
 // case.
 TEST_F(CopyPropArrayPassTest, LoadBeforeStore) {
@@ -610,10 +999,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 // This test will place a load where it is not dominated by the store.  We
@@ -698,10 +1087,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 // This test has a partial store to the variable.  We cannot propagate in this
@@ -777,10 +1166,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 // This test does not have a proper copy of an object.  We cannot propagate in
@@ -855,10 +1244,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(CopyPropArrayPassTest, BadCopyViaInserts1) {
@@ -937,10 +1326,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(CopyPropArrayPassTest, BadCopyViaInserts2) {
@@ -1019,10 +1408,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(CopyPropArrayPassTest, BadCopyViaInserts3) {
@@ -1099,10 +1488,10 @@ OpFunctionEnd
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SetDisassembleOptions(SPV_BINARY_TO_TEXT_OPTION_NO_HEADER |
                         SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES);
-  auto result = SinglePassRunAndDisassemble<opt::CopyPropagateArrays>(
+  auto result = SinglePassRunAndDisassemble<CopyPropagateArrays>(
       text, /* skip_nop = */ true, /* do_validation = */ false);
 
-  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+  EXPECT_EQ(Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
 TEST_F(CopyPropArrayPassTest, AtomicAdd) {
@@ -1179,6 +1568,9 @@ OpFunctionEnd
 )";
 
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
-  SinglePassRunAndCheck<opt::CopyPropagateArrays>(before, after, true, true);
+  SinglePassRunAndCheck<CopyPropagateArrays>(before, after, true, true);
 }
+
 }  // namespace
+}  // namespace opt
+}  // namespace spvtools

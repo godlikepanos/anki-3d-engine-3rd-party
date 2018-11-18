@@ -13,12 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pass_fixture.h"
-#include "pass_utils.h"
+#include <memory>
+#include <string>
 
+#include "test/opt/pass_fixture.h"
+#include "test/opt/pass_utils.h"
+
+namespace spvtools {
+namespace opt {
 namespace {
-
-using namespace spvtools;
 
 using LocalSSAElimTest = PassTest<::testing::Test>;
 
@@ -135,8 +138,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, NestedForLoop) {
@@ -277,8 +280,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, ForLoopWithContinue) {
@@ -423,7 +426,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(
       predefs + names + predefs2 + before, predefs + names + predefs2 + after,
       true, true);
 }
@@ -564,8 +567,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, SwapProblem) {
@@ -701,8 +704,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, LostCopyProblem) {
@@ -845,8 +848,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, IfThenElse) {
@@ -945,8 +948,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, IfThen) {
@@ -1034,8 +1037,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, Switch) {
@@ -1165,8 +1168,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, SwitchWithFallThrough) {
@@ -1297,8 +1300,8 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
-      predefs + before, predefs + after, true, true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(predefs + before,
+                                                 predefs + after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, DontPatchPhiInLoopHeaderThatIsNotAVar) {
@@ -1328,8 +1331,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(before, before, true,
-                                                      true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(before, before, true, true);
 }
 
 TEST_F(LocalSSAElimTest, OptInitializedVariableLikeStore) {
@@ -1426,7 +1428,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(
       predefs + func_before, predefs + func_after, true, true);
 }
 
@@ -1527,8 +1529,7 @@ OpFunctionEnd
 )";
 
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
-  SinglePassRunAndCheck<opt::LocalMultiStoreElimPass>(before, after, true,
-                                                      true);
+  SinglePassRunAndCheck<LocalMultiStoreElimPass>(before, after, true, true);
 }
 
 TEST_F(LocalSSAElimTest, VerifyInstToBlockMap) {
@@ -1609,7 +1610,7 @@ OpReturn
 OpFunctionEnd
 )";
 
-  std::unique_ptr<ir::IRContext> context =
+  std::unique_ptr<IRContext> context =
       BuildModule(SPV_ENV_UNIVERSAL_1_1, nullptr, text,
                   SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   EXPECT_NE(nullptr, context);
@@ -1617,20 +1618,18 @@ OpFunctionEnd
   // Force the instruction to block mapping to get built.
   context->get_instr_block(27u);
 
-  auto pass = MakeUnique<opt::LocalMultiStoreElimPass>();
+  auto pass = MakeUnique<LocalMultiStoreElimPass>();
   pass->SetMessageConsumer(nullptr);
   const auto status = pass->Run(context.get());
-  EXPECT_TRUE(status == opt::Pass::Status::SuccessWithChange);
+  EXPECT_TRUE(status == Pass::Status::SuccessWithChange);
 }
 
-// TODO(dneto): Add Effcee as required dependency, and make this unconditional.
-#ifdef SPIRV_EFFCEE
 TEST_F(LocalSSAElimTest, CompositeExtractProblem) {
   const std::string spv_asm = R"(
                OpCapability Tessellation
           %1 = OpExtInstImport "GLSL.std.450"
                OpMemoryModel Logical GLSL450
-               OpEntryPoint TessellationControl %2 "main"
+               OpEntryPoint TessellationControl %2 "main" %16 %17 %18 %20 %22 %26 %27 %30 %31
        %void = OpTypeVoid
           %4 = OpTypeFunction %void
       %float = OpTypeFloat 32
@@ -1663,6 +1662,7 @@ TEST_F(LocalSSAElimTest, CompositeExtractProblem) {
 %_ptr_Function__struct_11 = OpTypePointer Function %_struct_11
           %2 = OpFunction %void None %4
          %33 = OpLabel
+         %66 = OpVariable %_ptr_Function__arr__struct_11_uint_3 Function
          %34 = OpLoad %_arr_v4float_uint_3 %16
          %35 = OpLoad %_arr_v4float_uint_3 %17
          %36 = OpLoad %_arr_v4float_uint_3 %18
@@ -1695,7 +1695,6 @@ TEST_F(LocalSSAElimTest, CompositeExtractProblem) {
          %63 = OpCompositeExtract %v2float %40 2
          %64 = OpCompositeConstruct %_struct_11 %57 %58 %59 %60 %61 %62 %63
          %65 = OpCompositeConstruct %_arr__struct_11_uint_3 %48 %56 %64
-         %66 = OpVariable %_ptr_Function__arr__struct_11_uint_3 Function
          %67 = OpLoad %uint %20
 
 ; CHECK OpStore {{%\d+}} [[store_source:%\d+]]
@@ -1716,9 +1715,47 @@ TEST_F(LocalSSAElimTest, CompositeExtractProblem) {
                OpReturn
                OpFunctionEnd)";
 
-  SinglePassRunAndMatch<opt::SSARewritePass>(spv_asm, true);
+  SinglePassRunAndMatch<SSARewritePass>(spv_asm, true);
 }
-#endif
+
+// Test that the RelaxedPrecision decoration on the variable to added to the
+// result of the OpPhi instruction.
+TEST_F(LocalSSAElimTest, DecoratedVariable) {
+  const std::string spv_asm = R"(
+; CHECK: OpDecorate [[var:%\w+]] RelaxedPrecision
+; CHECK: OpDecorate [[phi_id:%\w+]] RelaxedPrecision
+; CHECK: [[phi_id]] = OpPhi
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %2 "main"
+               OpDecorate %v RelaxedPrecision
+       %void = OpTypeVoid
+     %func_t = OpTypeFunction %void
+       %bool = OpTypeBool
+       %true = OpConstantTrue %bool
+       %int  = OpTypeInt 32 0
+      %int_p = OpTypePointer Function %int
+      %int_1 = OpConstant %int 1
+      %int_0 = OpConstant %int 0
+          %2 = OpFunction %void None %func_t
+         %33 = OpLabel
+         %v  = OpVariable %int_p Function
+               OpSelectionMerge %merge None
+               OpBranchConditional %true %l1 %l2
+         %l1 = OpLabel
+               OpStore %v %int_1
+               OpBranch %merge
+         %l2 = OpLabel
+               OpStore %v %int_0
+               OpBranch %merge
+      %merge = OpLabel
+         %ld = OpLoad %int %v
+               OpReturn
+               OpFunctionEnd)";
+
+  SinglePassRunAndMatch<SSARewritePass>(spv_asm, true);
+}
 
 // TODO(greg-lunarg): Add tests to verify handling of these cases:
 //
@@ -1729,4 +1766,6 @@ TEST_F(LocalSSAElimTest, CompositeExtractProblem) {
 //      unsupported extensions
 //    Others?
 
-}  // anonymous namespace
+}  // namespace
+}  // namespace opt
+}  // namespace spvtools

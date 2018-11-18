@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pass_utils.h"
+#include "test/opt/pass_utils.h"
 
 #include <algorithm>
 #include <sstream>
 
+namespace spvtools {
+namespace opt {
 namespace {
 
 // Well, this is another place requiring the knowledge of the grammar and can be
@@ -33,7 +35,25 @@ const char* kDebugOpcodes[] = {
 
 }  // anonymous namespace
 
-namespace spvtools {
+MessageConsumer GetTestMessageConsumer(
+    std::vector<Message>& expected_messages) {
+  return [&expected_messages](spv_message_level_t level, const char* source,
+                              const spv_position_t& position,
+                              const char* message) {
+    EXPECT_TRUE(!expected_messages.empty());
+    if (expected_messages.empty()) {
+      return;
+    }
+
+    EXPECT_EQ(expected_messages[0].level, level);
+    EXPECT_EQ(expected_messages[0].line_number, position.line);
+    EXPECT_EQ(expected_messages[0].column_number, position.column);
+    EXPECT_STREQ(expected_messages[0].source_file, source);
+    EXPECT_STREQ(expected_messages[0].message, message);
+
+    expected_messages.erase(expected_messages.begin());
+  };
+}
 
 bool FindAndReplace(std::string* process_str, const std::string find_str,
                     const std::string replace_str) {
@@ -78,4 +98,5 @@ std::string JoinNonDebugInsts(const std::vector<const char*>& insts) {
       insts, [](const char* inst) { return ContainsDebugOpcode(inst); });
 }
 
+}  // namespace opt
 }  // namespace spvtools

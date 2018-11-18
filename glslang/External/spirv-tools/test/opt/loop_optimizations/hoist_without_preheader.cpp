@@ -14,16 +14,15 @@
 
 #include <string>
 
-#include <gmock/gmock.h>
+#include "gmock/gmock.h"
+#include "source/opt/licm_pass.h"
+#include "test/opt/pass_fixture.h"
 
-#include "../pass_fixture.h"
-#include "opt/licm_pass.h"
-
+namespace spvtools {
+namespace opt {
 namespace {
 
-using namespace spvtools;
 using ::testing::UnorderedElementsAre;
-
 using PassClassTest = PassTest<::testing::Test>;
 
 /*
@@ -46,7 +45,6 @@ void main(){
   }
 }
 */
-#ifdef SPIRV_EFFCEE
 TEST_F(PassClassTest, HoistWithoutPreheader) {
   const std::string text = R"(OpCapability Shader
 %1 = OpExtInstImport "GLSL.std.450"
@@ -116,8 +114,9 @@ OpReturn
 OpFunctionEnd
 )";
 
-  SinglePassRunAndMatch<opt::LICMPass>(text, false);
+  SinglePassRunAndMatch<LICMPass>(text, false);
 }
-#endif
 
 }  // namespace
+}  // namespace opt
+}  // namespace spvtools

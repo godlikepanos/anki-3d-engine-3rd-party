@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "ext_inst.h"
+#include "source/ext_inst.h"
 
-#include <cassert>
 #include <cstring>
 
 // DebugInfo extended instruction set.
@@ -22,14 +21,14 @@
 // TODO(dneto): DebugInfo.h should probably move to SPIRV-Headers.
 #include "DebugInfo.h"
 
-#include "latest_version_glsl_std_450_header.h"
-#include "latest_version_opencl_std_header.h"
-#include "macro.h"
-#include "spirv_definition.h"
+#include "source/latest_version_glsl_std_450_header.h"
+#include "source/latest_version_opencl_std_header.h"
+#include "source/macro.h"
+#include "source/spirv_definition.h"
 
-#include "debuginfo.insts.inc"     // defines opencl_entries
-#include "glsl.std.450.insts.inc"  // defines glsl_entries
-#include "opencl.std.insts.inc"    // defines opencl_entries
+#include "debuginfo.insts.inc"
+#include "glsl.std.450.insts.inc"
+#include "opencl.std.insts.inc"
 
 #include "spv-amd-gcn-shader.insts.inc"
 #include "spv-amd-shader-ballot.insts.inc"
@@ -81,10 +80,10 @@ spv_result_t spvExtInstTableGet(spv_ext_inst_table* pExtInstTable,
     case SPV_ENV_OPENGL_4_5:
     case SPV_ENV_UNIVERSAL_1_3:
     case SPV_ENV_VULKAN_1_1:
+    case SPV_ENV_WEBGPU_0:
       *pExtInstTable = &kTable_1_0;
       return SPV_SUCCESS;
     default:
-      assert(0 && "Unknown spv_target_env in spvExtInstTableGet()");
       return SPV_ERROR_INVALID_TABLE;
   }
 }
