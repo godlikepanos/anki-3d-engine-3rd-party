@@ -1,6 +1,9 @@
 LOCAL_PATH := $(call my-dir)
 SPVTOOLS_OUT_PATH=$(if $(call host-path-is-absolute,$(TARGET_OUT)),$(TARGET_OUT),$(abspath $(TARGET_OUT)))
-SPVHEADERS_LOCAL_PATH := $(LOCAL_PATH)/external/spirv-headers
+
+ifeq ($(SPVHEADERS_LOCAL_PATH),)
+	SPVHEADERS_LOCAL_PATH := $(LOCAL_PATH)/external/spirv-headers
+endif
 
 SPVTOOLS_SRC_FILES := \
 		source/assembly_grammar.cpp \
@@ -51,7 +54,7 @@ SPVTOOLS_SRC_FILES := \
 		source/val/validate_debug.cpp \
 		source/val/validate_decorations.cpp \
 		source/val/validate_derivatives.cpp \
-		source/val/validate_ext_inst.cpp \
+		source/val/validate_extensions.cpp \
 		source/val/validate_execution_limitations.cpp \
 		source/val/validate_function.cpp \
 		source/val/validate_id.cpp \
@@ -59,22 +62,26 @@ SPVTOOLS_SRC_FILES := \
 		source/val/validate_interfaces.cpp \
 		source/val/validate_instruction.cpp \
 		source/val/validate_memory.cpp \
+		source/val/validate_memory_semantics.cpp \
 		source/val/validate_mode_setting.cpp \
 		source/val/validate_layout.cpp \
 		source/val/validate_literals.cpp \
 		source/val/validate_logicals.cpp \
 		source/val/validate_non_uniform.cpp \
 		source/val/validate_primitives.cpp \
+		source/val/validate_scopes.cpp \
 		source/val/validate_type.cpp
 
 SPVTOOLS_OPT_SRC_FILES := \
 		source/opt/aggressive_dead_code_elim_pass.cpp \
 		source/opt/basic_block.cpp \
 		source/opt/block_merge_pass.cpp \
+		source/opt/block_merge_util.cpp \
 		source/opt/build_module.cpp \
 		source/opt/cfg.cpp \
 		source/opt/cfg_cleanup_pass.cpp \
 		source/opt/ccp_pass.cpp \
+		source/opt/code_sink.cpp \
 		source/opt/combine_access_chains.cpp \
 		source/opt/common_uniform_elim_pass.cpp \
 		source/opt/compact_ids_pass.cpp \
@@ -91,6 +98,8 @@ SPVTOOLS_OPT_SRC_FILES := \
 		source/opt/dominator_tree.cpp \
 		source/opt/eliminate_dead_constant_pass.cpp \
 		source/opt/eliminate_dead_functions_pass.cpp \
+		source/opt/eliminate_dead_functions_util.cpp \
+		source/opt/eliminate_dead_members_pass.cpp \
 		source/opt/feature_manager.cpp \
 		source/opt/flatten_decoration_pass.cpp \
 		source/opt/fold.cpp \
@@ -151,6 +160,7 @@ SPVTOOLS_OPT_SRC_FILES := \
 		source/opt/type_manager.cpp \
 		source/opt/types.cpp \
 		source/opt/unify_const_pass.cpp \
+		source/opt/upgrade_memory_model.cpp \
 		source/opt/value_number_table.cpp \
 		source/opt/vector_dce.cpp \
 		source/opt/workaround1209.cpp
@@ -315,7 +325,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := SPIRV-Tools
 LOCAL_C_INCLUDES := \
 		$(LOCAL_PATH)/include \
-		$(LOCAL_PATH)/external/spirv-headers/include \
+		$(SPVHEADERS_LOCAL_PATH)/include \
 		$(SPVTOOLS_OUT_PATH)
 LOCAL_EXPORT_C_INCLUDES := \
 		$(LOCAL_PATH)/include
@@ -328,7 +338,7 @@ LOCAL_MODULE := SPIRV-Tools-opt
 LOCAL_C_INCLUDES := \
 		$(LOCAL_PATH)/include \
 		$(LOCAL_PATH)/source \
-		$(LOCAL_PATH)/external/spirv-headers/include \
+		$(SPVHEADERS_LOCAL_PATH)/include \
 		$(SPVTOOLS_OUT_PATH)
 LOCAL_CXXFLAGS:=-std=c++11 -fno-exceptions -fno-rtti -Werror
 LOCAL_STATIC_LIBRARIES:=SPIRV-Tools

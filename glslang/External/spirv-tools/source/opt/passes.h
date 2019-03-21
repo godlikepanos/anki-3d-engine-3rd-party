@@ -21,6 +21,7 @@
 #include "source/opt/block_merge_pass.h"
 #include "source/opt/ccp_pass.h"
 #include "source/opt/cfg_cleanup_pass.h"
+#include "source/opt/code_sink.h"
 #include "source/opt/combine_access_chains.h"
 #include "source/opt/common_uniform_elim_pass.h"
 #include "source/opt/compact_ids_pass.h"
@@ -30,6 +31,7 @@
 #include "source/opt/dead_variable_elimination.h"
 #include "source/opt/eliminate_dead_constant_pass.h"
 #include "source/opt/eliminate_dead_functions_pass.h"
+#include "source/opt/eliminate_dead_members_pass.h"
 #include "source/opt/flatten_decoration_pass.h"
 #include "source/opt/fold_spec_constant_op_and_composite_pass.h"
 #include "source/opt/freeze_spec_constant_value_pass.h"
@@ -64,6 +66,7 @@
 #include "source/opt/strip_debug_info_pass.h"
 #include "source/opt/strip_reflect_info_pass.h"
 #include "source/opt/unify_const_pass.h"
+#include "source/opt/upgrade_memory_model.h"
 #include "source/opt/vector_dce.h"
 #include "source/opt/workaround1209.h"
 

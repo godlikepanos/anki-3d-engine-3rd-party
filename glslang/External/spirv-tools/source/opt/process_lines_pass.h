@@ -39,7 +39,7 @@ class ProcessLinesPass : public Pass {
 
  public:
   ProcessLinesPass(uint32_t func_id);
-  ~ProcessLinesPass() = default;
+  ~ProcessLinesPass() override = default;
 
   const char* name() const override { return "propagate-lines"; }
 
@@ -51,7 +51,8 @@ class ProcessLinesPass : public Pass {
            IRContext::kAnalysisInstrToBlockMapping |
            IRContext::kAnalysisDecorations | IRContext::kAnalysisCombinators |
            IRContext::kAnalysisCFG | IRContext::kAnalysisDominatorAnalysis |
-           IRContext::kAnalysisNameMap;
+           IRContext::kAnalysisNameMap | IRContext::kAnalysisConstants |
+           IRContext::kAnalysisTypes;
   }
 
  private:

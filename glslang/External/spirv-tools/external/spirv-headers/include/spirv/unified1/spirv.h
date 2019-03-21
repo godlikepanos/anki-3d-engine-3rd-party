@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2014-2018 The Khronos Group Inc.
+** Copyright (c) 2014-2019 The Khronos Group Inc.
 ** 
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
 ** of this software and/or associated documentation files (the "Materials"),
@@ -31,14 +31,16 @@
 
 /*
 ** Enumeration tokens for SPIR-V, in various styles:
-**   C, C++, C++11, JSON, Lua, Python, C#
+**   C, C++, C++11, JSON, Lua, Python, C#, D
 ** 
 ** - C will have tokens with a "Spv" prefix, e.g.: SpvSourceLanguageGLSL
 ** - C++ will have tokens in the "spv" name space, e.g.: spv::SourceLanguageGLSL
 ** - C++11 will use enum classes in the spv namespace, e.g.: spv::SourceLanguage::GLSL
 ** - Lua will use tables, e.g.: spv.SourceLanguage.GLSL
 ** - Python will use dictionaries, e.g.: spv['SourceLanguage']['GLSL']
-** - C# will use enum classes in the Specification class located in the "Spv" namespace, e.g.: Spv.Specification.SourceLanguage.GLSL
+** - C# will use enum classes in the Specification class located in the "Spv" namespace,
+**     e.g.: Spv.Specification.SourceLanguage.GLSL
+** - D will have tokens under the "spv" module, e.g: spv.SourceLanguage.GLSL
 ** 
 ** Some tokens act like mask values, which can be OR'd together,
 ** while others are mutually exclusive.  The mask-like ones have
@@ -52,11 +54,11 @@
 typedef unsigned int SpvId;
 
 #define SPV_VERSION 0x10300
-#define SPV_REVISION 1
+#define SPV_REVISION 7
 
 static const unsigned int SpvMagicNumber = 0x07230203;
 static const unsigned int SpvVersion = 0x00010300;
-static const unsigned int SpvRevision = 1;
+static const unsigned int SpvRevision = 7;
 static const unsigned int SpvOpCodeMask = 0xffff;
 static const unsigned int SpvWordCountShift = 16;
 
@@ -93,6 +95,7 @@ typedef enum SpvAddressingModel_ {
     SpvAddressingModelLogical = 0,
     SpvAddressingModelPhysical32 = 1,
     SpvAddressingModelPhysical64 = 2,
+    SpvAddressingModelPhysicalStorageBuffer64EXT = 5348,
     SpvAddressingModelMax = 0x7fffffff,
 } SpvAddressingModel;
 
@@ -144,6 +147,11 @@ typedef enum SpvExecutionMode_ {
     SpvExecutionModeLocalSizeId = 38,
     SpvExecutionModeLocalSizeHintId = 39,
     SpvExecutionModePostDepthCoverage = 4446,
+    SpvExecutionModeDenormPreserve = 4459,
+    SpvExecutionModeDenormFlushToZero = 4460,
+    SpvExecutionModeSignedZeroInfNanPreserve = 4461,
+    SpvExecutionModeRoundingModeRTE = 4462,
+    SpvExecutionModeRoundingModeRTZ = 4463,
     SpvExecutionModeStencilRefReplacingEXT = 5027,
     SpvExecutionModeOutputLinesNV = 5269,
     SpvExecutionModeOutputPrimitivesNV = 5270,
@@ -173,6 +181,7 @@ typedef enum SpvStorageClass_ {
     SpvStorageClassHitAttributeNV = 5339,
     SpvStorageClassIncomingRayPayloadNV = 5342,
     SpvStorageClassShaderRecordBufferNV = 5343,
+    SpvStorageClassPhysicalStorageBufferEXT = 5349,
     SpvStorageClassMax = 0x7fffffff,
 } SpvStorageClass;
 
@@ -421,6 +430,8 @@ typedef enum SpvDecoration_ {
     SpvDecorationMaxByteOffset = 45,
     SpvDecorationAlignmentId = 46,
     SpvDecorationMaxByteOffsetId = 47,
+    SpvDecorationNoSignedWrap = 4469,
+    SpvDecorationNoUnsignedWrap = 4470,
     SpvDecorationExplicitInterpAMD = 4999,
     SpvDecorationOverrideCoverageNV = 5248,
     SpvDecorationPassthroughNV = 5250,
@@ -431,6 +442,8 @@ typedef enum SpvDecoration_ {
     SpvDecorationPerTaskNV = 5273,
     SpvDecorationPerVertexNV = 5285,
     SpvDecorationNonUniformEXT = 5300,
+    SpvDecorationRestrictPointerEXT = 5355,
+    SpvDecorationAliasedPointerEXT = 5356,
     SpvDecorationHlslCounterBufferGOOGLE = 5634,
     SpvDecorationHlslSemanticGOOGLE = 5635,
     SpvDecorationMax = 0x7fffffff,
@@ -517,7 +530,9 @@ typedef enum SpvBuiltIn_ {
     SpvBuiltInMeshViewIndicesNV = 5281,
     SpvBuiltInBaryCoordNV = 5286,
     SpvBuiltInBaryCoordNoPerspNV = 5287,
+    SpvBuiltInFragSizeEXT = 5292,
     SpvBuiltInFragmentSizeNV = 5292,
+    SpvBuiltInFragInvocationCountEXT = 5293,
     SpvBuiltInInvocationsPerPixelNV = 5293,
     SpvBuiltInLaunchIdNV = 5319,
     SpvBuiltInLaunchSizeNV = 5320,
@@ -758,6 +773,11 @@ typedef enum SpvCapability_ {
     SpvCapabilityStorageBuffer8BitAccess = 4448,
     SpvCapabilityUniformAndStorageBuffer8BitAccess = 4449,
     SpvCapabilityStoragePushConstant8 = 4450,
+    SpvCapabilityDenormPreserve = 4464,
+    SpvCapabilityDenormFlushToZero = 4465,
+    SpvCapabilitySignedZeroInfNanPreserve = 4466,
+    SpvCapabilityRoundingModeRTE = 4467,
+    SpvCapabilityRoundingModeRTZ = 4468,
     SpvCapabilityFloat16ImageAMD = 5008,
     SpvCapabilityImageGatherBiasLodAMD = 5009,
     SpvCapabilityFragmentMaskAMD = 5010,
@@ -775,6 +795,7 @@ typedef enum SpvCapability_ {
     SpvCapabilityImageFootprintNV = 5282,
     SpvCapabilityFragmentBarycentricNV = 5284,
     SpvCapabilityComputeDerivativeGroupQuadsNV = 5288,
+    SpvCapabilityFragmentDensityEXT = 5291,
     SpvCapabilityShadingRateNV = 5291,
     SpvCapabilityGroupNonUniformPartitionedNV = 5297,
     SpvCapabilityShaderNonUniformEXT = 5301,
@@ -792,10 +813,16 @@ typedef enum SpvCapability_ {
     SpvCapabilityRayTracingNV = 5340,
     SpvCapabilityVulkanMemoryModelKHR = 5345,
     SpvCapabilityVulkanMemoryModelDeviceScopeKHR = 5346,
+    SpvCapabilityPhysicalStorageBufferAddressesEXT = 5347,
     SpvCapabilityComputeDerivativeGroupLinearNV = 5350,
+    SpvCapabilityCooperativeMatrixNV = 5357,
     SpvCapabilitySubgroupShuffleINTEL = 5568,
     SpvCapabilitySubgroupBufferBlockIOINTEL = 5569,
     SpvCapabilitySubgroupImageBlockIOINTEL = 5570,
+    SpvCapabilitySubgroupImageMediaBlockIOINTEL = 5579,
+    SpvCapabilitySubgroupAvcMotionEstimationINTEL = 5696,
+    SpvCapabilitySubgroupAvcMotionEstimationIntraINTEL = 5697,
+    SpvCapabilitySubgroupAvcMotionEstimationChromaINTEL = 5698,
     SpvCapabilityMax = 0x7fffffff,
 } SpvCapability;
 
@@ -1165,6 +1192,11 @@ typedef enum SpvOp_ {
     SpvOpTraceNV = 5337,
     SpvOpTypeAccelerationStructureNV = 5341,
     SpvOpExecuteCallableNV = 5344,
+    SpvOpTypeCooperativeMatrixNV = 5358,
+    SpvOpCooperativeMatrixLoadNV = 5359,
+    SpvOpCooperativeMatrixStoreNV = 5360,
+    SpvOpCooperativeMatrixMulAddNV = 5361,
+    SpvOpCooperativeMatrixLengthNV = 5362,
     SpvOpSubgroupShuffleINTEL = 5571,
     SpvOpSubgroupShuffleDownINTEL = 5572,
     SpvOpSubgroupShuffleUpINTEL = 5573,
@@ -1173,10 +1205,130 @@ typedef enum SpvOp_ {
     SpvOpSubgroupBlockWriteINTEL = 5576,
     SpvOpSubgroupImageBlockReadINTEL = 5577,
     SpvOpSubgroupImageBlockWriteINTEL = 5578,
+    SpvOpSubgroupImageMediaBlockReadINTEL = 5580,
+    SpvOpSubgroupImageMediaBlockWriteINTEL = 5581,
     SpvOpDecorateStringGOOGLE = 5632,
     SpvOpMemberDecorateStringGOOGLE = 5633,
+    SpvOpVmeImageINTEL = 5699,
+    SpvOpTypeVmeImageINTEL = 5700,
+    SpvOpTypeAvcImePayloadINTEL = 5701,
+    SpvOpTypeAvcRefPayloadINTEL = 5702,
+    SpvOpTypeAvcSicPayloadINTEL = 5703,
+    SpvOpTypeAvcMcePayloadINTEL = 5704,
+    SpvOpTypeAvcMceResultINTEL = 5705,
+    SpvOpTypeAvcImeResultINTEL = 5706,
+    SpvOpTypeAvcImeResultSingleReferenceStreamoutINTEL = 5707,
+    SpvOpTypeAvcImeResultDualReferenceStreamoutINTEL = 5708,
+    SpvOpTypeAvcImeSingleReferenceStreaminINTEL = 5709,
+    SpvOpTypeAvcImeDualReferenceStreaminINTEL = 5710,
+    SpvOpTypeAvcRefResultINTEL = 5711,
+    SpvOpTypeAvcSicResultINTEL = 5712,
+    SpvOpSubgroupAvcMceGetDefaultInterBaseMultiReferencePenaltyINTEL = 5713,
+    SpvOpSubgroupAvcMceSetInterBaseMultiReferencePenaltyINTEL = 5714,
+    SpvOpSubgroupAvcMceGetDefaultInterShapePenaltyINTEL = 5715,
+    SpvOpSubgroupAvcMceSetInterShapePenaltyINTEL = 5716,
+    SpvOpSubgroupAvcMceGetDefaultInterDirectionPenaltyINTEL = 5717,
+    SpvOpSubgroupAvcMceSetInterDirectionPenaltyINTEL = 5718,
+    SpvOpSubgroupAvcMceGetDefaultIntraLumaShapePenaltyINTEL = 5719,
+    SpvOpSubgroupAvcMceGetDefaultInterMotionVectorCostTableINTEL = 5720,
+    SpvOpSubgroupAvcMceGetDefaultHighPenaltyCostTableINTEL = 5721,
+    SpvOpSubgroupAvcMceGetDefaultMediumPenaltyCostTableINTEL = 5722,
+    SpvOpSubgroupAvcMceGetDefaultLowPenaltyCostTableINTEL = 5723,
+    SpvOpSubgroupAvcMceSetMotionVectorCostFunctionINTEL = 5724,
+    SpvOpSubgroupAvcMceGetDefaultIntraLumaModePenaltyINTEL = 5725,
+    SpvOpSubgroupAvcMceGetDefaultNonDcLumaIntraPenaltyINTEL = 5726,
+    SpvOpSubgroupAvcMceGetDefaultIntraChromaModeBasePenaltyINTEL = 5727,
+    SpvOpSubgroupAvcMceSetAcOnlyHaarINTEL = 5728,
+    SpvOpSubgroupAvcMceSetSourceInterlacedFieldPolarityINTEL = 5729,
+    SpvOpSubgroupAvcMceSetSingleReferenceInterlacedFieldPolarityINTEL = 5730,
+    SpvOpSubgroupAvcMceSetDualReferenceInterlacedFieldPolaritiesINTEL = 5731,
+    SpvOpSubgroupAvcMceConvertToImePayloadINTEL = 5732,
+    SpvOpSubgroupAvcMceConvertToImeResultINTEL = 5733,
+    SpvOpSubgroupAvcMceConvertToRefPayloadINTEL = 5734,
+    SpvOpSubgroupAvcMceConvertToRefResultINTEL = 5735,
+    SpvOpSubgroupAvcMceConvertToSicPayloadINTEL = 5736,
+    SpvOpSubgroupAvcMceConvertToSicResultINTEL = 5737,
+    SpvOpSubgroupAvcMceGetMotionVectorsINTEL = 5738,
+    SpvOpSubgroupAvcMceGetInterDistortionsINTEL = 5739,
+    SpvOpSubgroupAvcMceGetBestInterDistortionsINTEL = 5740,
+    SpvOpSubgroupAvcMceGetInterMajorShapeINTEL = 5741,
+    SpvOpSubgroupAvcMceGetInterMinorShapeINTEL = 5742,
+    SpvOpSubgroupAvcMceGetInterDirectionsINTEL = 5743,
+    SpvOpSubgroupAvcMceGetInterMotionVectorCountINTEL = 5744,
+    SpvOpSubgroupAvcMceGetInterReferenceIdsINTEL = 5745,
+    SpvOpSubgroupAvcMceGetInterReferenceInterlacedFieldPolaritiesINTEL = 5746,
+    SpvOpSubgroupAvcImeInitializeINTEL = 5747,
+    SpvOpSubgroupAvcImeSetSingleReferenceINTEL = 5748,
+    SpvOpSubgroupAvcImeSetDualReferenceINTEL = 5749,
+    SpvOpSubgroupAvcImeRefWindowSizeINTEL = 5750,
+    SpvOpSubgroupAvcImeAdjustRefOffsetINTEL = 5751,
+    SpvOpSubgroupAvcImeConvertToMcePayloadINTEL = 5752,
+    SpvOpSubgroupAvcImeSetMaxMotionVectorCountINTEL = 5753,
+    SpvOpSubgroupAvcImeSetUnidirectionalMixDisableINTEL = 5754,
+    SpvOpSubgroupAvcImeSetEarlySearchTerminationThresholdINTEL = 5755,
+    SpvOpSubgroupAvcImeSetWeightedSadINTEL = 5756,
+    SpvOpSubgroupAvcImeEvaluateWithSingleReferenceINTEL = 5757,
+    SpvOpSubgroupAvcImeEvaluateWithDualReferenceINTEL = 5758,
+    SpvOpSubgroupAvcImeEvaluateWithSingleReferenceStreaminINTEL = 5759,
+    SpvOpSubgroupAvcImeEvaluateWithDualReferenceStreaminINTEL = 5760,
+    SpvOpSubgroupAvcImeEvaluateWithSingleReferenceStreamoutINTEL = 5761,
+    SpvOpSubgroupAvcImeEvaluateWithDualReferenceStreamoutINTEL = 5762,
+    SpvOpSubgroupAvcImeEvaluateWithSingleReferenceStreaminoutINTEL = 5763,
+    SpvOpSubgroupAvcImeEvaluateWithDualReferenceStreaminoutINTEL = 5764,
+    SpvOpSubgroupAvcImeConvertToMceResultINTEL = 5765,
+    SpvOpSubgroupAvcImeGetSingleReferenceStreaminINTEL = 5766,
+    SpvOpSubgroupAvcImeGetDualReferenceStreaminINTEL = 5767,
+    SpvOpSubgroupAvcImeStripSingleReferenceStreamoutINTEL = 5768,
+    SpvOpSubgroupAvcImeStripDualReferenceStreamoutINTEL = 5769,
+    SpvOpSubgroupAvcImeGetStreamoutSingleReferenceMajorShapeMotionVectorsINTEL = 5770,
+    SpvOpSubgroupAvcImeGetStreamoutSingleReferenceMajorShapeDistortionsINTEL = 5771,
+    SpvOpSubgroupAvcImeGetStreamoutSingleReferenceMajorShapeReferenceIdsINTEL = 5772,
+    SpvOpSubgroupAvcImeGetStreamoutDualReferenceMajorShapeMotionVectorsINTEL = 5773,
+    SpvOpSubgroupAvcImeGetStreamoutDualReferenceMajorShapeDistortionsINTEL = 5774,
+    SpvOpSubgroupAvcImeGetStreamoutDualReferenceMajorShapeReferenceIdsINTEL = 5775,
+    SpvOpSubgroupAvcImeGetBorderReachedINTEL = 5776,
+    SpvOpSubgroupAvcImeGetTruncatedSearchIndicationINTEL = 5777,
+    SpvOpSubgroupAvcImeGetUnidirectionalEarlySearchTerminationINTEL = 5778,
+    SpvOpSubgroupAvcImeGetWeightingPatternMinimumMotionVectorINTEL = 5779,
+    SpvOpSubgroupAvcImeGetWeightingPatternMinimumDistortionINTEL = 5780,
+    SpvOpSubgroupAvcFmeInitializeINTEL = 5781,
+    SpvOpSubgroupAvcBmeInitializeINTEL = 5782,
+    SpvOpSubgroupAvcRefConvertToMcePayloadINTEL = 5783,
+    SpvOpSubgroupAvcRefSetBidirectionalMixDisableINTEL = 5784,
+    SpvOpSubgroupAvcRefSetBilinearFilterEnableINTEL = 5785,
+    SpvOpSubgroupAvcRefEvaluateWithSingleReferenceINTEL = 5786,
+    SpvOpSubgroupAvcRefEvaluateWithDualReferenceINTEL = 5787,
+    SpvOpSubgroupAvcRefEvaluateWithMultiReferenceINTEL = 5788,
+    SpvOpSubgroupAvcRefEvaluateWithMultiReferenceInterlacedINTEL = 5789,
+    SpvOpSubgroupAvcRefConvertToMceResultINTEL = 5790,
+    SpvOpSubgroupAvcSicInitializeINTEL = 5791,
+    SpvOpSubgroupAvcSicConfigureSkcINTEL = 5792,
+    SpvOpSubgroupAvcSicConfigureIpeLumaINTEL = 5793,
+    SpvOpSubgroupAvcSicConfigureIpeLumaChromaINTEL = 5794,
+    SpvOpSubgroupAvcSicGetMotionVectorMaskINTEL = 5795,
+    SpvOpSubgroupAvcSicConvertToMcePayloadINTEL = 5796,
+    SpvOpSubgroupAvcSicSetIntraLumaShapePenaltyINTEL = 5797,
+    SpvOpSubgroupAvcSicSetIntraLumaModeCostFunctionINTEL = 5798,
+    SpvOpSubgroupAvcSicSetIntraChromaModeCostFunctionINTEL = 5799,
+    SpvOpSubgroupAvcSicSetBilinearFilterEnableINTEL = 5800,
+    SpvOpSubgroupAvcSicSetSkcForwardTransformEnableINTEL = 5801,
+    SpvOpSubgroupAvcSicSetBlockBasedRawSkipSadINTEL = 5802,
+    SpvOpSubgroupAvcSicEvaluateIpeINTEL = 5803,
+    SpvOpSubgroupAvcSicEvaluateWithSingleReferenceINTEL = 5804,
+    SpvOpSubgroupAvcSicEvaluateWithDualReferenceINTEL = 5805,
+    SpvOpSubgroupAvcSicEvaluateWithMultiReferenceINTEL = 5806,
+    SpvOpSubgroupAvcSicEvaluateWithMultiReferenceInterlacedINTEL = 5807,
+    SpvOpSubgroupAvcSicConvertToMceResultINTEL = 5808,
+    SpvOpSubgroupAvcSicGetIpeLumaShapeINTEL = 5809,
+    SpvOpSubgroupAvcSicGetBestIpeLumaDistortionINTEL = 5810,
+    SpvOpSubgroupAvcSicGetBestIpeChromaDistortionINTEL = 5811,
+    SpvOpSubgroupAvcSicGetPackedIpeLumaModesINTEL = 5812,
+    SpvOpSubgroupAvcSicGetIpeChromaModeINTEL = 5813,
+    SpvOpSubgroupAvcSicGetPackedSkcLumaCountThresholdINTEL = 5814,
+    SpvOpSubgroupAvcSicGetPackedSkcLumaSumThresholdINTEL = 5815,
+    SpvOpSubgroupAvcSicGetInterRawSadsINTEL = 5816,
     SpvOpMax = 0x7fffffff,
 } SpvOp;
 
-#endif  // #ifndef spirv_H
+#endif
 

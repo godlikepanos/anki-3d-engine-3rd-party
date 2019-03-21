@@ -128,6 +128,23 @@ See the [CHANGES](CHANGES) file for reports on completed work, and the [General
 sub-project](https://github.com/KhronosGroup/SPIRV-Tools/projects/2) for
 planned and in-progress work.
 
+
+### Reducer
+
+*Note:* The reducer is still under development.
+
+The reducer simplifies and shrinks a SPIR-V module with respect to a
+user-supplied *interestingness function*.  For example, given a large
+SPIR-V module that cause some SPIR-V compiler to fail with a given
+fatal error message, the reducer could be used to look for a smaller
+version of the module that causes the compiler to fail with the same
+fatal error message.
+
+To suggest an additional capability for the reducer, [file an
+issue](https://github.com/KhronosGroup/SPIRV-Tools/issues]) with
+"Reducer:" as the start of its title.
+
+
 ### Extras
 
 * [Utility filters](#utility-filters)
@@ -241,6 +258,8 @@ out code:
 ```sh
 cd <spirv-dir>
 git clone https://github.com/KhronosGroup/SPIRV-Headers.git external/spirv-headers
+git clone https://github.com/google/effcee.git external/effcee
+git clone https://github.com/google/re2.git external/re2
 git clone https://github.com/google/googletest.git external/googletest # optional
 
 mkdir build && cd build
@@ -249,6 +268,36 @@ cmake [-G <platform-generator>] <spirv-dir>
 
 Once the build files have been generated, build using your preferred
 development environment.
+
+### Tools you'll need
+
+For building and testing SPIRV-Tools, the following tools should be
+installed regardless of your OS:
+
+- [CMake](http://www.cmake.org/): for generating compilation targets.  Version
+  2.8.12 or later.
+- [Python](http://www.python.org/): for utility scripts and running the test 
+suite. Version 2 or 3.
+
+We will be moving to Python3 only in the future.  If you are using Python2, you
+will need to install Python-future: 
+```pip install future
+```
+
+SPIRV-Tools is regularly tested with the the following compilers:
+
+On Linux
+- GCC version 4.8.5
+- Clang version 3.8
+
+On MacOS
+- AppleClang 10.0
+
+On Windows
+- Visual Studio 2015
+- Visual Studio 2017
+
+Other compilers or later versions may work, but they are not tested.
 
 ### CMake options
 
@@ -271,7 +320,7 @@ The following CMake options are supported:
   See [`CMakeLists.txt`](CMakeLists.txt) for details.
 * `SPIRV_WERROR={ON|OFF}`, default `ON` - Forces a compilation error on any
   warnings encountered by enabling the compiler-specific compiler front-end
-  option.
+  option.  No compiler front-end options are enabled when this option is OFF.
 
 Additionally, you can pass additional C preprocessor definitions to SPIRV-Tools
 via setting `SPIRV_TOOLS_EXTRA_DEFINITIONS`. For example, by setting it to
@@ -412,6 +461,18 @@ The validator operates on the binary form.
 
 * `spirv-val` - the standalone validator
   * `<spirv-dir>/tools/val`
+
+### Reducer tool
+
+The reducer shrinks a SPIR-V binary module, guided by a user-supplied
+*interestingness test*.
+
+This is a work in progress, with initially only shrinks a module in a few ways.
+
+* `spirv-reduce` - the standalone reducer
+  * `<spirv-dir>/tools/reduce`
+
+Run `spirv-reduce --help` to see how to specify interestingness.
 
 ### Control flow dumper tool
 

@@ -93,9 +93,13 @@ INSTANTIATE_TEST_CASE_P(
         "cppSimple.vert",
         "cppIndent.vert",
         "cppIntMinOverNegativeOne.frag",
+        "cppMerge.frag",
         "cppNest.vert",
         "cppBad.vert",
         "cppBad2.vert",
+        "cppBad3.vert",
+        "cppBad4.vert",
+        "cppBad5.vert",
         "cppComplexExpr.vert",
         "cppDeepNest.frag",
         "cppPassMacroName.frag",
@@ -113,6 +117,7 @@ INSTANTIATE_TEST_CASE_P(
         "300operations.frag",
         "300block.frag",
         "300samplerExternal.frag",
+        "300samplerExternalYUV.frag",
         "310.comp",
         "310.vert",
         "310.geom",
@@ -231,6 +236,7 @@ INSTANTIATE_TEST_CASE_P(
         "precise_struct_block.vert",
         "maxClipDistances.vert",
         "findFunction.frag",
+        "constantUnaryConversion.comp"
     })),
     FileNameAsCustomTestSuffix
 );

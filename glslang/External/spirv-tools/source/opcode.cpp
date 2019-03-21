@@ -260,6 +260,7 @@ int32_t spvOpcodeIsComposite(const SpvOp opcode) {
     case SpvOpTypeMatrix:
     case SpvOpTypeArray:
     case SpvOpTypeStruct:
+    case SpvOpTypeCooperativeMatrixNV:
       return true;
     default:
       return false;
@@ -325,6 +326,7 @@ int32_t spvOpcodeGeneratesType(SpvOp op) {
     case SpvOpTypePipeStorage:
     case SpvOpTypeNamedBarrier:
     case SpvOpTypeAccelerationStructureNV:
+    case SpvOpTypeCooperativeMatrixNV:
       return true;
     default:
       // In particular, OpTypeForwardPointer does not generate a type,
@@ -582,6 +584,22 @@ bool spvOpcodeIsScalarizable(SpvOp opcode) {
     case SpvOpFUnordLessThanEqual:
     case SpvOpFOrdGreaterThanEqual:
     case SpvOpFUnordGreaterThanEqual:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool spvOpcodeIsDebug(SpvOp opcode) {
+  switch (opcode) {
+    case SpvOpName:
+    case SpvOpMemberName:
+    case SpvOpSource:
+    case SpvOpSourceContinued:
+    case SpvOpSourceExtension:
+    case SpvOpString:
+    case SpvOpLine:
+    case SpvOpNoLine:
       return true;
     default:
       return false;

@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <source/spirv_optimizer_options.h>
+#include "code_sink.h"
 #include "source/opt/build_module.h"
 #include "source/opt/log.h"
 #include "source/opt/pass_manager.h"
@@ -56,8 +57,8 @@ Optimizer::PassToken::~PassToken() {}
 struct Optimizer::Impl {
   explicit Impl(spv_target_env env) : target_env(env), pass_manager() {}
 
-  const spv_target_env target_env;  // Target environment.
-  opt::PassManager pass_manager;    // Internal implementation pass manager.
+  spv_target_env target_env;      // Target environment.
+  opt::PassManager pass_manager;  // Internal implementation pass manager.
 };
 
 Optimizer::Optimizer(spv_target_env env) : impl_(new Impl(env)) {}
@@ -216,6 +217,13 @@ Optimizer& Optimizer::RegisterSizePasses() {
       .RegisterPass(CreateAggressiveDCEPass());
 }
 
+Optimizer& Optimizer::RegisterWebGPUPasses() {
+  return RegisterPass(CreateStripDebugInfoPass())
+      .RegisterPass(CreateFlattenDecorationPass())
+      .RegisterPass(CreateAggressiveDCEPass())
+      .RegisterPass(CreateDeadBranchElimPass());
+}
+
 bool Optimizer::RegisterPassesFromFlags(const std::vector<std::string>& flags) {
   for (const auto& flag : flags) {
     if (!RegisterPassFromFlag(flag)) {
@@ -324,6 +332,8 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag) {
     RegisterPass(CreateDeadInsertElimPass());
   } else if (pass_name == "eliminate-dead-variables") {
     RegisterPass(CreateDeadVariableEliminationPass());
+  } else if (pass_name == "eliminate-dead-members") {
+    RegisterPass(CreateEliminateDeadMembersPass());
   } else if (pass_name == "fold-spec-const-op-composite") {
     RegisterPass(CreateFoldSpecConstantOpAndCompositePass());
   } else if (pass_name == "loop-unswitch") {
@@ -373,7 +383,7 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag) {
   } else if (pass_name == "replace-invalid-opcode") {
     RegisterPass(CreateReplaceInvalidOpcodePass());
   } else if (pass_name == "inst-bindless-check") {
-    RegisterPass(CreateInstBindlessCheckPass(7, 23));
+    RegisterPass(CreateInstBindlessCheckPass(7, 23, true));
     RegisterPass(CreateSimplificationPass());
     RegisterPass(CreateDeadBranchElimPass());
     RegisterPass(CreateBlockMergePass());
@@ -408,6 +418,8 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag) {
     }
   } else if (pass_name == "loop-unroll") {
     RegisterPass(CreateLoopUnrollPass(true));
+  } else if (pass_name == "upgrade-memory-model") {
+    RegisterPass(CreateUpgradeMemoryModelPass());
   } else if (pass_name == "vector-dce") {
     RegisterPass(CreateVectorDCEPass());
   } else if (pass_name == "loop-unroll-partial") {
@@ -432,6 +444,8 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag) {
     }
   } else if (pass_name == "ccp") {
     RegisterPass(CreateCCPPass());
+  } else if (pass_name == "code-sink") {
+    RegisterPass(CreateCodeSinkingPass());
   } else if (pass_name == "O") {
     RegisterPerformancePasses();
   } else if (pass_name == "Os") {
@@ -446,6 +460,10 @@ bool Optimizer::RegisterPassFromFlag(const std::string& flag) {
   }
 
   return true;
+}
+
+void Optimizer::SetTargetEnv(const spv_target_env env) {
+  impl_->target_env = env;
 }
 
 bool Optimizer::Run(const uint32_t* original_binary,
@@ -524,6 +542,11 @@ Optimizer::PassToken CreateStripReflectInfoPass() {
 Optimizer::PassToken CreateEliminateDeadFunctionsPass() {
   return MakeUnique<Optimizer::PassToken::Impl>(
       MakeUnique<opt::EliminateDeadFunctionsPass>());
+}
+
+Optimizer::PassToken CreateEliminateDeadMembersPass() {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+      MakeUnique<opt::EliminateDeadMembersPass>());
 }
 
 Optimizer::PassToken CreateSetSpecConstantDefaultValuePass(
@@ -768,10 +791,22 @@ Optimizer::PassToken CreateCombineAccessChainsPass() {
       MakeUnique<opt::CombineAccessChains>());
 }
 
-Optimizer::PassToken CreateInstBindlessCheckPass(uint32_t desc_set,
-                                                 uint32_t shader_id) {
+Optimizer::PassToken CreateUpgradeMemoryModelPass() {
   return MakeUnique<Optimizer::PassToken::Impl>(
-      MakeUnique<opt::InstBindlessCheckPass>(desc_set, shader_id));
+      MakeUnique<opt::UpgradeMemoryModel>());
+}
+
+Optimizer::PassToken CreateInstBindlessCheckPass(uint32_t desc_set,
+                                                 uint32_t shader_id,
+                                                 bool runtime_array_enable) {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+      MakeUnique<opt::InstBindlessCheckPass>(desc_set, shader_id,
+                                             runtime_array_enable));
+}
+
+Optimizer::PassToken CreateCodeSinkingPass() {
+  return MakeUnique<Optimizer::PassToken::Impl>(
+      MakeUnique<opt::CodeSinkingPass>());
 }
 
 }  // namespace spvtools
