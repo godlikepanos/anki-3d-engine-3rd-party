@@ -1658,6 +1658,16 @@ void ColladaParser::ReadGeometry( Collada::Mesh* pMesh)
 				pMesh->mProperties["reflection_probe"] = std::string(value);
 				mReader->read();
 			}
+			else if(IsElement("gi_probe"))
+			{
+				// AnKi properties
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <gi_probe> element.");
+
+				pMesh->mProperties["gi_probe"] = std::string(value);
+				mReader->read();
+			}
 			else if(IsElement("reflection_proxy"))
 			{
 				// AnKi properties
@@ -1812,6 +1822,13 @@ void ColladaParser::ReadMesh( Mesh* pMesh)
 				if(!value)
 					ThrowException( "Missing string in <reflection_probe> element.");
 				pMesh->mProperties["reflection_probe"] = std::string(value);
+				mReader->read();
+			}
+			else if (IsElement("gi_probe")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <gi_probe> element.");
+				pMesh->mProperties["gi_probe"] = std::string(value);
 				mReader->read();
 			}
 			else if (IsElement("reflection_proxy")) {
