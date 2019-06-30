@@ -1830,6 +1830,13 @@ void ColladaParser::ReadMesh( Mesh* pMesh)
 				pMesh->mProperties["particles"] = std::string(value);
 				mReader->read();
 			}
+			else if (IsElement("gpu_particles")) {
+				const char* value = TestTextContent();
+				if(!value)
+					ThrowException( "Missing string in <gpu_particles> element.");
+				pMesh->mProperties["gpu_particles"] = std::string(value);
+				mReader->read();
+			}
 			else if (IsElement("lod1")) {
 				const char* value = TestTextContent();
 				if(!value)
