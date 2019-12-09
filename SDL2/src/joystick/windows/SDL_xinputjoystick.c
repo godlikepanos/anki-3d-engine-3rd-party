@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2019 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,8 +26,11 @@
 
 #include "SDL_assert.h"
 #include "SDL_hints.h"
+#include "SDL_log.h"
+#include "SDL_timer.h"
 #include "SDL_windowsjoystick_c.h"
 #include "SDL_xinputjoystick_c.h"
+#include "../hidapi/SDL_hidapijoystick_c.h"
 
 /*
  * Internal stuff.
@@ -41,7 +44,8 @@ SDL_XInputUseOldJoystickMapping()
 {
 #ifdef __WINRT__
     /* TODO: remove this __WINRT__ block, but only after integrating with UWP/WinRT's HID API */
-    return SDL_TRUE;
+    /* FIXME: Why are Win8/10 different here? -flibit */
+    return (NTDDI_VERSION < NTDDI_WIN10);
 #else
     static int s_XInputUseOldJoystickMapping = -1;
     if (s_XInputUseOldJoystickMapping < 0) {
@@ -135,6 +139,28 @@ GuessXInputDevice(Uint8 userid, Uint16 *pVID, Uint16 *pPID, Uint16 *pVersion)
         return;  /* oh well. */
     }
 
+    /* First see if we have a cached entry for this index */
+    if (s_arrXInputDevicePath[userid]) {
+        for (i = 0; i < device_count; i++) {
+            RID_DEVICE_INFO rdi;
+            char devName[128];
+            UINT rdiSize = sizeof(rdi);
+            UINT nameSize = SDL_arraysize(devName);
+
+            rdi.cbSize = sizeof(rdi);
+            if (devices[i].dwType == RIM_TYPEHID &&
+                GetRawInputDeviceInfoA(devices[i].hDevice, RIDI_DEVICEINFO, &rdi, &rdiSize) != (UINT)-1 &&
+                GetRawInputDeviceInfoA(devices[i].hDevice, RIDI_DEVICENAME, devName, &nameSize) != (UINT)-1) {
+                if (SDL_strcmp(devName, s_arrXInputDevicePath[userid]) == 0) {
+                    *pVID = (Uint16)rdi.hid.dwVendorId;
+                    *pPID = (Uint16)rdi.hid.dwProductId;
+                    *pVersion = (Uint16)rdi.hid.dwVersionNumber;
+                    return;
+                }
+            }
+        }
+    }
+
     for (i = 0; i < device_count; i++) {
         RID_DEVICE_INFO rdi;
         char devName[128];
@@ -142,49 +168,58 @@ GuessXInputDevice(Uint8 userid, Uint16 *pVID, Uint16 *pPID, Uint16 *pVersion)
         UINT nameSize = SDL_arraysize(devName);
 
         rdi.cbSize = sizeof(rdi);
-        if ((devices[i].dwType == RIM_TYPEHID) &&
-            (GetRawInputDeviceInfoA(devices[i].hDevice, RIDI_DEVICEINFO, &rdi, &rdiSize) != ((UINT)-1)) &&
-            (GetRawInputDeviceInfoA(devices[i].hDevice, RIDI_DEVICENAME, devName, &nameSize) != ((UINT)-1)) &&
-            (SDL_strstr(devName, "IG_") != NULL)) {
-            SDL_bool found = SDL_FALSE;
-            for (j = 0; j < SDL_arraysize(s_arrXInputDevicePath); ++j) {
-                if (j == userid) {
+        if (devices[i].dwType == RIM_TYPEHID &&
+            GetRawInputDeviceInfoA(devices[i].hDevice, RIDI_DEVICEINFO, &rdi, &rdiSize) != (UINT)-1 &&
+            GetRawInputDeviceInfoA(devices[i].hDevice, RIDI_DEVICENAME, devName, &nameSize) != (UINT)-1) {
+#ifdef DEBUG_JOYSTICK
+            SDL_Log("Raw input device: VID = 0x%x, PID = 0x%x, %s\n", rdi.hid.dwVendorId, rdi.hid.dwProductId, devName);
+#endif
+            if (SDL_strstr(devName, "IG_") != NULL) {
+                SDL_bool found = SDL_FALSE;
+                for (j = 0; j < SDL_arraysize(s_arrXInputDevicePath); ++j) {
+                    if (!s_arrXInputDevicePath[j]) {
+                        continue;
+                    }
+                    if (SDL_strcmp(devName, s_arrXInputDevicePath[j]) == 0) {
+                        found = SDL_TRUE;
+                        break;
+                    }
+                }
+                if (found) {
+                    /* We already have this device in our XInput device list */
                     continue;
                 }
-                if (!s_arrXInputDevicePath[j]) {
-                    continue;
-                }
-                if (SDL_strcmp(devName, s_arrXInputDevicePath[j]) == 0) {
-                    found = SDL_TRUE;
-                    break;
-                }
-            }
-            if (found) {
-                /* We already have this device in our XInput device list */
-                continue;
-            }
 
-            /* We don't actually know if this is the right device for this
-             * userid, but we'll record it so we'll at least be consistent
-             * when the raw device list changes.
-             */
-            *pVID = (Uint16)rdi.hid.dwVendorId;
-            *pPID = (Uint16)rdi.hid.dwProductId;
-            *pVersion = (Uint16)rdi.hid.dwVersionNumber;
-            if (s_arrXInputDevicePath[userid]) {
-                SDL_free(s_arrXInputDevicePath[userid]);
+                /* We don't actually know if this is the right device for this
+                 * userid, but we'll record it so we'll at least be consistent
+                 * when the raw device list changes.
+                 */
+                *pVID = (Uint16)rdi.hid.dwVendorId;
+                *pPID = (Uint16)rdi.hid.dwProductId;
+                *pVersion = (Uint16)rdi.hid.dwVersionNumber;
+                if (s_arrXInputDevicePath[userid]) {
+                    SDL_free(s_arrXInputDevicePath[userid]);
+                }
+                s_arrXInputDevicePath[userid] = SDL_strdup(devName);
+                return;
             }
-            s_arrXInputDevicePath[userid] = SDL_strdup(devName);
-            break;
         }
     }
     SDL_free(devices);
 #endif  /* ifndef __WINRT__ */
+
+    /* The device wasn't in the raw HID device list, it's probably Bluetooth */
+    *pVID = 0x045e; /* Microsoft */
+    *pPID = 0x02fd; /* XBox One S Bluetooth */
+    *pVersion = 0;
 }
 
 static void
 AddXInputDevice(Uint8 userid, BYTE SubType, JoyStick_DeviceData **pContext)
 {
+    Uint16 vendor = 0;
+    Uint16 product = 0;
+    Uint16 version = 0;
     JoyStick_DeviceData *pPrevJoystick = NULL;
     JoyStick_DeviceData *pNewJoystick = *pContext;
 
@@ -228,15 +263,11 @@ AddXInputDevice(Uint8 userid, BYTE SubType, JoyStick_DeviceData **pContext)
     if (SDL_XInputUseOldJoystickMapping()) {
         SDL_zero(pNewJoystick->guid);
     } else {
-        const Uint16 BUS_USB = 0x03;
-        Uint16 vendor = 0;
-        Uint16 product = 0;
-        Uint16 version = 0;
         Uint16 *guid16 = (Uint16 *)pNewJoystick->guid.data;
 
         GuessXInputDevice(userid, &vendor, &product, &version);
 
-        *guid16++ = SDL_SwapLE16(BUS_USB);
+        *guid16++ = SDL_SwapLE16(SDL_HARDWARE_BUS_USB);
         *guid16++ = 0;
         *guid16++ = SDL_SwapLE16(vendor);
         *guid16++ = 0;
@@ -252,12 +283,29 @@ AddXInputDevice(Uint8 userid, BYTE SubType, JoyStick_DeviceData **pContext)
     pNewJoystick->SubType = SubType;
     pNewJoystick->XInputUserId = userid;
 
-    if (SDL_ShouldIgnoreGameController(pNewJoystick->joystickname, pNewJoystick->guid)) {
+    if (SDL_ShouldIgnoreJoystick(pNewJoystick->joystickname, pNewJoystick->guid)) {
         SDL_free(pNewJoystick);
         return;
     }
 
-    SDL_SYS_AddJoystickDevice(pNewJoystick);
+#ifdef SDL_JOYSTICK_HIDAPI
+    if (HIDAPI_IsDevicePresent(vendor, product, version, pNewJoystick->joystickname)) {
+        /* The HIDAPI driver is taking care of this device */
+        SDL_free(pNewJoystick);
+        return;
+    }
+#endif
+
+    WINDOWS_AddJoystickDevice(pNewJoystick);
+}
+
+static void
+DelXInputDevice(Uint8 userid)
+{
+    if (s_arrXInputDevicePath[userid]) {
+        SDL_free(s_arrXInputDevicePath[userid]);
+        s_arrXInputDevicePath[userid] = NULL;
+    }
 }
 
 void
@@ -275,6 +323,8 @@ SDL_XINPUT_JoystickDetect(JoyStick_DeviceData **pContext)
         XINPUT_CAPABILITIES capabilities;
         if (XINPUTGETCAPABILITIES(userid, XINPUT_FLAG_GAMEPAD, &capabilities) == ERROR_SUCCESS) {
             AddXInputDevice(userid, capabilities.SubType, pContext);
+        } else {
+            DelXInputDevice(userid);
         }
     }
 }
@@ -290,6 +340,8 @@ SDL_XINPUT_JoystickOpen(SDL_Joystick * joystick, JoyStick_DeviceData *joystickde
     SDL_assert(XINPUTGETCAPABILITIES);
     SDL_assert(XINPUTSETSTATE);
     SDL_assert(userId < XUSER_MAX_COUNT);
+
+    joystick->player_index = userId;
 
     joystick->hwdata->bXInputDevice = SDL_TRUE;
 
@@ -383,12 +435,12 @@ UpdateXInputJoystickState(SDL_Joystick * joystick, XINPUT_STATE_EX *pXInputState
     Uint8 button;
     Uint8 hat = SDL_HAT_CENTERED;
 
-    SDL_PrivateJoystickAxis(joystick, 0, (Sint16)pXInputState->Gamepad.sThumbLX);
-    SDL_PrivateJoystickAxis(joystick, 1, (Sint16)(-SDL_max(-32767, pXInputState->Gamepad.sThumbLY)));
-    SDL_PrivateJoystickAxis(joystick, 2, (Sint16)(((int)pXInputState->Gamepad.bLeftTrigger * 65535 / 255) - 32768));
-    SDL_PrivateJoystickAxis(joystick, 3, (Sint16)pXInputState->Gamepad.sThumbRX);
-    SDL_PrivateJoystickAxis(joystick, 4, (Sint16)(-SDL_max(-32767, pXInputState->Gamepad.sThumbRY)));
-    SDL_PrivateJoystickAxis(joystick, 5, (Sint16)(((int)pXInputState->Gamepad.bRightTrigger * 65535 / 255) - 32768));
+    SDL_PrivateJoystickAxis(joystick, 0, pXInputState->Gamepad.sThumbLX);
+    SDL_PrivateJoystickAxis(joystick, 1, ~pXInputState->Gamepad.sThumbLY);
+    SDL_PrivateJoystickAxis(joystick, 2, ((int)pXInputState->Gamepad.bLeftTrigger * 257) - 32768);
+    SDL_PrivateJoystickAxis(joystick, 3, pXInputState->Gamepad.sThumbRX);
+    SDL_PrivateJoystickAxis(joystick, 4, ~pXInputState->Gamepad.sThumbRY);
+    SDL_PrivateJoystickAxis(joystick, 5, ((int)pXInputState->Gamepad.bRightTrigger * 257) - 32768);
 
     for (button = 0; button < SDL_arraysize(s_XInputButtons); ++button) {
         SDL_PrivateJoystickButton(joystick, button, (wButtons & s_XInputButtons[button]) ? SDL_PRESSED : SDL_RELEASED);
@@ -411,6 +463,29 @@ UpdateXInputJoystickState(SDL_Joystick * joystick, XINPUT_STATE_EX *pXInputState
     UpdateXInputJoystickBatteryInformation(joystick, pBatteryInformation);
 }
 
+int
+SDL_XINPUT_JoystickRumble(SDL_Joystick * joystick, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble, Uint32 duration_ms)
+{
+    XINPUT_VIBRATION XVibration;
+
+    if (!XINPUTSETSTATE) {
+        return SDL_Unsupported();
+    }
+
+    XVibration.wLeftMotorSpeed = low_frequency_rumble;
+    XVibration.wRightMotorSpeed = high_frequency_rumble;
+    if (XINPUTSETSTATE(joystick->hwdata->userid, &XVibration) != ERROR_SUCCESS) {
+        return SDL_SetError("XInputSetState() failed");
+    }
+
+    if ((low_frequency_rumble || high_frequency_rumble) && duration_ms) {
+        joystick->hwdata->rumble_expiration = SDL_GetTicks() + duration_ms;
+    } else {
+        joystick->hwdata->rumble_expiration = 0;
+    }
+    return 0;
+}
+
 void
 SDL_XINPUT_JoystickUpdate(SDL_Joystick * joystick)
 {
@@ -423,14 +498,6 @@ SDL_XINPUT_JoystickUpdate(SDL_Joystick * joystick)
 
     result = XINPUTGETSTATE(joystick->hwdata->userid, &XInputState);
     if (result == ERROR_DEVICE_NOT_CONNECTED) {
-        Uint8 userid = joystick->hwdata->userid;
-
-        joystick->hwdata->send_remove_event = SDL_TRUE;
-        joystick->hwdata->removed = SDL_TRUE;
-        if (s_arrXInputDevicePath[userid]) {
-            SDL_free(s_arrXInputDevicePath[userid]);
-            s_arrXInputDevicePath[userid] = NULL;
-        }
         return;
     }
 
@@ -448,6 +515,13 @@ SDL_XINPUT_JoystickUpdate(SDL_Joystick * joystick)
         }
         joystick->hwdata->dwPacketNumber = XInputState.dwPacketNumber;
     }
+
+    if (joystick->hwdata->rumble_expiration) {
+        Uint32 now = SDL_GetTicks();
+        if (SDL_TICKS_PASSED(now, joystick->hwdata->rumble_expiration)) {
+            SDL_XINPUT_JoystickRumble(joystick, 0, 0, 0);
+        }
+    }
 }
 
 void
@@ -461,18 +535,6 @@ SDL_XINPUT_JoystickQuit(void)
     if (s_bXInputEnabled) {
         WIN_UnloadXInputDLL();
     }
-}
-
-SDL_bool
-SDL_SYS_IsXInputGamepad_DeviceIndex(int device_index)
-{
-    JoyStick_DeviceData *device = SYS_Joystick;
-    int index;
-
-    for (index = device_index; index > 0; index--)
-        device = device->pNext;
-
-    return device->bXInputDevice;
 }
 
 #else /* !SDL_JOYSTICK_XINPUT */
@@ -497,6 +559,12 @@ SDL_XINPUT_JoystickDetect(JoyStick_DeviceData **pContext)
 
 int
 SDL_XINPUT_JoystickOpen(SDL_Joystick * joystick, JoyStick_DeviceData *joystickdevice)
+{
+    return SDL_Unsupported();
+}
+
+int
+SDL_XINPUT_JoystickRumble(SDL_Joystick * joystick, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble, Uint32 duration_ms)
 {
     return SDL_Unsupported();
 }
