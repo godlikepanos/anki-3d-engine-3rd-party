@@ -14,10 +14,9 @@
 
 #include "source/val/validate.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
-
-#include <algorithm>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -51,21 +50,6 @@ static uint32_t kDefaultMaxNumOfWarnings = 1;
 namespace spvtools {
 namespace val {
 namespace {
-
-// TODO(umar): Validate header
-// TODO(umar): The binary parser validates the magic word, and the length of the
-// header, but nothing else.
-spv_result_t setHeader(void* user_data, spv_endianness_t, uint32_t,
-                       uint32_t version, uint32_t generator, uint32_t id_bound,
-                       uint32_t) {
-  // Record the ID bound so that the validator can ensure no ID is out of bound.
-  ValidationState_t& _ = *(reinterpret_cast<ValidationState_t*>(user_data));
-  _.setIdBound(id_bound);
-  _.setGenerator(generator);
-  _.setVersion(version);
-
-  return SPV_SUCCESS;
-}
 
 // Parses OpExtension instruction and registers extension.
 void RegisterExtension(ValidationState_t& _,
@@ -108,48 +92,6 @@ spv_result_t ProcessInstruction(void* user_data,
   _.RegisterDebugInstruction(instruction);
 
   return SPV_SUCCESS;
-}
-
-void printDot(const ValidationState_t& _, const BasicBlock& other) {
-  std::string block_string;
-  if (other.successors()->empty()) {
-    block_string += "end ";
-  } else {
-    for (auto block : *other.successors()) {
-      block_string += _.getIdName(block->id()) + " ";
-    }
-  }
-  printf("%10s -> {%s\b}\n", _.getIdName(other.id()).c_str(),
-         block_string.c_str());
-}
-
-void PrintBlocks(ValidationState_t& _, Function func) {
-  assert(func.first_block());
-
-  printf("%10s -> %s\n", _.getIdName(func.id()).c_str(),
-         _.getIdName(func.first_block()->id()).c_str());
-  for (const auto& block : func.ordered_blocks()) {
-    printDot(_, *block);
-  }
-}
-
-#ifdef __clang__
-#define UNUSED(func) [[gnu::unused]] func
-#elif defined(__GNUC__)
-#define UNUSED(func)            \
-  func __attribute__((unused)); \
-  func
-#elif defined(_MSC_VER)
-#define UNUSED(func) func
-#endif
-
-UNUSED(void PrintDotGraph(ValidationState_t& _, Function func)) {
-  if (func.first_block()) {
-    std::string func_name(_.getIdName(func.id()));
-    printf("digraph %s {\n", func_name.c_str());
-    PrintBlocks(_, func);
-    printf("}\n");
-  }
 }
 
 spv_result_t ValidateForwardDecls(ValidationState_t& _) {
@@ -281,6 +223,12 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
            << "Invalid SPIR-V magic number.";
   }
 
+  if (spvIsWebGPUEnv(context.target_env) && endian != SPV_ENDIANNESS_LITTLE) {
+    return DiagnosticStream(position, context.consumer, "",
+                            SPV_ERROR_INVALID_BINARY)
+           << "WebGPU requires SPIR-V to be little endian.";
+  }
+
   spv_header_t header;
   if (spvBinaryHeaderGet(binary.get(), endian, &header)) {
     return DiagnosticStream(position, context.consumer, "",
@@ -318,11 +266,13 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
 
   // Parse the module and perform inline validation checks. These checks do
   // not require the the knowledge of the whole module.
-  if (auto error = spvBinaryParse(&context, vstate, words, num_words, setHeader,
+  if (auto error = spvBinaryParse(&context, vstate, words, num_words,
+                                  /*parsed_header =*/nullptr,
                                   ProcessInstruction, pDiagnostic)) {
     return error;
   }
 
+  std::vector<Instruction*> visited_entry_points;
   for (auto& instruction : vstate->ordered_instructions()) {
     {
       // In order to do this work outside of Process Instruction we need to be
@@ -344,6 +294,24 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
 
         vstate->RegisterEntryPoint(entry_point, execution_model,
                                    std::move(desc));
+
+        if (visited_entry_points.size() > 0) {
+          for (const Instruction* check_inst : visited_entry_points) {
+            const auto check_execution_model =
+                check_inst->GetOperandAs<SpvExecutionModel>(0);
+            const char* check_str = reinterpret_cast<const char*>(
+                check_inst->words().data() + inst->operand(2).offset);
+            const std::string check_name(check_str);
+
+            if (desc.name == check_name &&
+                execution_model == check_execution_model) {
+              return vstate->diag(SPV_ERROR_INVALID_DATA, inst)
+                     << "2 Entry points cannot share the same name and "
+                        "ExecutionMode.";
+            }
+          }
+        }
+        visited_entry_points.push_back(inst);
       }
       if (inst->opcode() == SpvOpFunctionCall) {
         if (!vstate->in_function_body()) {
@@ -375,7 +343,6 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
     }
 
     if (auto error = CapabilityPass(*vstate, &instruction)) return error;
-    if (auto error = DataRulesPass(*vstate, &instruction)) return error;
     if (auto error = ModuleLayoutPass(*vstate, &instruction)) return error;
     if (auto error = CfgPass(*vstate, &instruction)) return error;
     if (auto error = InstructionPass(*vstate, &instruction)) return error;
@@ -384,6 +351,9 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
     {
       Instruction* inst = const_cast<Instruction*>(&instruction);
       vstate->RegisterInstruction(inst);
+      if (inst->opcode() == SpvOpTypeForwardPointer) {
+        vstate->RegisterForwardPointer(inst->GetOperandAs<uint32_t>(0));
+      }
     }
   }
 
@@ -417,7 +387,7 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
 
     // Keep these passes in the order they appear in the SPIR-V specification
     // sections to maintain test consistency.
-    // Miscellaneous
+    if (auto error = MiscPass(*vstate, &instruction)) return error;
     if (auto error = DebugPass(*vstate, &instruction)) return error;
     if (auto error = AnnotationPass(*vstate, &instruction)) return error;
     if (auto error = ExtensionPass(*vstate, &instruction)) return error;
@@ -463,6 +433,7 @@ spv_result_t ValidateBinaryUsingContextAndValidationState(
   // those checks register the limitation checked here.
   for (const auto inst : vstate->ordered_instructions()) {
     if (auto error = ValidateExecutionLimitations(*vstate, &inst)) return error;
+    if (auto error = ValidateSmallTypeUses(*vstate, &inst)) return error;
   }
 
   return SPV_SUCCESS;

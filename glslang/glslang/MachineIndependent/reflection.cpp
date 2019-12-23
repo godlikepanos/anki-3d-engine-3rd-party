@@ -33,6 +33,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 
+#ifndef GLSLANG_WEB
+
 #include "../Include/Common.h"
 #include "reflection.h"
 #include "LiveTraverser.h"
@@ -74,7 +76,6 @@ namespace glslang {
 //
 // This is in the glslang namespace directly so it can be a friend of TReflection.
 //
-
 class TReflectionTraverser : public TLiveTraverser {
 public:
     TReflectionTraverser(const TIntermediate& i, TReflection& r) :
@@ -98,6 +99,63 @@ public:
         }
     }
 
+    void addSpecConstant(const TIntermSymbol& base)
+    {
+        if (processedDerefs.find(&base) == processedDerefs.end()) {
+            processedDerefs.insert(&base);
+
+            const TString& name = base.getName();
+            const TType& type = base.getType();
+            reflection.indexToSpecConstant.push_back(
+                TObjectReflection(name.c_str(), type, 0, mapToGlType(type), mapToGlArraySize(type), 0));
+        }
+    }
+
+    // Traverse in search for spec constants
+    void traverseToFindSpecConsants(TIntermTyped* typed)
+    {
+        // Simple traverser that searches for spec constants
+        class TArrayDimensionTraverser : public TIntermTraverser
+        {
+        public:
+            TReflectionTraverser* reflectionTraverser = nullptr;
+
+            void visitSymbol(TIntermSymbol* base)
+            {
+                if (base->getType().getQualifier().specConstant) {
+                    // Some symbols contain the specConstant qualifier but in reality they are not. Check that
+                    if (base->getType().getQualifier().layoutSpecConstantId != TQualifier::layoutSpecConstantIdEnd) {
+                        reflectionTraverser->addSpecConstant(*base);
+                    } else if (base->getConstSubtree()) {
+                        TArrayDimensionTraverser traverser;
+                        traverser.reflectionTraverser = reflectionTraverser;
+                        base->getConstSubtree()->traverse(&traverser);
+                    }
+                }
+            }
+        };
+
+        TArrayDimensionTraverser traverser;
+        traverser.reflectionTraverser = this;
+        typed->traverse(&traverser);
+    }
+
+    // Search for spec constant subtypes associated with this symbol
+    void searchForSpecConstantsInArrayDimensions(const TIntermSymbol& base)
+    {
+        base.getType().contains([this](const TType* t) {
+            bool containsSpecializationSize = t->isArray() && t->getArraySizes()->isOuterSpecialization();
+            if (containsSpecializationSize) {
+                const int dimension = 0; // Spec consts can only be in the outermost dimension
+                TIntermTyped* typed = t->getArraySizes()->getDimNode(dimension);
+                assert(typed);
+                traverseToFindSpecConsants(typed);
+            }
+
+            return false;
+        });
+    }
+
     void addPipeIOVariable(const TIntermSymbol& base)
     {
         if (processedDerefs.find(&base) == processedDerefs.end()) {
@@ -109,6 +167,10 @@ public:
 
             TReflection::TMapIndexToReflection &ioItems =
                 input ? reflection.indexToPipeInput : reflection.indexToPipeOutput;
+
+
+            TReflection::TNameToIndex &ioMapper =
+                input ? reflection.pipeInNameToIndex : reflection.pipeOutNameToIndex;
 
             if (reflection.options & EShReflectionUnwrapIOBlocks) {
                 bool anonymous = IsAnonymous(name);
@@ -123,16 +185,17 @@ public:
                 // by convention if this is an arrayed block we ignore the array in the reflection
                 if (type.isArray() && type.getBasicType() == EbtBlock) {
                     blowUpIOAggregate(input, baseName, TType(type, 0));
-                } else {               
+                } else {
                     blowUpIOAggregate(input, baseName, type);
                 }
             } else {
-                TReflection::TNameToIndex::const_iterator it = reflection.nameToIndex.find(name.c_str());
-                if (it == reflection.nameToIndex.end()) {
-                    reflection.nameToIndex[name.c_str()] = (int)ioItems.size();
+                TReflection::TNameToIndex::const_iterator it = ioMapper.find(name.c_str());
+                if (it == ioMapper.end()) {
+                    // seperate pipe i/o params from uniforms and blocks
+                    // in is only for input in first stage as out is only for last stage. check traverse in call stack.
+                    ioMapper[name.c_str()] = static_cast<int>(ioItems.size());
                     ioItems.push_back(
                         TObjectReflection(name.c_str(), type, 0, mapToGlType(type), mapToGlArraySize(type), 0));
-
                     EShLanguageMask& stages = ioItems.back().stages;
                     stages = static_cast<EShLanguageMask>(stages | 1 << intermediate.getStage());
                 } else {
@@ -141,45 +204,6 @@ public:
                 }
             }
         }
-    }
-
-    // shared calculation by getOffset and getOffsets
-    void updateOffset(const TType& parentType, const TType& memberType, int& offset, int& memberSize)
-    {
-        int dummyStride;
-
-        // modify just the children's view of matrix layout, if there is one for this member
-        TLayoutMatrix subMatrixLayout = memberType.getQualifier().layoutMatrix;
-        int memberAlignment = intermediate.getMemberAlignment(memberType, memberSize, dummyStride,
-                                                              parentType.getQualifier().layoutPacking,
-                                                              subMatrixLayout != ElmNone
-                                                                  ? subMatrixLayout == ElmRowMajor
-                                                                  : parentType.getQualifier().layoutMatrix == ElmRowMajor);
-        RoundToPow2(offset, memberAlignment);
-    }
-
-    // Lookup or calculate the offset of a block member, using the recursively
-    // defined block offset rules.
-    int getOffset(const TType& type, int index)
-    {
-        const TTypeList& memberList = *type.getStruct();
-
-        // Don't calculate offset if one is present, it could be user supplied
-        // and different than what would be calculated.  That is, this is faster,
-        // but not just an optimization.
-        if (memberList[index].type->getQualifier().hasOffset())
-            return memberList[index].type->getQualifier().layoutOffset;
-
-        int memberSize = 0;
-        int offset = 0;
-        for (int m = 0; m <= index; ++m) {
-            updateOffset(type, *memberList[m].type, offset, memberSize);
-
-            if (m < index)
-                offset += memberSize;
-        }
-
-        return offset;
     }
 
     // Lookup or calculate the offset of all block members at once, using the recursively
@@ -196,7 +220,7 @@ public:
                 offset = memberList[m].type->getQualifier().layoutOffset;
 
             // calculate the offset of the next member and align the current offset to this member
-            updateOffset(type, *memberList[m].type, offset, memberSize);
+            intermediate.updateOffset(type, *memberList[m].type, offset, memberSize);
 
             // save the offset of this member
             offsets[m] = offset;
@@ -224,23 +248,6 @@ public:
                                             : baseType.getQualifier().layoutMatrix == ElmRowMajor);
 
         return stride;
-    }
-
-    // Calculate the block data size.
-    // Block arrayness is not taken into account, each element is backed by a separate buffer.
-    int getBlockSize(const TType& blockType)
-    {
-        const TTypeList& memberList = *blockType.getStruct();
-        int lastIndex = (int)memberList.size() - 1;
-        int lastOffset = getOffset(blockType, lastIndex);
-
-        int lastMemberSize;
-        int dummyStride;
-        intermediate.getMemberAlignment(*memberList[lastIndex].type, lastMemberSize, dummyStride,
-                                        blockType.getQualifier().layoutPacking,
-                                        blockType.getQualifier().layoutMatrix == ElmRowMajor);
-
-        return lastOffset + lastMemberSize;
     }
 
     // count the total number of leaf members from iterating out of a block type
@@ -349,7 +356,7 @@ public:
             case EOpIndexDirectStruct:
                 index = visitNode->getRight()->getAsConstantUnion()->getConstArray()[0].getIConst();
                 if (offset >= 0)
-                    offset += getOffset(visitNode->getLeft()->getType(), index);
+                    offset += intermediate.getOffset(visitNode->getLeft()->getType(), index);
                 if (name.size() > 0)
                     name.append(".");
                 name.append((*visitNode->getLeft()->getType().getStruct())[index].type->getFieldName());
@@ -452,11 +459,11 @@ public:
                     topLevelArrayStride = variables.back().arrayStride;
             }
 
-            if ((reflection.options & EShReflectionSeparateBuffers) && terminalType->getBasicType() == EbtAtomicUint)
+            if ((reflection.options & EShReflectionSeparateBuffers) && terminalType->isAtomic())
                 reflection.atomicCounterUniformIndices.push_back(uniformIndex);
 
             variables.back().topLevelArrayStride = topLevelArrayStride;
-            
+
             if ((reflection.options & EShReflectionAllBlockVariables) && active) {
                 EShLanguageMask& stages = variables.back().stages;
                 stages = static_cast<EShLanguageMask>(stages | 1 << intermediate.getStage());
@@ -473,7 +480,7 @@ public:
             }
         }
     }
-    
+
     // similar to blowUpActiveAggregate, but with simpler rules and no dereferences to follow.
     void blowUpIOAggregate(bool input, const TString &baseName, const TType &type)
     {
@@ -582,7 +589,7 @@ public:
 
             const TString& blockName = base->getType().getTypeName();
             TString baseName;
-            
+
             if (! anonymous)
                 baseName = blockName;
 
@@ -592,10 +599,10 @@ public:
                 assert(! anonymous);
                 for (int e = 0; e < base->getType().getCumulativeArraySize(); ++e)
                     blockIndex = addBlockName(blockName + "[" + String(e) + "]", derefType,
-                                              getBlockSize(base->getType()));
+                                              intermediate.getBlockSize(base->getType()));
                 baseName.append(TString("[0]"));
             } else
-                blockIndex = addBlockName(blockName, base->getType(), getBlockSize(base->getType()));
+                blockIndex = addBlockName(blockName, base->getType(), intermediate.getBlockSize(base->getType()));
 
             if (reflection.options & EShReflectionAllBlockVariables) {
                 // Use a degenerate (empty) set of dereferences to immediately put as at the end of
@@ -610,15 +617,18 @@ public:
                 bool blockParent = (base->getType().getBasicType() == EbtBlock && base->getQualifier().storage == EvqBuffer);
 
                 if (strictArraySuffix && blockParent) {
-                    const TTypeList& typeList = *base->getType().getStruct();
+                    TType structDerefType(base->getType(), 0);
+
+                    const TType &structType = base->getType().isArray() ? structDerefType : base->getType();
+                    const TTypeList& typeList = *structType.getStruct();
 
                     TVector<int> memberOffsets;
 
                     memberOffsets.resize(typeList.size());
-                    getOffsets(base->getType(), memberOffsets);
+                    getOffsets(structType, memberOffsets);
 
                     for (int i = 0; i < (int)typeList.size(); ++i) {
-                        TType derefType(base->getType(), i);
+                        TType derefType(structType, i);
                         TString name = baseName;
                         if (name.size() > 0)
                             name.append(".");
@@ -629,7 +639,7 @@ public:
                         if (derefType.isArray() && derefType.isStruct()) {
                             name.append("[0]");
                             blowUpActiveAggregate(TType(derefType, 0), name, derefs, derefs.end(), memberOffsets[i],
-                                                  blockIndex, 0, getArrayStride(base->getType(), derefType),
+                                                  blockIndex, 0, getArrayStride(structType, derefType),
                                                   base->getQualifier().storage, false);
                         } else {
                             blowUpActiveAggregate(derefType, name, derefs, derefs.end(), memberOffsets[i], blockIndex,
@@ -757,7 +767,6 @@ public:
                 case EsdBuffer:
                     return GL_SAMPLER_BUFFER;
                 }
-#ifdef AMD_EXTENSIONS
             case EbtFloat16:
                 switch ((int)sampler.dim) {
                 case Esd1D:
@@ -786,7 +795,6 @@ public:
                 case EsdBuffer:
                     return GL_FLOAT16_SAMPLER_BUFFER_AMD;
                 }
-#endif
             case EbtInt:
                 switch ((int)sampler.dim) {
                 case Esd1D:
@@ -849,7 +857,6 @@ public:
                 case EsdBuffer:
                     return GL_IMAGE_BUFFER;
                 }
-#ifdef AMD_EXTENSIONS
             case EbtFloat16:
                 switch ((int)sampler.dim) {
                 case Esd1D:
@@ -868,7 +875,6 @@ public:
                 case EsdBuffer:
                     return GL_FLOAT16_IMAGE_BUFFER_AMD;
                 }
-#endif
             case EbtInt:
                 switch ((int)sampler.dim) {
                 case Esd1D:
@@ -934,9 +940,7 @@ public:
             switch (type.getBasicType()) {
             case EbtFloat:      return GL_FLOAT_VEC2                  + offset;
             case EbtDouble:     return GL_DOUBLE_VEC2                 + offset;
-#ifdef AMD_EXTENSIONS
             case EbtFloat16:    return GL_FLOAT16_VEC2_NV             + offset;
-#endif
             case EbtInt:        return GL_INT_VEC2                    + offset;
             case EbtUint:       return GL_UNSIGNED_INT_VEC2           + offset;
             case EbtInt64:      return GL_INT64_ARB                   + offset;
@@ -996,7 +1000,6 @@ public:
                     default:   return 0;
                     }
                 }
-#ifdef AMD_EXTENSIONS
             case EbtFloat16:
                 switch (type.getMatrixCols()) {
                 case 2:
@@ -1021,7 +1024,6 @@ public:
                     default:   return 0;
                     }
                 }
-#endif
             default:
                 return 0;
             }
@@ -1030,9 +1032,7 @@ public:
             switch (type.getBasicType()) {
             case EbtFloat:      return GL_FLOAT;
             case EbtDouble:     return GL_DOUBLE;
-#ifdef AMD_EXTENSIONS
             case EbtFloat16:    return GL_FLOAT16_NV;
-#endif
             case EbtInt:        return GL_INT;
             case EbtUint:       return GL_UNSIGNED_INT;
             case EbtInt64:      return GL_INT64_ARB;
@@ -1085,8 +1085,13 @@ bool TReflectionTraverser::visitBinary(TVisit /* visit */, TIntermBinary* node)
 // To reflect non-dereferenced objects.
 void TReflectionTraverser::visitSymbol(TIntermSymbol* base)
 {
+    searchForSpecConstantsInArrayDimensions(*base);
+
     if (base->getQualifier().storage == EvqUniform)
         addUniform(*base);
+    else if (base->getQualifier().specConstant) {
+        traverseToFindSpecConsants(base);
+    }
 
     if ((intermediate.getStage() == reflection.firstStage && base->getQualifier().isPipeInput()) ||
         (intermediate.getStage() == reflection.lastStage && base->getQualifier().isPipeOutput()))
@@ -1113,22 +1118,26 @@ int TObjectReflection::getBinding() const
 
 void TObjectReflection::dump() const
 {
-    printf("%s: offset %d, type %x, size %d, index %d, binding %d, stages %d", name.c_str(), offset, glDefineType, size,
-           index, getBinding(), stages);
+    if (type->getQualifier().storage == EvqConst) {
+        printf("%s: constantId %d, type %d\n", name.c_str(), type->getQualifier().layoutSpecConstantId, glDefineType);
+    } else {
+        printf("%s: offset %d, type %x, size %d, index %d, binding %d, stages %d", name.c_str(), offset, glDefineType,
+            size, index, getBinding(), stages);
 
-    if (counterIndex != -1)
-        printf(", counter %d", counterIndex);
+        if (counterIndex != -1)
+            printf(", counter %d", counterIndex);
 
-    if (numMembers != -1)
-        printf(", numMembers %d", numMembers);
+        if (numMembers != -1)
+            printf(", numMembers %d", numMembers);
 
-    if (arrayStride != 0)
-        printf(", arrayStride %d", arrayStride);
+        if (arrayStride != 0)
+            printf(", arrayStride %d", arrayStride);
 
-    if (topLevelArrayStride != 0)
-        printf(", topLevelArrayStride %d", topLevelArrayStride);
+        if (topLevelArrayStride != 0)
+            printf(", topLevelArrayStride %d", topLevelArrayStride);
 
-    printf("\n");
+        printf("\n");
+    }
 }
 
 //
@@ -1149,6 +1158,7 @@ void TReflection::buildAttributeReflection(EShLanguage stage, const TIntermediat
 // build counter block index associations for buffers
 void TReflection::buildCounterIndices(const TIntermediate& intermediate)
 {
+#ifdef ENABLE_HLSL
     // search for ones that have counters
     for (int i = 0; i < int(indexToUniformBlock.size()); ++i) {
         const TString counterName(intermediate.addCounterBufferName(indexToUniformBlock[i].name).c_str());
@@ -1157,6 +1167,7 @@ void TReflection::buildCounterIndices(const TIntermediate& intermediate)
         if (index >= 0)
             indexToUniformBlock[i].counterIndex = index;
     }
+#endif
 }
 
 // build Shader Stages mask for all uniforms
@@ -1237,6 +1248,11 @@ void TReflection::dump()
         indexToPipeOutput[i].dump();
     printf("\n");
 
+    printf("Specialization constant reflection:\n");
+    for (size_t i = 0; i < indexToSpecConstant.size(); ++i)
+        indexToSpecConstant[i].dump();
+    printf("\n");
+
     if (getLocalSize(0) > 1) {
         static const char* axis[] = { "X", "Y", "Z" };
 
@@ -1254,3 +1270,5 @@ void TReflection::dump()
 }
 
 } // end namespace glslang
+
+#endif // GLSLANG_WEB

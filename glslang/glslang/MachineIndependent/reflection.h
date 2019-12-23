@@ -33,6 +33,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 
+#ifndef GLSLANG_WEB
+
 #ifndef _REFLECTION_INCLUDED
 #define _REFLECTION_INCLUDED
 
@@ -57,7 +59,7 @@ class TReflection {
 public:
     TReflection(EShReflectionOptions opts, EShLanguage first, EShLanguage last)
         : options(opts), firstStage(first), lastStage(last), badReflection(TObjectReflection::badReflection())
-    { 
+    {
         for (int dim=0; dim<3; ++dim)
             localSize[dim] = 0;
     }
@@ -126,13 +128,23 @@ public:
         else
             return badReflection;
     }
-    
+
     // for mapping a storage block index to the storage block's description
     int getNumStorageBuffers() const { return (int)indexToBufferBlock.size(); }
     const TObjectReflection&  getStorageBufferBlock(int i) const
     {
         if (i >= 0 && i < (int)indexToBufferBlock.size())
             return indexToBufferBlock[i];
+        else
+            return badReflection;
+    }
+
+    // for mapping a specialization constant index to the specialization constant description
+    int getNumSpecConstants() { return (int)indexToSpecConstant.size(); }
+    const TObjectReflection& getSpecConstant(int i) const
+    {
+        if (i >= 0 && i < (int)indexToSpecConstant.size())
+            return indexToSpecConstant[i];
         else
             return badReflection;
     }
@@ -149,6 +161,20 @@ public:
 
     // see getIndex(const char*)
     int getIndex(const TString& name) const { return getIndex(name.c_str()); }
+
+
+    // for mapping any name to its index (only pipe input/output names)
+    int getPipeIOIndex(const char* name, const bool inOrOut) const
+    {
+        TNameToIndex::const_iterator it = inOrOut ? pipeInNameToIndex.find(name) : pipeOutNameToIndex.find(name);
+        if (it == (inOrOut ? pipeInNameToIndex.end() : pipeOutNameToIndex.end()))
+            return -1;
+        else
+            return it->second;
+    }
+
+    // see gePipeIOIndex(const char*, const bool)
+    int getPipeIOIndex(const TString& name, const bool inOrOut) const { return getPipeIOIndex(name.c_str(), inOrOut); }
 
     // Thread local size
     unsigned getLocalSize(int dim) const { return dim <= 2 ? localSize[dim] : 0; }
@@ -187,12 +213,15 @@ protected:
 
     TObjectReflection badReflection; // return for queries of -1 or generally out of range; has expected descriptions with in it for this
     TNameToIndex nameToIndex;        // maps names to indexes; can hold all types of data: uniform/buffer and which function names have been processed
+    TNameToIndex pipeInNameToIndex;  // maps pipe in names to indexes, this is a fix to seperate pipe I/O from uniforms and buffers.
+    TNameToIndex pipeOutNameToIndex; // maps pipe out names to indexes, this is a fix to seperate pipe I/O from uniforms and buffers.
     TMapIndexToReflection indexToUniform;
     TMapIndexToReflection indexToUniformBlock;
     TMapIndexToReflection indexToBufferVariable;
     TMapIndexToReflection indexToBufferBlock;
     TMapIndexToReflection indexToPipeInput;
     TMapIndexToReflection indexToPipeOutput;
+    TMapIndexToReflection indexToSpecConstant;
     TIndices atomicCounterUniformIndices;
 
     unsigned int localSize[3];
@@ -201,3 +230,5 @@ protected:
 } // end namespace glslang
 
 #endif // _REFLECTION_INCLUDED
+
+#endif // GLSLANG_WEB

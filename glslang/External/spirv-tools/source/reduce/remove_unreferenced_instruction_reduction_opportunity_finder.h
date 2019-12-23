@@ -15,7 +15,7 @@
 #ifndef SOURCE_REDUCE_REMOVE_UNREFERENCED_INSTRUCTION_REDUCTION_OPPORTUNITY_FINDER_H_
 #define SOURCE_REDUCE_REMOVE_UNREFERENCED_INSTRUCTION_REDUCTION_OPPORTUNITY_FINDER_H_
 
-#include "reduction_opportunity_finder.h"
+#include "source/reduce/reduction_opportunity_finder.h"
 
 namespace spvtools {
 namespace reduce {
@@ -28,7 +28,8 @@ namespace reduce {
 class RemoveUnreferencedInstructionReductionOpportunityFinder
     : public ReductionOpportunityFinder {
  public:
-  RemoveUnreferencedInstructionReductionOpportunityFinder() = default;
+  explicit RemoveUnreferencedInstructionReductionOpportunityFinder(
+      bool remove_constants_and_undefs);
 
   ~RemoveUnreferencedInstructionReductionOpportunityFinder() override = default;
 
@@ -38,6 +39,7 @@ class RemoveUnreferencedInstructionReductionOpportunityFinder
       opt::IRContext* context) const final;
 
  private:
+  bool remove_constants_and_undefs_;
 };
 
 }  // namespace reduce
