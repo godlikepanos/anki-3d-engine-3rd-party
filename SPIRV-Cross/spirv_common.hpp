@@ -33,23 +33,23 @@
 // If SPIRV-Cross is embedded in dynamic libraries,
 // prefer using -fvisibility=hidden on GCC/Clang instead.
 #ifdef SPIRV_CROSS_NAMESPACE_OVERRIDE
-#	define SPIRV_CROSS_NAMESPACE SPIRV_CROSS_NAMESPACE_OVERRIDE
+#define SPIRV_CROSS_NAMESPACE SPIRV_CROSS_NAMESPACE_OVERRIDE
 #else
-#	define SPIRV_CROSS_NAMESPACE spirv_cross
+#define SPIRV_CROSS_NAMESPACE spirv_cross
 #endif
 
 namespace SPIRV_CROSS_NAMESPACE
 {
 namespace inner
 {
-template<typename T>
-void join_helper(StringStream<>& stream, T&& t)
+template <typename T>
+void join_helper(StringStream<> &stream, T &&t)
 {
 	stream << std::forward<T>(t);
 }
 
-template<typename T, typename... Ts>
-void join_helper(StringStream<>& stream, T&& t, Ts&&... ts)
+template <typename T, typename... Ts>
+void join_helper(StringStream<> &stream, T &&t, Ts &&... ts)
 {
 	stream << std::forward<T>(t);
 	join_helper(stream, std::forward<Ts>(ts)...);
@@ -61,13 +61,13 @@ class Bitset
 public:
 	Bitset() = default;
 	explicit inline Bitset(uint64_t lower_)
-		: lower(lower_)
+	    : lower(lower_)
 	{
 	}
 
 	inline bool get(uint32_t bit) const
 	{
-		if(bit < 64)
+		if (bit < 64)
 			return (lower & (1ull << bit)) != 0;
 		else
 			return higher.count(bit) != 0;
@@ -75,7 +75,7 @@ public:
 
 	inline void set(uint32_t bit)
 	{
-		if(bit < 64)
+		if (bit < 64)
 			lower |= 1ull << bit;
 		else
 			higher.insert(bit);
@@ -83,7 +83,7 @@ public:
 
 	inline void clear(uint32_t bit)
 	{
-		if(bit < 64)
+		if (bit < 64)
 			lower &= ~(1ull << bit);
 		else
 			higher.erase(bit);
@@ -100,65 +100,65 @@ public:
 		higher.clear();
 	}
 
-	inline void merge_and(const Bitset& other)
+	inline void merge_and(const Bitset &other)
 	{
 		lower &= other.lower;
 		std::unordered_set<uint32_t> tmp_set;
-		for(auto& v : higher)
-			if(other.higher.count(v) != 0)
+		for (auto &v : higher)
+			if (other.higher.count(v) != 0)
 				tmp_set.insert(v);
 		higher = std::move(tmp_set);
 	}
 
-	inline void merge_or(const Bitset& other)
+	inline void merge_or(const Bitset &other)
 	{
 		lower |= other.lower;
-		for(auto& v : other.higher)
+		for (auto &v : other.higher)
 			higher.insert(v);
 	}
 
-	inline bool operator==(const Bitset& other) const
+	inline bool operator==(const Bitset &other) const
 	{
-		if(lower != other.lower)
+		if (lower != other.lower)
 			return false;
 
-		if(higher.size() != other.higher.size())
+		if (higher.size() != other.higher.size())
 			return false;
 
-		for(auto& v : higher)
-			if(other.higher.count(v) == 0)
+		for (auto &v : higher)
+			if (other.higher.count(v) == 0)
 				return false;
 
 		return true;
 	}
 
-	inline bool operator!=(const Bitset& other) const
+	inline bool operator!=(const Bitset &other) const
 	{
 		return !(*this == other);
 	}
 
-	template<typename Op>
-	void for_each_bit(const Op& op) const
+	template <typename Op>
+	void for_each_bit(const Op &op) const
 	{
 		// TODO: Add ctz-based iteration.
-		for(uint32_t i = 0; i < 64; i++)
+		for (uint32_t i = 0; i < 64; i++)
 		{
-			if(lower & (1ull << i))
+			if (lower & (1ull << i))
 				op(i);
 		}
 
-		if(higher.empty())
+		if (higher.empty())
 			return;
 
 		// Need to enforce an order here for reproducible results,
 		// but hitting this path should happen extremely rarely, so having this slow path is fine.
 		SmallVector<uint32_t> bits;
 		bits.reserve(higher.size());
-		for(auto& v : higher)
+		for (auto &v : higher)
 			bits.push_back(v);
 		std::sort(std::begin(bits), std::end(bits));
 
-		for(auto& v : bits)
+		for (auto &v : bits)
 			op(v);
 	}
 
@@ -176,21 +176,21 @@ private:
 };
 
 // Helper template to avoid lots of nasty string temporary munging.
-template<typename... Ts>
-std::string join(Ts&&... ts)
+template <typename... Ts>
+std::string join(Ts &&... ts)
 {
 	StringStream<> stream;
 	inner::join_helper(stream, std::forward<Ts>(ts)...);
 	return stream.str();
 }
 
-inline std::string merge(const SmallVector<std::string>& list, const char* between = ", ")
+inline std::string merge(const SmallVector<std::string> &list, const char *between = ", ")
 {
 	StringStream<> stream;
-	for(auto& elem : list)
+	for (auto &elem : list)
 	{
 		stream << elem;
-		if(&elem != &list.back())
+		if (&elem != &list.back())
 			stream << between;
 	}
 	return stream.str();
@@ -198,33 +198,33 @@ inline std::string merge(const SmallVector<std::string>& list, const char* betwe
 
 // Make sure we don't accidentally call this with float or doubles with SFINAE.
 // Have to use the radix-aware overload.
-template<typename T, typename std::enable_if<!std::is_floating_point<T>::value, int>::type = 0>
-inline std::string convert_to_string(const T& t)
+template <typename T, typename std::enable_if<!std::is_floating_point<T>::value, int>::type = 0>
+inline std::string convert_to_string(const T &t)
 {
 	return std::to_string(t);
 }
 
 // Allow implementations to set a convenient standard precision
 #ifndef SPIRV_CROSS_FLT_FMT
-#	define SPIRV_CROSS_FLT_FMT "%.32g"
+#define SPIRV_CROSS_FLT_FMT "%.32g"
 #endif
 
 #ifdef _MSC_VER
 // sprintf warning.
 // We cannot rely on snprintf existing because, ..., MSVC.
-#	pragma warning(push)
-#	pragma warning(disable : 4996)
+#pragma warning(push)
+#pragma warning(disable : 4996)
 #endif
 
-static inline void fixup_radix_point(char* str, char radix_point)
+static inline void fixup_radix_point(char *str, char radix_point)
 {
 	// Setting locales is a very risky business in multi-threaded program,
 	// so just fixup locales instead. We only need to care about the radix point.
-	if(radix_point != '.')
+	if (radix_point != '.')
 	{
-		while(*str != '\0')
+		while (*str != '\0')
 		{
-			if(*str == radix_point)
+			if (*str == radix_point)
 				*str = '.';
 			str++;
 		}
@@ -240,7 +240,7 @@ inline std::string convert_to_string(float t, char locale_radix_point)
 	fixup_radix_point(buf, locale_radix_point);
 
 	// Ensure that the literal is float.
-	if(!strchr(buf, '.') && !strchr(buf, 'e'))
+	if (!strchr(buf, '.') && !strchr(buf, 'e'))
 		strcat(buf, ".0");
 	return buf;
 }
@@ -254,13 +254,13 @@ inline std::string convert_to_string(double t, char locale_radix_point)
 	fixup_radix_point(buf, locale_radix_point);
 
 	// Ensure that the literal is float.
-	if(!strchr(buf, '.') && !strchr(buf, 'e'))
+	if (!strchr(buf, '.') && !strchr(buf, 'e'))
 		strcat(buf, ".0");
 	return buf;
 }
 
 #ifdef _MSC_VER
-#	pragma warning(pop)
+#pragma warning(pop)
 #endif
 
 struct Instruction
@@ -290,27 +290,27 @@ enum Types
 	TypeCount
 };
 
-template<Types type>
+template <Types type>
 class TypedID;
 
-template<>
+template <>
 class TypedID<TypeNone>
 {
 public:
 	TypedID() = default;
 	TypedID(uint32_t id_)
-		: id(id_)
+	    : id(id_)
 	{
 	}
 
-	template<Types U>
-	TypedID(const TypedID<U>& other)
+	template <Types U>
+	TypedID(const TypedID<U> &other)
 	{
 		*this = other;
 	}
 
-	template<Types U>
-	TypedID& operator=(const TypedID<U>& other)
+	template <Types U>
+	TypedID &operator=(const TypedID<U> &other)
 	{
 		id = uint32_t(other);
 		return *this;
@@ -323,30 +323,30 @@ public:
 		return id;
 	}
 
-	template<Types U>
+	template <Types U>
 	operator TypedID<U>() const
 	{
 		return TypedID<U>(*this);
 	}
 
-	bool operator==(const TypedID& other) const
+	bool operator==(const TypedID &other) const
 	{
 		return id == other.id;
 	}
 
-	bool operator!=(const TypedID& other) const
+	bool operator!=(const TypedID &other) const
 	{
 		return id != other.id;
 	}
 
-	template<Types type>
-	bool operator==(const TypedID<type>& other) const
+	template <Types type>
+	bool operator==(const TypedID<type> &other) const
 	{
 		return id == uint32_t(other);
 	}
 
-	template<Types type>
-	bool operator!=(const TypedID<type>& other) const
+	template <Types type>
+	bool operator!=(const TypedID<type> &other) const
 	{
 		return id != uint32_t(other);
 	}
@@ -355,18 +355,18 @@ private:
 	uint32_t id = 0;
 };
 
-template<Types type>
+template <Types type>
 class TypedID
 {
 public:
 	TypedID() = default;
 	TypedID(uint32_t id_)
-		: id(id_)
+	    : id(id_)
 	{
 	}
 
-	explicit TypedID(const TypedID<TypeNone>& other)
-		: id(uint32_t(other))
+	explicit TypedID(const TypedID<TypeNone> &other)
+	    : id(uint32_t(other))
 	{
 	}
 
@@ -375,22 +375,22 @@ public:
 		return id;
 	}
 
-	bool operator==(const TypedID& other) const
+	bool operator==(const TypedID &other) const
 	{
 		return id == other.id;
 	}
 
-	bool operator!=(const TypedID& other) const
+	bool operator!=(const TypedID &other) const
 	{
 		return id != other.id;
 	}
 
-	bool operator==(const TypedID<TypeNone>& other) const
+	bool operator==(const TypedID<TypeNone> &other) const
 	{
 		return id == uint32_t(other);
 	}
 
-	bool operator!=(const TypedID<TypeNone>& other) const
+	bool operator!=(const TypedID<TypeNone> &other) const
 	{
 		return id != uint32_t(other);
 	}
@@ -410,14 +410,14 @@ using ID = TypedID<TypeNone>;
 struct IVariant
 {
 	virtual ~IVariant() = default;
-	virtual IVariant* clone(ObjectPoolBase* pool) = 0;
+	virtual IVariant *clone(ObjectPoolBase *pool) = 0;
 	ID self = 0;
 };
 
-#define SPIRV_CROSS_DECLARE_CLONE(T) \
-	IVariant* clone(ObjectPoolBase* pool) override \
-	{ \
-		return static_cast<ObjectPool<T>*>(pool)->allocate(*this); \
+#define SPIRV_CROSS_DECLARE_CLONE(T)                                \
+	IVariant *clone(ObjectPoolBase *pool) override                  \
+	{                                                               \
+		return static_cast<ObjectPool<T> *>(pool)->allocate(*this); \
 	}
 
 struct SPIRUndef : IVariant
@@ -428,7 +428,7 @@ struct SPIRUndef : IVariant
 	};
 
 	explicit SPIRUndef(TypeID basetype_)
-		: basetype(basetype_)
+	    : basetype(basetype_)
 	{
 	}
 	TypeID basetype;
@@ -444,7 +444,7 @@ struct SPIRString : IVariant
 	};
 
 	explicit SPIRString(std::string str_)
-		: str(std::move(str_))
+	    : str(std::move(str_))
 	{
 	}
 
@@ -462,9 +462,9 @@ struct SPIRCombinedImageSampler : IVariant
 		type = TypeCombinedImageSampler
 	};
 	SPIRCombinedImageSampler(TypeID type_, VariableID image_, VariableID sampler_)
-		: combined_type(type_)
-		, image(image_)
-		, sampler(sampler_)
+	    : combined_type(type_)
+	    , image(image_)
+	    , sampler(sampler_)
 	{
 	}
 	TypeID combined_type;
@@ -481,12 +481,12 @@ struct SPIRConstantOp : IVariant
 		type = TypeConstantOp
 	};
 
-	SPIRConstantOp(TypeID result_type, spv::Op op, const uint32_t* args, uint32_t length)
-		: opcode(op)
-		, basetype(result_type)
+	SPIRConstantOp(TypeID result_type, spv::Op op, const uint32_t *args, uint32_t length)
+	    : opcode(op)
+	    , basetype(result_type)
 	{
 		arguments.reserve(length);
-		for(uint32_t i = 0; i < length; i++)
+		for (uint32_t i = 0; i < length; i++)
 			arguments.push_back(args[i]);
 	}
 
@@ -603,7 +603,7 @@ struct SPIRExtension : IVariant
 	};
 
 	explicit SPIRExtension(Extension ext_)
-		: ext(ext_)
+	    : ext(ext_)
 	{
 	}
 
@@ -615,11 +615,11 @@ struct SPIRExtension : IVariant
 // so in order to avoid conflicts, we can't stick them in the ids array.
 struct SPIREntryPoint
 {
-	SPIREntryPoint(FunctionID self_, spv::ExecutionModel execution_model, const std::string& entry_name)
-		: self(self_)
-		, name(entry_name)
-		, orig_name(entry_name)
-		, model(execution_model)
+	SPIREntryPoint(FunctionID self_, spv::ExecutionModel execution_model, const std::string &entry_name)
+	    : self(self_)
+	    , name(entry_name)
+	    , orig_name(entry_name)
+	    , model(execution_model)
 	{
 	}
 	SPIREntryPoint() = default;
@@ -638,6 +638,7 @@ struct SPIREntryPoint
 	uint32_t invocations = 0;
 	uint32_t output_vertices = 0;
 	spv::ExecutionModel model = spv::ExecutionModelMax;
+	bool geometry_passthrough = false;
 };
 
 struct SPIRExpression : IVariant
@@ -649,9 +650,9 @@ struct SPIRExpression : IVariant
 
 	// Only created by the backend target to avoid creating tons of temporaries.
 	SPIRExpression(std::string expr, TypeID expression_type_, bool immutable_)
-		: expression(move(expr))
-		, expression_type(expression_type_)
-		, immutable(immutable_)
+	    : expression(move(expr))
+	    , expression_type(expression_type_)
+	    , immutable(immutable_)
 	{
 	}
 
@@ -698,7 +699,7 @@ struct SPIRFunctionPrototype : IVariant
 	};
 
 	explicit SPIRFunctionPrototype(TypeID return_type_)
-		: return_type(return_type_)
+	    : return_type(return_type_)
 	{
 	}
 
@@ -857,8 +858,8 @@ struct SPIRFunction : IVariant
 	};
 
 	SPIRFunction(TypeID return_type_, TypeID function_type_)
-		: return_type(return_type_)
-		, function_type(function_type_)
+	    : return_type(return_type_)
+	    , function_type(function_type_)
 	{
 	}
 
@@ -923,7 +924,7 @@ struct SPIRFunction : IVariant
 	void add_parameter(TypeID parameter_type, ID id, bool alias_global_variable = false)
 	{
 		// Arguments are read-only until proven otherwise.
-		arguments.push_back({parameter_type, id, 0u, 0u, alias_global_variable});
+		arguments.push_back({ parameter_type, id, 0u, 0u, alias_global_variable });
 	}
 
 	// Hooks to be run when the function returns.
@@ -952,24 +953,20 @@ struct SPIRAccessChain : IVariant
 		type = TypeAccessChain
 	};
 
-	SPIRAccessChain(TypeID basetype_,
-		spv::StorageClass storage_,
-		std::string base_,
-		std::string dynamic_index_,
-		int32_t static_index_)
-		: basetype(basetype_)
-		, storage(storage_)
-		, base(std::move(base_))
-		, dynamic_index(std::move(dynamic_index_))
-		, static_index(static_index_)
+	SPIRAccessChain(TypeID basetype_, spv::StorageClass storage_, std::string base_, std::string dynamic_index_,
+	                int32_t static_index_)
+	    : basetype(basetype_)
+	    , storage(storage_)
+	    , base(std::move(base_))
+	    , dynamic_index(std::move(dynamic_index_))
+	    , static_index(static_index_)
 	{
 	}
 
 	// The access chain represents an offset into a buffer.
 	// Some backends need more complicated handling of access chains to be able to use buffers, like HLSL
 	// which has no usable buffer type ala GLSL SSBOs.
-	// StructuredBuffer is too limited, so our only option is to deal with ByteAddressBuffer which works with raw
-	// addresses.
+	// StructuredBuffer is too limited, so our only option is to deal with ByteAddressBuffer which works with raw addresses.
 
 	TypeID basetype;
 	spv::StorageClass storage;
@@ -979,6 +976,7 @@ struct SPIRAccessChain : IVariant
 
 	VariableID loaded_from = 0;
 	uint32_t matrix_stride = 0;
+	uint32_t array_stride = 0;
 	bool row_major_matrix = false;
 	bool immutable = false;
 
@@ -998,10 +996,10 @@ struct SPIRVariable : IVariant
 
 	SPIRVariable() = default;
 	SPIRVariable(TypeID basetype_, spv::StorageClass storage_, ID initializer_ = 0, VariableID basevariable_ = 0)
-		: basetype(basetype_)
-		, storage(storage_)
-		, initializer(initializer_)
-		, basevariable(basevariable_)
+	    : basetype(basetype_)
+	    , storage(storage_)
+	    , initializer(initializer_)
+	    , basevariable(basevariable_)
 	{
 	}
 
@@ -1043,7 +1041,7 @@ struct SPIRVariable : IVariant
 	// Set to true while we're inside the for loop.
 	bool loop_variable_enable = false;
 
-	SPIRFunction::Parameter* parameter = nullptr;
+	SPIRFunction::Parameter *parameter = nullptr;
 
 	SPIRV_CROSS_DECLARE_CLONE(SPIRVariable)
 };
@@ -1055,8 +1053,7 @@ struct SPIRConstant : IVariant
 		type = TypeConstant
 	};
 
-	union Constant
-	{
+	union Constant {
 		uint32_t u32;
 		int32_t i32;
 		float f32;
@@ -1094,22 +1091,21 @@ struct SPIRConstant : IVariant
 		int e = (u16_value >> 10) & 0x1f;
 		int m = (u16_value >> 0) & 0x3ff;
 
-		union
-		{
+		union {
 			float f32;
 			uint32_t u32;
 		} u;
 
-		if(e == 0)
+		if (e == 0)
 		{
-			if(m == 0)
+			if (m == 0)
 			{
 				u.u32 = uint32_t(s) << 31;
 				return u.f32;
 			}
 			else
 			{
-				while((m & 0x400) == 0)
+				while ((m & 0x400) == 0)
 				{
 					m <<= 1;
 					e--;
@@ -1119,9 +1115,9 @@ struct SPIRConstant : IVariant
 				m &= ~0x400;
 			}
 		}
-		else if(e == 31)
+		else if (e == 31)
 		{
-			if(m == 0)
+			if (m == 0)
 			{
 				u.u32 = (uint32_t(s) << 31) | 0x7f800000u;
 				return u.f32;
@@ -1204,7 +1200,7 @@ struct SPIRConstant : IVariant
 		return m.c[col].r[row].u64;
 	}
 
-	inline const ConstantVector& vector() const
+	inline const ConstantVector &vector() const
 	{
 		return m.c[0];
 	}
@@ -1219,50 +1215,50 @@ struct SPIRConstant : IVariant
 		return m.columns;
 	}
 
-	inline void make_null(const SPIRType& constant_type_)
+	inline void make_null(const SPIRType &constant_type_)
 	{
 		m = {};
 		m.columns = constant_type_.columns;
-		for(auto& c : m.c)
+		for (auto &c : m.c)
 			c.vecsize = constant_type_.vecsize;
 	}
 
 	inline bool constant_is_null() const
 	{
-		if(specialization)
+		if (specialization)
 			return false;
-		if(!subconstants.empty())
+		if (!subconstants.empty())
 			return false;
 
-		for(uint32_t col = 0; col < columns(); col++)
-			for(uint32_t row = 0; row < vector_size(); row++)
-				if(scalar_u64(col, row) != 0)
+		for (uint32_t col = 0; col < columns(); col++)
+			for (uint32_t row = 0; row < vector_size(); row++)
+				if (scalar_u64(col, row) != 0)
 					return false;
 
 		return true;
 	}
 
 	explicit SPIRConstant(uint32_t constant_type_)
-		: constant_type(constant_type_)
+	    : constant_type(constant_type_)
 	{
 	}
 
 	SPIRConstant() = default;
 
-	SPIRConstant(TypeID constant_type_, const uint32_t* elements, uint32_t num_elements, bool specialized)
-		: constant_type(constant_type_)
-		, specialization(specialized)
+	SPIRConstant(TypeID constant_type_, const uint32_t *elements, uint32_t num_elements, bool specialized)
+	    : constant_type(constant_type_)
+	    , specialization(specialized)
 	{
 		subconstants.reserve(num_elements);
-		for(uint32_t i = 0; i < num_elements; i++)
+		for (uint32_t i = 0; i < num_elements; i++)
 			subconstants.push_back(elements[i]);
 		specialization = specialized;
 	}
 
 	// Construct scalar (32-bit).
 	SPIRConstant(TypeID constant_type_, uint32_t v0, bool specialized)
-		: constant_type(constant_type_)
-		, specialization(specialized)
+	    : constant_type(constant_type_)
+	    , specialization(specialized)
 	{
 		m.c[0].r[0].u32 = v0;
 		m.c[0].vecsize = 1;
@@ -1271,8 +1267,8 @@ struct SPIRConstant : IVariant
 
 	// Construct scalar (64-bit).
 	SPIRConstant(TypeID constant_type_, uint64_t v0, bool specialized)
-		: constant_type(constant_type_)
-		, specialization(specialized)
+	    : constant_type(constant_type_)
+	    , specialization(specialized)
 	{
 		m.c[0].r[0].u64 = v0;
 		m.c[0].vecsize = 1;
@@ -1280,21 +1276,21 @@ struct SPIRConstant : IVariant
 	}
 
 	// Construct vectors and matrices.
-	SPIRConstant(
-		TypeID constant_type_, const SPIRConstant* const* vector_elements, uint32_t num_elements, bool specialized)
-		: constant_type(constant_type_)
-		, specialization(specialized)
+	SPIRConstant(TypeID constant_type_, const SPIRConstant *const *vector_elements, uint32_t num_elements,
+	             bool specialized)
+	    : constant_type(constant_type_)
+	    , specialization(specialized)
 	{
 		bool matrix = vector_elements[0]->m.c[0].vecsize > 1;
 
-		if(matrix)
+		if (matrix)
 		{
 			m.columns = num_elements;
 
-			for(uint32_t i = 0; i < num_elements; i++)
+			for (uint32_t i = 0; i < num_elements; i++)
 			{
 				m.c[i] = vector_elements[i]->m.c[0];
-				if(vector_elements[i]->specialization)
+				if (vector_elements[i]->specialization)
 					m.id[i] = vector_elements[i]->self;
 			}
 		}
@@ -1303,10 +1299,10 @@ struct SPIRConstant : IVariant
 			m.c[0].vecsize = num_elements;
 			m.columns = 1;
 
-			for(uint32_t i = 0; i < num_elements; i++)
+			for (uint32_t i = 0; i < num_elements; i++)
 			{
 				m.c[0].r[i] = vector_elements[i]->m.c[0].r[0];
-				if(vector_elements[i]->specialization)
+				if (vector_elements[i]->specialization)
 					m.c[0].id[i] = vector_elements[i]->self;
 			}
 		}
@@ -1344,33 +1340,33 @@ struct ObjectPoolGroup
 class Variant
 {
 public:
-	explicit Variant(ObjectPoolGroup* group_)
-		: group(group_)
+	explicit Variant(ObjectPoolGroup *group_)
+	    : group(group_)
 	{
 	}
 
 	~Variant()
 	{
-		if(holder)
+		if (holder)
 			group->pools[type]->free_opaque(holder);
 	}
 
 	// Marking custom move constructor as noexcept is important.
-	Variant(Variant&& other) SPIRV_CROSS_NOEXCEPT
+	Variant(Variant &&other) SPIRV_CROSS_NOEXCEPT
 	{
 		*this = std::move(other);
 	}
 
 	// We cannot copy from other variant without our own pool group.
 	// Have to explicitly copy.
-	Variant(const Variant& variant) = delete;
+	Variant(const Variant &variant) = delete;
 
 	// Marking custom move constructor as noexcept is important.
-	Variant& operator=(Variant&& other) SPIRV_CROSS_NOEXCEPT
+	Variant &operator=(Variant &&other) SPIRV_CROSS_NOEXCEPT
 	{
-		if(this != &other)
+		if (this != &other)
 		{
-			if(holder)
+			if (holder)
 				group->pools[type]->free_opaque(holder);
 			holder = other.holder;
 			group = other.group;
@@ -1386,18 +1382,18 @@ public:
 	// This copy/clone should only be called in the Compiler constructor.
 	// If this is called inside ::compile(), we invalidate any references we took higher in the stack.
 	// This should never happen.
-	Variant& operator=(const Variant& other)
+	Variant &operator=(const Variant &other)
 	{
 //#define SPIRV_CROSS_COPY_CONSTRUCTOR_SANITIZE
 #ifdef SPIRV_CROSS_COPY_CONSTRUCTOR_SANITIZE
 		abort();
 #endif
-		if(this != &other)
+		if (this != &other)
 		{
-			if(holder)
+			if (holder)
 				group->pools[type]->free_opaque(holder);
 
-			if(other.holder)
+			if (other.holder)
 				holder = other.holder->clone(group->pools[other.type].get());
 			else
 				holder = nullptr;
@@ -1408,15 +1404,15 @@ public:
 		return *this;
 	}
 
-	void set(IVariant* val, Types new_type)
+	void set(IVariant *val, Types new_type)
 	{
-		if(holder)
+		if (holder)
 			group->pools[type]->free_opaque(holder);
 		holder = nullptr;
 
-		if(!allow_type_rewrite && type != TypeNone && type != new_type)
+		if (!allow_type_rewrite && type != TypeNone && type != new_type)
 		{
-			if(val)
+			if (val)
 				group->pools[new_type]->free_opaque(val);
 			SPIRV_CROSS_THROW("Overwriting a variant with new type.");
 		}
@@ -1426,32 +1422,32 @@ public:
 		allow_type_rewrite = false;
 	}
 
-	template<typename T, typename... Ts>
-	T* allocate_and_set(Types new_type, Ts&&... ts)
+	template <typename T, typename... Ts>
+	T *allocate_and_set(Types new_type, Ts &&... ts)
 	{
-		T* val = static_cast<ObjectPool<T>&>(*group->pools[new_type]).allocate(std::forward<Ts>(ts)...);
+		T *val = static_cast<ObjectPool<T> &>(*group->pools[new_type]).allocate(std::forward<Ts>(ts)...);
 		set(val, new_type);
 		return val;
 	}
 
-	template<typename T>
-	T& get()
+	template <typename T>
+	T &get()
 	{
-		if(!holder)
+		if (!holder)
 			SPIRV_CROSS_THROW("nullptr");
-		if(static_cast<Types>(T::type) != type)
+		if (static_cast<Types>(T::type) != type)
 			SPIRV_CROSS_THROW("Bad cast");
-		return *static_cast<T*>(holder);
+		return *static_cast<T *>(holder);
 	}
 
-	template<typename T>
-	const T& get() const
+	template <typename T>
+	const T &get() const
 	{
-		if(!holder)
+		if (!holder)
 			SPIRV_CROSS_THROW("nullptr");
-		if(static_cast<Types>(T::type) != type)
+		if (static_cast<Types>(T::type) != type)
 			SPIRV_CROSS_THROW("Bad cast");
-		return *static_cast<const T*>(holder);
+		return *static_cast<const T *>(holder);
 	}
 
 	Types get_type() const
@@ -1471,7 +1467,7 @@ public:
 
 	void reset()
 	{
-		if(holder)
+		if (holder)
 			group->pools[type]->free_opaque(holder);
 		holder = nullptr;
 		type = TypeNone;
@@ -1483,28 +1479,28 @@ public:
 	}
 
 private:
-	ObjectPoolGroup* group = nullptr;
-	IVariant* holder = nullptr;
+	ObjectPoolGroup *group = nullptr;
+	IVariant *holder = nullptr;
 	Types type = TypeNone;
 	bool allow_type_rewrite = false;
 };
 
-template<typename T>
-T& variant_get(Variant& var)
+template <typename T>
+T &variant_get(Variant &var)
 {
 	return var.get<T>();
 }
 
-template<typename T>
-const T& variant_get(const Variant& var)
+template <typename T>
+const T &variant_get(const Variant &var)
 {
 	return var.get<T>();
 }
 
-template<typename T, typename... P>
-T& variant_set(Variant& var, P&&... args)
+template <typename T, typename... P>
+T &variant_set(Variant &var, P &&... args)
 {
-	auto* ptr = var.allocate_and_set<T>(static_cast<Types>(T::type), std::forward<P>(args)...);
+	auto *ptr = var.allocate_and_set<T>(static_cast<Types>(T::type), std::forward<P>(args)...);
 	return *ptr;
 }
 
@@ -1518,8 +1514,7 @@ struct AccessChainMeta
 
 enum ExtendedDecorations
 {
-	// Marks if a buffer block is re-packed, i.e. member declaration might be subject to PhysicalTypeID remapping and
-	// padding.
+	// Marks if a buffer block is re-packed, i.e. member declaration might be subject to PhysicalTypeID remapping and padding.
 	SPIRVCrossDecorationBufferBlockRepacked = 0,
 
 	// A type in a buffer block might be declared with a different physical type than the logical type.
@@ -1589,7 +1584,7 @@ struct Meta
 			Extended()
 			{
 				// MSVC 2013 workaround to init like this.
-				for(auto& v : values)
+				for (auto &v : values)
 					v = 0;
 			}
 
@@ -1615,7 +1610,7 @@ struct Meta
 // var_name is the declared name of the variable.
 // name_of_type is the textual name of the type which will be used in the code unless written to by the callback.
 using VariableTypeRemapCallback =
-	std::function<void(const SPIRType& type, const std::string& var_name, std::string& name_of_type)>;
+    std::function<void(const SPIRType &type, const std::string &var_name, std::string &name_of_type)>;
 
 class Hasher
 {
@@ -1634,21 +1629,21 @@ private:
 	uint64_t h = 0xcbf29ce484222325ull;
 };
 
-static inline bool type_is_floating_point(const SPIRType& type)
+static inline bool type_is_floating_point(const SPIRType &type)
 {
 	return type.basetype == SPIRType::Half || type.basetype == SPIRType::Float || type.basetype == SPIRType::Double;
 }
 
-static inline bool type_is_integral(const SPIRType& type)
+static inline bool type_is_integral(const SPIRType &type)
 {
-	return type.basetype == SPIRType::SByte || type.basetype == SPIRType::UByte || type.basetype == SPIRType::Short
-		   || type.basetype == SPIRType::UShort || type.basetype == SPIRType::Int || type.basetype == SPIRType::UInt
-		   || type.basetype == SPIRType::Int64 || type.basetype == SPIRType::UInt64;
+	return type.basetype == SPIRType::SByte || type.basetype == SPIRType::UByte || type.basetype == SPIRType::Short ||
+	       type.basetype == SPIRType::UShort || type.basetype == SPIRType::Int || type.basetype == SPIRType::UInt ||
+	       type.basetype == SPIRType::Int64 || type.basetype == SPIRType::UInt64;
 }
 
 static inline SPIRType::BaseType to_signed_basetype(uint32_t width)
 {
-	switch(width)
+	switch (width)
 	{
 	case 8:
 		return SPIRType::SByte;
@@ -1665,7 +1660,7 @@ static inline SPIRType::BaseType to_signed_basetype(uint32_t width)
 
 static inline SPIRType::BaseType to_unsigned_basetype(uint32_t width)
 {
-	switch(width)
+	switch (width)
 	{
 	case 8:
 		return SPIRType::UByte;
@@ -1683,7 +1678,7 @@ static inline SPIRType::BaseType to_unsigned_basetype(uint32_t width)
 // Returns true if an arithmetic operation does not change behavior depending on signedness.
 static inline bool opcode_is_sign_invariant(spv::Op opcode)
 {
-	switch(opcode)
+	switch (opcode)
 	{
 	case spv::OpIEqual:
 	case spv::OpINotEqual:
@@ -1700,14 +1695,70 @@ static inline bool opcode_is_sign_invariant(spv::Op opcode)
 		return false;
 	}
 }
+
+struct SetBindingPair
+{
+	uint32_t desc_set;
+	uint32_t binding;
+
+	inline bool operator==(const SetBindingPair &other) const
+	{
+		return desc_set == other.desc_set && binding == other.binding;
+	}
+
+	inline bool operator<(const SetBindingPair &other) const
+	{
+		return desc_set < other.desc_set || (desc_set == other.desc_set && binding < other.binding);
+	}
+};
+
+struct StageSetBinding
+{
+	spv::ExecutionModel model;
+	uint32_t desc_set;
+	uint32_t binding;
+
+	inline bool operator==(const StageSetBinding &other) const
+	{
+		return model == other.model && desc_set == other.desc_set && binding == other.binding;
+	}
+};
+
+struct InternalHasher
+{
+	inline size_t operator()(const SetBindingPair &value) const
+	{
+		// Quality of hash doesn't really matter here.
+		auto hash_set = std::hash<uint32_t>()(value.desc_set);
+		auto hash_binding = std::hash<uint32_t>()(value.binding);
+		return (hash_set * 0x10001b31) ^ hash_binding;
+	}
+
+	inline size_t operator()(const StageSetBinding &value) const
+	{
+		// Quality of hash doesn't really matter here.
+		auto hash_model = std::hash<uint32_t>()(value.model);
+		auto hash_set = std::hash<uint32_t>()(value.desc_set);
+		auto tmp_hash = (hash_model * 0x10001b31) ^ hash_set;
+		return (tmp_hash * 0x10001b31) ^ value.binding;
+	}
+};
+
+// Special constant used in a {MSL,HLSL}ResourceBinding desc_set
+// element to indicate the bindings for the push constants.
+static const uint32_t ResourceBindingPushConstantDescriptorSet = ~(0u);
+
+// Special constant used in a {MSL,HLSL}ResourceBinding binding
+// element to indicate the bindings for the push constants.
+static const uint32_t ResourceBindingPushConstantBinding = 0;
 } // namespace SPIRV_CROSS_NAMESPACE
 
 namespace std
 {
-template<SPIRV_CROSS_NAMESPACE::Types type>
+template <SPIRV_CROSS_NAMESPACE::Types type>
 struct hash<SPIRV_CROSS_NAMESPACE::TypedID<type>>
 {
-	size_t operator()(const SPIRV_CROSS_NAMESPACE::TypedID<type>& value) const
+	size_t operator()(const SPIRV_CROSS_NAMESPACE::TypedID<type> &value) const
 	{
 		return std::hash<uint32_t>()(value);
 	}
