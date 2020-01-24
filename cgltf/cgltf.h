@@ -267,7 +267,7 @@ typedef struct cgltf_attribute
 	cgltf_accessor* data;
 } cgltf_attribute;
 
-typedef struct cgltf_image 
+typedef struct cgltf_image
 {
 	char* name;
 	char* uri;
@@ -302,7 +302,7 @@ typedef struct cgltf_texture_transform
 } cgltf_texture_transform;
 
 typedef struct cgltf_texture_view
-{	
+{
 	cgltf_texture* texture;
 	cgltf_int texcoord;
 	cgltf_float scale; /* equivalent to strength for occlusion_texture */
@@ -421,6 +421,7 @@ typedef struct cgltf_light {
 	cgltf_float range;
 	cgltf_float spot_inner_cone_angle;
 	cgltf_float spot_outer_cone_angle;
+	cgltf_extras extras;
 } cgltf_light;
 
 typedef struct cgltf_node {
@@ -1332,7 +1333,7 @@ void cgltf_free(cgltf_data* data)
 
 	data->memory_free(data->memory_user_data, data->materials);
 
-	for (cgltf_size i = 0; i < data->images_count; ++i) 
+	for (cgltf_size i = 0; i < data->images_count; ++i)
 	{
 		data->memory_free(data->memory_user_data, data->images[i].name);
 		data->memory_free(data->memory_user_data, data->images[i].uri);
@@ -2359,7 +2360,7 @@ static int cgltf_parse_json_texture_view(jsmntok_t const* tokens, int i, const u
 			out_texture_view->texcoord = cgltf_json_to_int(tokens + i, json_chunk);
 			++i;
 		}
-		else if (cgltf_json_strcmp(tokens + i, json_chunk, "scale") == 0) 
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "scale") == 0)
 		{
 			++i;
 			out_texture_view->scale = cgltf_json_to_float(tokens + i, json_chunk);
@@ -2432,11 +2433,11 @@ static int cgltf_parse_json_pbr_metallic_roughness(jsmntok_t const* tokens, int 
 		if (cgltf_json_strcmp(tokens+i, json_chunk, "metallicFactor") == 0)
 		{
 			++i;
-			out_pbr->metallic_factor = 
+			out_pbr->metallic_factor =
 				cgltf_json_to_float(tokens + i, json_chunk);
 			++i;
 		}
-		else if (cgltf_json_strcmp(tokens+i, json_chunk, "roughnessFactor") == 0) 
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "roughnessFactor") == 0)
 		{
 			++i;
 			out_pbr->roughness_factor =
@@ -2528,11 +2529,11 @@ static int cgltf_parse_json_image(cgltf_options* options, jsmntok_t const* token
 	int size = tokens[i].size;
 	++i;
 
-	for (int j = 0; j < size; ++j) 
+	for (int j = 0; j < size; ++j)
 	{
 		CGLTF_CHECK_KEY(tokens[i]);
 
-		if (cgltf_json_strcmp(tokens + i, json_chunk, "uri") == 0) 
+		if (cgltf_json_strcmp(tokens + i, json_chunk, "uri") == 0)
 		{
 			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_image->uri);
 		}
@@ -2583,7 +2584,7 @@ static int cgltf_parse_json_sampler(cgltf_options* options, jsmntok_t const* tok
 	{
 		CGLTF_CHECK_KEY(tokens[i]);
 
-		if (cgltf_json_strcmp(tokens + i, json_chunk, "magFilter") == 0) 
+		if (cgltf_json_strcmp(tokens + i, json_chunk, "magFilter") == 0)
 		{
 			++i;
 			out_sampler->mag_filter
@@ -2604,7 +2605,7 @@ static int cgltf_parse_json_sampler(cgltf_options* options, jsmntok_t const* tok
 				= cgltf_json_to_int(tokens + i, json_chunk);
 			++i;
 		}
-		else if (cgltf_json_strcmp(tokens + i, json_chunk, "wrapT") == 0) 
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "wrapT") == 0)
 		{
 			++i;
 			out_sampler->wrap_t
@@ -2651,7 +2652,7 @@ static int cgltf_parse_json_texture(cgltf_options* options, jsmntok_t const* tok
 			out_texture->sampler = CGLTF_PTRINDEX(cgltf_sampler, cgltf_json_to_int(tokens + i, json_chunk));
 			++i;
 		}
-		else if (cgltf_json_strcmp(tokens + i, json_chunk, "source") == 0) 
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "source") == 0)
 		{
 			++i;
 			out_texture->image = CGLTF_PTRINDEX(cgltf_image, cgltf_json_to_int(tokens + i, json_chunk));
@@ -3390,6 +3391,10 @@ static int cgltf_parse_json_light(cgltf_options* options, jsmntok_t const* token
 					return i;
 				}
 			}
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "extras") == 0)
+		{
+			i = cgltf_parse_json_extras(tokens, i + 1, json_chunk, &out_light->extras);
 		}
 		else
 		{
