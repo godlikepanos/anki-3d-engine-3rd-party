@@ -288,7 +288,7 @@ struct TArraySizes {
 
         return false;
     }
-    bool isOuterSpecialization() const
+    bool isOuterSpecialization()
     {
         return sizes.getDimNode(0) != nullptr;
     }

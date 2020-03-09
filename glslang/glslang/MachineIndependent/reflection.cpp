@@ -76,6 +76,7 @@ namespace glslang {
 //
 // This is in the glslang namespace directly so it can be a friend of TReflection.
 //
+
 class TReflectionTraverser : public TLiveTraverser {
 public:
     TReflectionTraverser(const TIntermediate& i, TReflection& r) :
@@ -97,63 +98,6 @@ public:
             blowUpActiveAggregate(base.getType(), base.getName(), derefs, derefs.end(), -1, -1, 0, 0,
                                   base.getQualifier().storage, true);
         }
-    }
-
-    void addSpecConstant(const TIntermSymbol& base)
-    {
-        if (processedDerefs.find(&base) == processedDerefs.end()) {
-            processedDerefs.insert(&base);
-
-            const TString& name = base.getName();
-            const TType& type = base.getType();
-            reflection.indexToSpecConstant.push_back(
-                TObjectReflection(name.c_str(), type, 0, mapToGlType(type), mapToGlArraySize(type), 0));
-        }
-    }
-
-    // Traverse in search for spec constants
-    void traverseToFindSpecConsants(TIntermTyped* typed)
-    {
-        // Simple traverser that searches for spec constants
-        class TArrayDimensionTraverser : public TIntermTraverser
-        {
-        public:
-            TReflectionTraverser* reflectionTraverser = nullptr;
-
-            void visitSymbol(TIntermSymbol* base)
-            {
-                if (base->getType().getQualifier().specConstant) {
-                    // Some symbols contain the specConstant qualifier but in reality they are not. Check that
-                    if (base->getType().getQualifier().layoutSpecConstantId != TQualifier::layoutSpecConstantIdEnd) {
-                        reflectionTraverser->addSpecConstant(*base);
-                    } else if (base->getConstSubtree()) {
-                        TArrayDimensionTraverser traverser;
-                        traverser.reflectionTraverser = reflectionTraverser;
-                        base->getConstSubtree()->traverse(&traverser);
-                    }
-                }
-            }
-        };
-
-        TArrayDimensionTraverser traverser;
-        traverser.reflectionTraverser = this;
-        typed->traverse(&traverser);
-    }
-
-    // Search for spec constant subtypes associated with this symbol
-    void searchForSpecConstantsInArrayDimensions(const TIntermSymbol& base)
-    {
-        base.getType().contains([this](const TType* t) {
-            bool containsSpecializationSize = t->isArray() && t->getArraySizes()->isOuterSpecialization();
-            if (containsSpecializationSize) {
-                const int dimension = 0; // Spec consts can only be in the outermost dimension
-                TIntermTyped* typed = t->getArraySizes()->getDimNode(dimension);
-                assert(typed);
-                traverseToFindSpecConsants(typed);
-            }
-
-            return false;
-        });
     }
 
     void addPipeIOVariable(const TIntermSymbol& base)
@@ -185,7 +129,7 @@ public:
                 // by convention if this is an arrayed block we ignore the array in the reflection
                 if (type.isArray() && type.getBasicType() == EbtBlock) {
                     blowUpIOAggregate(input, baseName, TType(type, 0));
-                } else {
+                } else {               
                     blowUpIOAggregate(input, baseName, type);
                 }
             } else {
@@ -463,7 +407,7 @@ public:
                 reflection.atomicCounterUniformIndices.push_back(uniformIndex);
 
             variables.back().topLevelArrayStride = topLevelArrayStride;
-
+            
             if ((reflection.options & EShReflectionAllBlockVariables) && active) {
                 EShLanguageMask& stages = variables.back().stages;
                 stages = static_cast<EShLanguageMask>(stages | 1 << intermediate.getStage());
@@ -480,7 +424,7 @@ public:
             }
         }
     }
-
+    
     // similar to blowUpActiveAggregate, but with simpler rules and no dereferences to follow.
     void blowUpIOAggregate(bool input, const TString &baseName, const TType &type)
     {
@@ -589,7 +533,7 @@ public:
 
             const TString& blockName = base->getType().getTypeName();
             TString baseName;
-
+            
             if (! anonymous)
                 baseName = blockName;
 
@@ -1085,13 +1029,8 @@ bool TReflectionTraverser::visitBinary(TVisit /* visit */, TIntermBinary* node)
 // To reflect non-dereferenced objects.
 void TReflectionTraverser::visitSymbol(TIntermSymbol* base)
 {
-    searchForSpecConstantsInArrayDimensions(*base);
-
     if (base->getQualifier().storage == EvqUniform)
         addUniform(*base);
-    else if (base->getQualifier().specConstant) {
-        traverseToFindSpecConsants(base);
-    }
 
     if ((intermediate.getStage() == reflection.firstStage && base->getQualifier().isPipeInput()) ||
         (intermediate.getStage() == reflection.lastStage && base->getQualifier().isPipeOutput()))
@@ -1118,26 +1057,22 @@ int TObjectReflection::getBinding() const
 
 void TObjectReflection::dump() const
 {
-    if (type->getQualifier().storage == EvqConst) {
-        printf("%s: constantId %d, type %d\n", name.c_str(), type->getQualifier().layoutSpecConstantId, glDefineType);
-    } else {
-        printf("%s: offset %d, type %x, size %d, index %d, binding %d, stages %d", name.c_str(), offset, glDefineType,
-            size, index, getBinding(), stages);
+    printf("%s: offset %d, type %x, size %d, index %d, binding %d, stages %d", name.c_str(), offset, glDefineType, size,
+           index, getBinding(), stages);
 
-        if (counterIndex != -1)
-            printf(", counter %d", counterIndex);
+    if (counterIndex != -1)
+        printf(", counter %d", counterIndex);
 
-        if (numMembers != -1)
-            printf(", numMembers %d", numMembers);
+    if (numMembers != -1)
+        printf(", numMembers %d", numMembers);
 
-        if (arrayStride != 0)
-            printf(", arrayStride %d", arrayStride);
+    if (arrayStride != 0)
+        printf(", arrayStride %d", arrayStride);
 
-        if (topLevelArrayStride != 0)
-            printf(", topLevelArrayStride %d", topLevelArrayStride);
+    if (topLevelArrayStride != 0)
+        printf(", topLevelArrayStride %d", topLevelArrayStride);
 
-        printf("\n");
-    }
+    printf("\n");
 }
 
 //
@@ -1246,11 +1181,6 @@ void TReflection::dump()
     printf("Pipeline output reflection:\n");
     for (size_t i = 0; i < indexToPipeOutput.size(); ++i)
         indexToPipeOutput[i].dump();
-    printf("\n");
-
-    printf("Specialization constant reflection:\n");
-    for (size_t i = 0; i < indexToSpecConstant.size(); ++i)
-        indexToSpecConstant[i].dump();
     printf("\n");
 
     if (getLocalSize(0) > 1) {
