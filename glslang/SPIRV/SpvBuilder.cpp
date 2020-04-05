@@ -1,6 +1,7 @@
 //
 // Copyright (C) 2014-2015 LunarG, Inc.
 // Copyright (C) 2015-2018 Google, Inc.
+// Modifications Copyright (C) 2020 Advanced Micro Devices, Inc. All rights reserved.
 //
 // All rights reserved.
 //
@@ -602,16 +603,31 @@ Id Builder::makeSampledImageType(Id imageType)
 }
 
 #ifndef GLSLANG_WEB
-Id Builder::makeAccelerationStructureNVType()
+Id Builder::makeAccelerationStructureType()
 {
     Instruction *type;
-    if (groupedTypes[OpTypeAccelerationStructureNV].size() == 0) {
-        type = new Instruction(getUniqueId(), NoType, OpTypeAccelerationStructureNV);
-        groupedTypes[OpTypeAccelerationStructureNV].push_back(type);
+    if (groupedTypes[OpTypeAccelerationStructureKHR].size() == 0) {
+        type = new Instruction(getUniqueId(), NoType, OpTypeAccelerationStructureKHR);
+        groupedTypes[OpTypeAccelerationStructureKHR].push_back(type);
         constantsTypesGlobals.push_back(std::unique_ptr<Instruction>(type));
         module.mapInstruction(type);
     } else {
-        type = groupedTypes[OpTypeAccelerationStructureNV].back();
+        type = groupedTypes[OpTypeAccelerationStructureKHR].back();
+    }
+
+    return type->getResultId();
+}
+
+Id Builder::makeRayQueryType()
+{
+    Instruction *type;
+    if (groupedTypes[OpTypeRayQueryProvisionalKHR].size() == 0) {
+        type = new Instruction(getUniqueId(), NoType, OpTypeRayQueryProvisionalKHR);
+        groupedTypes[OpTypeRayQueryProvisionalKHR].push_back(type);
+        constantsTypesGlobals.push_back(std::unique_ptr<Instruction>(type));
+        module.mapInstruction(type);
+    } else {
+        type = groupedTypes[OpTypeRayQueryProvisionalKHR].back();
     }
 
     return type->getResultId();
@@ -2731,7 +2747,13 @@ Id Builder::accessChainLoad(Decoration precision, Decoration nonUniform, Id resu
         }
 
         // load through the access chain
-        id = createLoad(collapseAccessChain(), memoryAccess, scope, alignment);
+        id = collapseAccessChain();
+        // Apply nonuniform both to the access chain and the loaded value.
+        // Buffer accesses need the access chain decorated, and this is where
+        // loaded image types get decorated. TODO: This should maybe move to
+        // createImageTextureFunctionCall.
+        addDecoration(id, nonUniform);
+        id = createLoad(id, memoryAccess, scope, alignment);
         setPrecision(id, precision);
         addDecoration(id, nonUniform);
     }

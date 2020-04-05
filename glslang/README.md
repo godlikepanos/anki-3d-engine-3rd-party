@@ -104,7 +104,7 @@ branch.
 The following steps assume a Bash shell. On Windows, that could be the Git Bash
 shell or some other shell of your choosing.
 
-#### 1) Check-Out this project 
+#### 1) Check-Out this project
 
 ```bash
 cd <parent of where you want glslang to be>
@@ -150,6 +150,14 @@ For building on Linux:
 ```bash
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(pwd)/install" $SOURCE_DIR
 # "Release" (for CMAKE_BUILD_TYPE) could also be "Debug" or "RelWithDebInfo"
+```
+
+For building on Android:
+```bash
+cmake $SOURCE_DIR -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$(pwd)/install" -DANDROID_ABI=arm64-v8a -DCMAKE_BUILD_TYPE=Release -DANDROID_STL=c++_static -DANDROID_PLATFORM=android-24 -DCMAKE_SYSTEM_NAME=Android -DANDROID_TOOLCHAIN=clang -DANDROID_ARM_MODE=arm -DCMAKE_MAKE_PROGRAM=$ANDROID_NDK_ROOT/prebuilt/linux-x86_64/bin/make -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake
+# If on Windows will be -DCMAKE_MAKE_PROGRAM=%ANDROID_NDK_ROOT%\prebuilt\windows-x86_64\bin\make.exe
+# -G is needed for building on Windows
+# -DANDROID_ABI can also be armeabi-v7a for 32 bit
 ```
 
 For building on Windows:
@@ -201,27 +209,29 @@ With no arguments it builds the full grammar, and with a "web" argument,
 the web grammar subset (see more about the web subset in the next section).
 
 ### Building to WASM for the Web and Node
+### Building a standalone JS/WASM library for the Web and Node
 
 Use the steps in [Build Steps](#build-steps), with the following notes/exceptions:
-* For building the web subset of core glslang:
+* `emsdk` needs to be present in your executable search path, *PATH* for
+  Bash-like environments:
+  + [Instructions located here](https://emscripten.org/docs/getting_started/downloads.html#sdk-download-and-install)
+* Wrap cmake call: `emcmake cmake`
+* Set `-DBUILD_TESTING=OFF -DENABLE_OPT=OFF -DINSTALL_GTEST=OFF`.
+* Set `-DENABLE_HLSL=OFF` if HLSL is not needed.
+* For a standalone JS/WASM library, turn on `-DENABLE_GLSLANG_JS=ON`.
+* For building a minimum-size web subset of core glslang:
+  + turn on `-DENABLE_GLSLANG_WEBMIN=ON` (disables HLSL)
   + execute `updateGrammar web` from the glslang subdirectory
     (or if using your own scripts, `m4` needs a `-DGLSLANG_WEB` argument)
-  + set `-DENABLE_HLSL=OFF -DBUILD_TESTING=OFF -DENABLE_OPT=OFF -DINSTALL_GTEST=OFF`
-  + turn on `-DENABLE_GLSLANG_JS=ON`
-  + optionally, for a minimum-size binary, turn on `-DENABLE_GLSLANG_WEBMIN=ON`
-  + optionally, for GLSL compilation error messages, turn on `-DENABLE_GLSLANG_WEB_DEVEL=ON`
-* `emsdk` needs to be present in your executable search path, *PATH* for
-  Bash-like environments
-  + [Instructions located
-    here](https://emscripten.org/docs/getting_started/downloads.html#sdk-download-and-install)
-* Wrap cmake call: `emcmake cmake`
+  + optionally, for GLSL compilation error messages, turn on
+    `-DENABLE_GLSLANG_WEBMIN_DEVEL=ON`
 * To get a fully minimized build, make sure to use `brotli` to compress the .js
   and .wasm files
 
 Example:
 
 ```sh
-emcmake cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_GLSLANG_WEB=ON \
+emcmake cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_GLSLANG_JS=ON \
     -DENABLE_HLSL=OFF -DBUILD_TESTING=OFF -DENABLE_OPT=OFF -DINSTALL_GTEST=OFF ..
 ```
 

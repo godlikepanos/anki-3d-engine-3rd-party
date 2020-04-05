@@ -2,6 +2,7 @@
 // Copyright (C) 2014-2015 LunarG, Inc.
 // Copyright (C) 2015-2020 Google, Inc.
 // Copyright (C) 2017 ARM Limited.
+// Modifications Copyright (C) 2020 Advanced Micro Devices, Inc. All rights reserved.
 //
 // All rights reserved.
 //
@@ -182,7 +183,9 @@ public:
     Id makeCooperativeMatrixType(Id component, Id scope, Id rows, Id cols);
 
     // accelerationStructureNV type
-    Id makeAccelerationStructureNVType();
+    Id makeAccelerationStructureType();
+    // rayQueryEXT type
+    Id makeRayQueryType();
 
     // For querying about types.
     Id getTypeId(Id resultId) const { return module.getTypeId(resultId); }
@@ -605,12 +608,17 @@ public:
             CoherentFlags operator |=(const CoherentFlags &other) { return *this; }
 #else
             bool isVolatile() const { return volatil; }
+            bool anyCoherent() const {
+                return coherent || devicecoherent || queuefamilycoherent || workgroupcoherent ||
+                    subgroupcoherent || shadercallcoherent;
+            }
 
             unsigned coherent : 1;
             unsigned devicecoherent : 1;
             unsigned queuefamilycoherent : 1;
             unsigned workgroupcoherent : 1;
             unsigned subgroupcoherent : 1;
+            unsigned shadercallcoherent : 1;
             unsigned nonprivate : 1;
             unsigned volatil : 1;
             unsigned isImage : 1;
@@ -621,6 +629,7 @@ public:
                 queuefamilycoherent = 0;
                 workgroupcoherent = 0;
                 subgroupcoherent = 0;
+                shadercallcoherent = 0;
                 nonprivate = 0;
                 volatil = 0;
                 isImage = 0;
@@ -632,6 +641,7 @@ public:
                 queuefamilycoherent |= other.queuefamilycoherent;
                 workgroupcoherent |= other.workgroupcoherent;
                 subgroupcoherent |= other.subgroupcoherent;
+                shadercallcoherent |= other.shadercallcoherent;
                 nonprivate |= other.nonprivate;
                 volatil |= other.volatil;
                 isImage |= other.isImage;
