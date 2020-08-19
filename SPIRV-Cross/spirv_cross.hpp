@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2019 Arm Limited
+ * Copyright 2015-2020 Arm Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #ifndef SPIRV_CROSS_HPP
 #define SPIRV_CROSS_HPP
 
-#include <khronos/spirv/spirv.hpp>
+#include "khronos/spirv/spirv.hpp"
 #include "spirv_cfg.hpp"
 #include "spirv_cross_parsed_ir.hpp"
 
@@ -513,8 +513,21 @@ protected:
 
 	SPIRFunction *current_function = nullptr;
 	SPIRBlock *current_block = nullptr;
+	uint32_t current_loop_level = 0;
 	std::unordered_set<VariableID> active_interface_variables;
 	bool check_active_interface_variables = false;
+
+	void add_loop_level();
+
+	void set_initializers(SPIRExpression &e)
+	{
+		e.emitted_loop_level = current_loop_level;
+	}
+
+	template <typename T>
+	void set_initializers(const T &)
+	{
+	}
 
 	// If our IDs are out of range here as part of opcodes, throw instead of
 	// undefined behavior.
@@ -524,6 +537,7 @@ protected:
 		ir.add_typed_id(static_cast<Types>(T::type), id);
 		auto &var = variant_set<T>(ir.ids[id], std::forward<P>(args)...);
 		var.self = id;
+		set_initializers(var);
 		return var;
 	}
 
@@ -611,7 +625,7 @@ protected:
 	bool expression_is_lvalue(uint32_t id) const;
 	bool variable_storage_is_aliased(const SPIRVariable &var);
 	SPIRVariable *maybe_get_backing_variable(uint32_t chain);
-	spv::StorageClass get_backing_variable_storage(uint32_t ptr);
+	spv::StorageClass get_expression_effective_storage_class(uint32_t ptr);
 
 	void register_read(uint32_t expr, uint32_t chain, bool forwarded);
 	void register_write(uint32_t chain);
@@ -1037,6 +1051,7 @@ protected:
 	void unset_extended_member_decoration(uint32_t type, uint32_t index, ExtendedDecorations decoration);
 
 	bool type_is_array_of_pointers(const SPIRType &type) const;
+	bool type_is_top_level_physical_pointer(const SPIRType &type) const;
 	bool type_is_block_like(const SPIRType &type) const;
 	bool type_is_opaque_value(const SPIRType &type) const;
 
