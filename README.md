@@ -1,3 +1,7 @@
+**THIS REPOSITORY IS NOW ARCHIVED**
+
+**AnKi's external libraries are no longer a git submodule so there is no need for this repository**
+
 This repository contains all the external libraries for AnKi.
 
 When copying the don't copy the 2 .c files that contain the main(). You don't
